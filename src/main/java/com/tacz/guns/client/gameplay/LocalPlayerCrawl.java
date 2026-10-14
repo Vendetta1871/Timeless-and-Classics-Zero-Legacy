@@ -3,8 +3,7 @@ package com.tacz.guns.client.gameplay;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.network.NetworkHandler;
-// TODO(port): needs ClientMessagePlayerCrawl
-//import com.tacz.guns.network.message.ClientMessagePlayerCrawl;
+import com.tacz.guns.network.message.ClientMessagePlayerCrawl;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.item.ItemStack;
@@ -43,8 +42,7 @@ public class LocalPlayerCrawl {
         TimelessAPI.getClientGunIndex(gunId).ifPresent(gunIndex -> {
             this.isCrawling = isCrawl;
             this.crawCooldownTicks = COOLDOWN_TICKS;
-            // TODO(port): needs ClientMessagePlayerCrawl
-            // NetworkHandler.CHANNEL.sendToServer(new ClientMessagePlayerCrawl(isCrawl));
+            NetworkHandler.CHANNEL.sendToServer(new ClientMessagePlayerCrawl(isCrawl));
         });
     }
 

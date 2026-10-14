@@ -4,8 +4,7 @@ import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.network.NetworkHandler;
-// TODO(port): needs ClientMessagePlayerAim
-//import com.tacz.guns.network.message.ClientMessagePlayerAim;
+import com.tacz.guns.network.message.ClientMessagePlayerAim;
 import com.tacz.guns.resource.modifier.custom.AdsModifier;
 import com.tacz.guns.resource.pojo.data.gun.GunData;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -34,8 +33,7 @@ public class LocalPlayerAim {
         TimelessAPI.getClientGunIndex(gunId).ifPresent(gunIndex -> {
             data.clientIsAiming = isAim;
             // 发送切换开火模式的数据包，通知服务器
-            // TODO(port): needs ClientMessagePlayerAim
-            // NetworkHandler.CHANNEL.sendToServer(new ClientMessagePlayerAim(isAim));
+            NetworkHandler.CHANNEL.sendToServer(new ClientMessagePlayerAim(isAim));
         });
     }
 

@@ -25,6 +25,10 @@ def restore(text, names):
             changed = True
             i += 1
             while i < len(lines) and re.match(r'^\s*//', lines[i]) and 'TODO(port)' not in lines[i]:
+                content = re.sub(r'^\s*// ?', '', lines[i], count=1)
+                # a genuine comment that follows the commented-out code (prose, e.g. Chinese text) ends the block
+                if re.match(r'^[\u4e00-\u9fff]', content.strip()):
+                    break
                 out.append(re.sub(r'^(\s*)// ?', r'\1', lines[i], count=1))
                 i += 1
             if i < len(lines) and 'placeholder until' in lines[i]:

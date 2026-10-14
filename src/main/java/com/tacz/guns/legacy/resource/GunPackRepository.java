@@ -3,7 +3,9 @@ package com.tacz.guns.legacy.resource;
 import com.tacz.guns.GunMod;
 import net.minecraft.util.ResourceLocation;
 
+import java.io.BufferedInputStream;
 import java.io.Closeable;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -230,9 +232,13 @@ public final class GunPackRepository implements Closeable {
             }
         }
 
+        /**
+         * A plain {@link FileInputStream}: NIO file streams are interruptible, and the paulscode sound thread
+         * interrupts itself to wake up, which would close the stream in the middle of decoding a sound.
+         */
         @Override
         protected InputStream open(String actualPath) throws IOException {
-            return Files.newInputStream(getPath().resolve(actualPath));
+            return new BufferedInputStream(new FileInputStream(getPath().resolve(actualPath).toFile()));
         }
 
         @Override

@@ -6,8 +6,7 @@ import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.client.renderer.item.AnimateGeoItemRenderer;
 import com.tacz.guns.client.sound.SoundPlayManager;
 import com.tacz.guns.network.NetworkHandler;
-// TODO(port): needs ClientMessagePlayerDrawGun
-//import com.tacz.guns.network.message.ClientMessagePlayerDrawGun;
+import com.tacz.guns.network.message.ClientMessagePlayerDrawGun;
 import com.tacz.guns.resource.modifier.AttachmentPropertyManager;
 import com.tacz.guns.legacy.client.LegacyClientHooks;
 import net.minecraft.client.Minecraft;
@@ -47,8 +46,7 @@ public class LocalPlayerDraw {
             // 1.12.2: PlayerControllerMP#syncCurrentPlayItem is private
             LegacyClientHooks.syncCurrentPlayItem(Minecraft.getMinecraft().playerController);
         }
-        // TODO(port): needs ClientMessagePlayerDrawGun
-        // NetworkHandler.CHANNEL.sendToServer(new ClientMessagePlayerDrawGun());
+        NetworkHandler.CHANNEL.sendToServer(new ClientMessagePlayerDrawGun());
         MinecraftForge.EVENT_BUS.post(new GunDrawEvent(player, lastItem, currentItem, Side.CLIENT));
 
 //        // 不处于收枪状态时才能收枪

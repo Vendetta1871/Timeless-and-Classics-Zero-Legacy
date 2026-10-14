@@ -62,6 +62,7 @@ public final class DevClient {
     private static boolean loadFailed;
     private static int stage;
     private static int ticks;
+    private static net.minecraft.entity.EntityLiving target;
 
     private DevClient() {
     }
@@ -168,6 +169,14 @@ public final class DevClient {
                                 player.connection.setPlayerLocation(player.posX, player.posY, player.posZ, 0F, 0F);
                             }
                             server.getWorld(0).setWorldTime(6000);
+                            if (player != null && DevTools.PACK_DIR == null) {
+                                // a zombie target 8 blocks ahead (the player looks south, yaw 0); body height covers the eye line
+                                net.minecraft.entity.monster.EntityZombie pig = new net.minecraft.entity.monster.EntityZombie(player.world);
+                                pig.setPosition(player.posX, player.posY, player.posZ + 8);
+                                pig.setNoAI(true);
+                                player.world.spawnEntity(pig);
+                                target = pig;
+                            }
                         });
                     }
                     mc.player.inventory.currentItem = 0;
@@ -184,13 +193,34 @@ public final class DevClient {
                 } else if (ticks == 70) {
                     if (DevTools.PACK_DIR == null) {
                         screenshot(mc, "aiming");
+                        GunMod.LOGGER.info("[dev] target health before: {}", target == null ? null : target.getHealth());
+                    }
+                } else if (DevTools.PACK_DIR == null && ticks > 70 && ticks <= 85 && ticks % 5 == 1) {
+                    GunMod.LOGGER.info("[dev] shoot: {}", IClientPlayerGunOperator.fromLocalPlayer(mc.player).shoot());
+                    IntegratedServer srv = mc.getIntegratedServer();
+                    if (srv != null) {
+                        srv.addScheduledTask(() -> {
+                            net.minecraft.world.World w = srv.getWorld(0);
+                            GunMod.LOGGER.info("[dev] bullets={} target={} player={} look={}",
+                                    w.getEntities(com.tacz.guns.entity.EntityKineticBullet.class, e -> true).stream()
+                                            .map(b -> String.format("(%.1f %.1f %.1f v=%.2f %.2f %.2f)", b.posX, b.posY, b.posZ, b.motionX, b.motionY, b.motionZ))
+                                            .collect(java.util.stream.Collectors.toList()),
+                                    target == null ? null : target.getPositionVector(), mc.player.getPositionVector(), mc.player.getLookVec());
+                        });
+                    }
+                    if (ticks == 81) {
+                        screenshot(mc, "shooting");
+                    }
+                } else if (ticks == 89) {
+                    if (DevTools.PACK_DIR == null) {
+                        GunMod.LOGGER.info("[dev] target health after: {} dead={}", target == null ? null : target.getHealth(), target != null && target.isDead);
                         IClientPlayerGunOperator.fromLocalPlayer(mc.player).aim(false);
                     }
                     mc.gameSettings.thirdPersonView = 2;
-                } else if (ticks == 90) {
+                } else if (ticks == 110) {
                     screenshot(mc, "third_person_front");
                     mc.gameSettings.thirdPersonView = 0;
-                } else if (ticks == 100 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
+                } else if (ticks == 120 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
                     mc.shutdown();
                 }
             }

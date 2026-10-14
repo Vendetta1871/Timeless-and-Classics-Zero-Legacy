@@ -7,8 +7,7 @@ import com.tacz.guns.api.item.*;
 import com.tacz.guns.api.item.attachment.AttachmentType;
 import com.tacz.guns.api.item.builder.AmmoItemBuilder;
 import com.tacz.guns.api.item.builder.GunItemBuilder;
-// TODO(port): needs GunItemRendererWrapper
-// import com.tacz.guns.client.renderer.item.GunItemRendererWrapper;
+import com.tacz.guns.client.renderer.item.GunItemRendererWrapper;
 import com.tacz.guns.client.resource.index.ClientGunIndex;
 import com.tacz.guns.legacy.util.ItemHandlers;
 import com.tacz.guns.entity.shooter.ShooterDataHolder;

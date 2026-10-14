@@ -5,8 +5,7 @@ import com.tacz.guns.api.item.nbt.AttachmentItemDataAccessor;
 import com.tacz.guns.api.item.nbt.BlockItemDataAccessor;
 import com.tacz.guns.api.item.nbt.GunItemDataAccessor;
 import com.tacz.guns.config.client.RenderConfig;
-// TODO(port): needs ModItems
-//import com.tacz.guns.init.ModItems;
+import com.tacz.guns.init.ModItems;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.ResourceLocation;
@@ -28,10 +27,9 @@ public class TooltipEvent {
             } else if (event.getItemStack().getItem() instanceof AttachmentItemDataAccessor item) {
                 event.getToolTip().add(formatTooltip(AttachmentItemDataAccessor.ATTACHMENT_ID_TAG, item.getAttachmentId(event.getItemStack())).getFormattedText());
             }
-            // TODO(port): needs ModItems
-//            else if (event.getItemStack().getItem() instanceof BlockItemDataAccessor item && !ModItems.GUN_SMITH_TABLE.get().equals(item)) {
-//                event.getToolTip().add(formatTooltip(BlockItemDataAccessor.BLOCK_ID, item.getBlockId(event.getItemStack())).getFormattedText());
-//            }
+           else if (event.getItemStack().getItem() instanceof BlockItemDataAccessor item && !ModItems.GUN_SMITH_TABLE.get().equals(item)) {
+               event.getToolTip().add(formatTooltip(BlockItemDataAccessor.BLOCK_ID, item.getBlockId(event.getItemStack())).getFormattedText());
+           }
         }
     }
 
