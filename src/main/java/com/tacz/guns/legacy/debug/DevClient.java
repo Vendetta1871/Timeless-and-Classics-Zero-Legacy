@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.stream.JsonReader;
 import com.tacz.guns.GunMod;
+import com.tacz.guns.api.client.gameplay.IClientPlayerGunOperator;
+import com.tacz.guns.api.item.builder.GunItemBuilder;
 import com.tacz.guns.client.model.bedrock.BedrockModel;
 import com.tacz.guns.client.resource.pojo.model.BedrockModelPOJO;
 import com.tacz.guns.client.resource.pojo.model.BedrockVersion;
@@ -161,7 +163,7 @@ public final class DevClient {
                         server.addScheduledTask(() -> {
                             EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(mc.player.getUniqueID());
                             if (player != null) {
-                                player.inventory.setInventorySlotContents(0, new ItemStack(DevTools.debugGun));
+                                player.inventory.setInventorySlotContents(0, testItem());
                                 player.inventory.currentItem = 0;
                                 player.connection.setPlayerLocation(player.posX, player.posY, player.posZ, 0F, 0F);
                             }
@@ -176,17 +178,37 @@ public final class DevClient {
             case 2 -> {
                 if (++ticks == 40) {
                     screenshot(mc, "first_person");
+                    if (DevTools.PACK_DIR == null) {
+                        IClientPlayerGunOperator.fromLocalPlayer(mc.player).aim(true);
+                    }
+                } else if (ticks == 70) {
+                    if (DevTools.PACK_DIR == null) {
+                        screenshot(mc, "aiming");
+                        IClientPlayerGunOperator.fromLocalPlayer(mc.player).aim(false);
+                    }
                     mc.gameSettings.thirdPersonView = 2;
-                } else if (ticks == 60) {
+                } else if (ticks == 90) {
                     screenshot(mc, "third_person_front");
                     mc.gameSettings.thirdPersonView = 0;
-                } else if (ticks == 70 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
+                } else if (ticks == 100 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
                     mc.shutdown();
                 }
             }
             default -> {
             }
         }
+    }
+
+    /**
+     * The real gun item ({@code TACZ_AUTOTEST_GUN}, default {@code ak47}), or the debug model when
+     * {@code TACZ_DEBUG_PACK} points at an unpacked gun pack.
+     */
+    private static ItemStack testItem() {
+        if (DevTools.PACK_DIR != null) {
+            return new ItemStack(DevTools.debugGun);
+        }
+        String gun = System.getenv("TACZ_AUTOTEST_GUN");
+        return GunItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, gun == null ? "ak47" : gun)).setAmmoCount(30).build();
     }
 
     private static void screenshot(Minecraft mc, String name) {

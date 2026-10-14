@@ -5,12 +5,18 @@
   "target": "@env(DEFAULT)",
   "minVersion": "0.8.5",
   "compatibilityLevel": "JAVA_8",
-  "mixins": [],
+  "mixins": [
+    "common.LivingEntityMixin",
+    "common.ServerGamePacketListenerImplMixin",
+    "common.ServerPlayerMixin",
+    "common.ServerPlayNetHandlerMixin"
+  ],
   "client": [
     "client.AbstractButtonMixin",
     "client.GameRendererMixin",
     "client.ItemInHandLayerMixin",
     "client.ItemInHandRendererMixin",
+    "client.LocalPlayerMixin",
     "client.MinecraftMixin",
     "client.MouseHandlerMixin"
   ],

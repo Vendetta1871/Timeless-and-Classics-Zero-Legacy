@@ -31,6 +31,23 @@ public final class JsonLang {
         return path.startsWith("lang/") && path.endsWith(".lang");
     }
 
+    /**
+     * 1.12.2 names items {@code item.<key>.name} and blocks {@code tile.<key>.name}, where 1.20.1 uses
+     * {@code item.<namespace>.<path>} and {@code block.<namespace>.<path>}; the 1.12 key is added next to the original.
+     */
+    static String legacyNameKey(String key) {
+        if (key.startsWith("item.") && key.chars().filter(c -> c == '.').count() == 2) {
+            return key + ".name";
+        }
+        if (key.startsWith("block.") && key.chars().filter(c -> c == '.').count() == 2) {
+            return "tile." + key.substring("block.".length()) + ".name";
+        }
+        if (key.startsWith("entity.") && key.chars().filter(c -> c == '.').count() == 2) {
+            return "entity." + key.substring(key.lastIndexOf('.') + 1) + ".name";
+        }
+        return null;
+    }
+
     public static byte[] toLegacyLang(InputStream json) throws IOException {
         Properties properties = new Properties();
         try (JsonReader reader = new JsonReader(new InputStreamReader(json, StandardCharsets.UTF_8))) {
@@ -41,6 +58,10 @@ public final class JsonLang {
                 for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
                     if (entry.getValue().isJsonPrimitive()) {
                         properties.setProperty(entry.getKey(), entry.getValue().getAsString());
+                        String legacyKey = legacyNameKey(entry.getKey());
+                        if (legacyKey != null && !object.has(legacyKey)) {
+                            properties.setProperty(legacyKey, entry.getValue().getAsString());
+                        }
                     }
                 }
             }

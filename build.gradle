@@ -191,6 +191,8 @@ processResources {
     if (upstreamResources.isDirectory()) {
         from(upstreamResources) {
             include 'assets/**'
+            // 1.12.2 needs a "normal" variant: src/main/resources has its own blockstates
+            exclude 'assets/tacz/blockstates/**'
             // tag, loot and recipe data that the 1.12.2 shims read from the jar (legacy.tags etc.)
             include 'data/**'
             include 'icon.png', 'logo.png'
