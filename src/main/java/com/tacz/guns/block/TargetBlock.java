@@ -46,7 +46,7 @@ import java.util.Random;
 
 // TODO(port): needs ProjectileHitBlock
 // public class TargetBlock extends Block implements ProjectileHitBlock {
-public class TargetBlock extends Block {
+public class TargetBlock extends Block { // placeholder until ProjectileHitBlock is ported
     /**
      * 1.12.2: block states have at most 16 variants: upstream's {@code OUTPUT_POWER} property is kept in the lower
      * half's {@link TargetBlockEntity}, see {@link #getOutputPower}.
