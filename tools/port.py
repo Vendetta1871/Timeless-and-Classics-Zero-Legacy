@@ -40,6 +40,7 @@ TYPES = {
     'com.mojang.blaze3d.systems.RenderSystem': 'com.tacz.guns.legacy.render.RenderSystem',
     'net.minecraft.client.renderer.texture.MissingTextureAtlasSprite': ('com.tacz.guns.legacy.render.MissingTexture', 'MissingTexture'),
     'com.mojang.blaze3d.platform.GlStateManager': 'net.minecraft.client.renderer.GlStateManager',
+    'net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer': 'com.tacz.guns.legacy.render.BlockEntityWithoutLevelRenderer',
     'net.minecraft.client.resources.language.I18n': 'net.minecraft.client.resources.I18n',
     # resource shims (com.tacz.guns.legacy.resource)
     'net.minecraft.server.packs.resources.ResourceManager': 'com.tacz.guns.legacy.resource.ResourceManager',
