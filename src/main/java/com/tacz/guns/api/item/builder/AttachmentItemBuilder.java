@@ -2,8 +2,7 @@ package com.tacz.guns.api.item.builder;
 
 import com.tacz.guns.api.DefaultAssets;
 import com.tacz.guns.api.item.IAttachment;
-// TODO(port): needs ModItems
-// import com.tacz.guns.init.ModItems;
+import com.tacz.guns.init.ModItems;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.item.ItemStack;
 
@@ -34,9 +33,7 @@ public class AttachmentItemBuilder {
     }
 
     public ItemStack build() {
-        // TODO(port): needs ModItems
-        // ItemStack attachment = new ItemStack(ModItems.ATTACHMENT.get(), this.count);
-        ItemStack attachment = ItemStack.EMPTY; // placeholder until ModItems is ported
+        ItemStack attachment = new ItemStack(ModItems.ATTACHMENT.get(), this.count);
         if (attachment.getItem() instanceof IAttachment iAttachment) {
             iAttachment.setAttachmentId(attachment, this.attachmentId);
         }

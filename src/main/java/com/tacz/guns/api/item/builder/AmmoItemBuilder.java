@@ -2,8 +2,7 @@ package com.tacz.guns.api.item.builder;
 
 import com.tacz.guns.api.DefaultAssets;
 import com.tacz.guns.api.item.IAmmo;
-// TODO(port): needs ModItems
-// import com.tacz.guns.init.ModItems;
+import com.tacz.guns.init.ModItems;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.item.ItemStack;
 
@@ -29,9 +28,7 @@ public final class AmmoItemBuilder {
     }
 
     public ItemStack build() {
-        // TODO(port): needs ModItems
-        // ItemStack ammo = new ItemStack(ModItems.AMMO.get(), this.count);
-        ItemStack ammo = ItemStack.EMPTY; // placeholder until ModItems is ported
+        ItemStack ammo = new ItemStack(ModItems.AMMO.get(), this.count);
         if (ammo.getItem() instanceof IAmmo iAmmo) {
             iAmmo.setAmmoId(ammo, this.ammoId);
         }

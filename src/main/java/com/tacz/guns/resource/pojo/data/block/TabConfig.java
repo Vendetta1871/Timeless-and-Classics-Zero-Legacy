@@ -6,8 +6,7 @@ import com.tacz.guns.api.DefaultAssets;
 import com.tacz.guns.api.item.builder.AmmoItemBuilder;
 import com.tacz.guns.api.item.builder.AttachmentItemBuilder;
 import com.tacz.guns.api.item.builder.GunItemBuilder;
-// TODO(port): needs ModItems
-// import com.tacz.guns.init.ModItems;
+import com.tacz.guns.init.ModItems;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.util.ResourceLocation;
@@ -79,9 +78,7 @@ public final class TabConfig {
             new TabConfig(TabConfig.TAB_GRIP, "tacz.type.grip.name", AttachmentItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, "grip_magpul_afg_2")).build()),
             new TabConfig(TabConfig.TAB_EXTENDED_MAG, "tacz.type.extended_mag.name", AttachmentItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, "extended_mag_3")).build()),
             new TabConfig(TabConfig.TAB_LASER, "tacz.type.laser.name", AttachmentItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, "laser_compact")).build()),
-            // TODO(port): needs ModItems
-            // new TabConfig(TabConfig.TAB_MISC, "tacz.type.misc.name", ModItems.GUN_SMITH_TABLE.get().getDefaultInstance())
-            new TabConfig(TabConfig.TAB_MISC, "tacz.type.misc.name", ItemStack.EMPTY) // placeholder until ModItems is ported
+            new TabConfig(TabConfig.TAB_MISC, "tacz.type.misc.name", new ItemStack(ModItems.GUN_SMITH_TABLE.get()))
     ));
 
     public static class Deserializer implements JsonDeserializer<TabConfig> {
