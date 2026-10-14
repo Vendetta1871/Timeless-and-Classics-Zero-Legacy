@@ -1,0 +1,156 @@
+package com.tacz.guns.entity;
+
+import com.mojang.authlib.GameProfile;
+import com.tacz.guns.api.entity.ITargetEntity;
+import com.tacz.guns.api.event.common.EntityHurtByGunEvent;
+import com.tacz.guns.config.client.RenderConfig;
+import com.tacz.guns.config.common.OtherConfig;
+import com.tacz.guns.init.ModBlocks;
+import com.tacz.guns.init.ModItems;
+import com.tacz.guns.init.ModSounds;
+import com.tacz.guns.network.NetworkHandler;
+import com.tacz.guns.network.message.event.ServerMessageGunHurt;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.SoundCategory;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.util.DamageSource;
+import net.minecraft.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.world.entity.vehicle.AbstractMinecart;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.world.GameRules;
+import net.minecraft.world.World;
+import net.minecraft.world.level.block.entity.SkullBlockEntity;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.relauncher.Side;
+import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import static net.minecraft.world.entity.vehicle.AbstractMinecart.Type.RIDEABLE;
+import com.tacz.guns.legacy.util.Components;
+
+public class TargetMinecart extends AbstractMinecart implements ITargetEntity {
+    public static EntityType<TargetMinecart> TYPE = EntityType.Builder.<TargetMinecart>of(TargetMinecart::new, MobCategory.MISC)
+            .sized(0.75F, 2.4F)
+            .clientTrackingRange(8)
+            .build("target_minecart");
+
+    private @Nullable GameProfile gameProfile = null;
+
+    public TargetMinecart(EntityType<TargetMinecart> type, World world) {
+        super(type, world);
+    }
+
+    public TargetMinecart(World level, double x, double y, double z) {
+        super(TYPE, level, x, y, z);
+    }
+
+    @Override
+    public void onProjectileHit(Entity entity, RayTraceResult result, DamageSource source, float damage) {
+        if (this.world.isRemote || this.isDead) {
+            return;
+        }
+        if (!(source.isIndirect())) {
+            return;
+        }
+        Entity sourceEntity = source.getEntity();
+        if (sourceEntity instanceof EntityPlayer player) {
+            this.setHurtDir(-1);
+            this.setHurtTime(10);
+            this.markHurt();
+            this.setDamage(10);
+            double dis = this.position().distanceTo(sourceEntity.position());
+            player.displayClientMessage(Components.translatable("message.tacz.target_minecart.hit", String.format("%.1f", damage), String.format("%.2f", dis)), true);
+            // 原版的声音传播距离由 volume 决定
+            // 当声音大于 1 时，距离为 = 16 * volume
+            float volume = OtherConfig.TARGET_SOUND_DISTANCE.get() / 16.0f;
+            volume = Math.max(volume, 0);
+            level().playSound(null, this, ModSounds.TARGET_HIT.get(), SoundCategory.BLOCKS, volume, this.world.random.nextFloat() * 0.1F + 0.9F);
+
+            if (entity instanceof EntityKineticBullet projectile) {
+                boolean isHeadshot = false;
+                float headshotMultiplier = 1;
+                MinecraftForge.EVENT_BUS.post(new EntityHurtByGunEvent.Post(projectile, this, player, projectile.getGunId(), projectile.getGunDisplayId(), damage, Pair.of(source, source), isHeadshot, headshotMultiplier, Side.SERVER));
+                NetworkHandler.sendToDimension(new ServerMessageGunHurt(projectile.getId(), this.getId(), player.getId(), projectile.getGunId(), projectile.getGunDisplayId(), damage, isHeadshot, headshotMultiplier), this);
+            }
+        }
+    }
+
+    @Override
+    public boolean isInvulnerableTo(DamageSource source) {
+        return source.is(DamageTypeTags.IS_EXPLOSION) || super.isInvulnerableTo(source);
+    }
+
+    @Override
+    public boolean canBeRidden() {
+        return false;
+    }
+
+    @Override
+    public boolean shouldRenderAtSqrDistance(double distance) {
+        double size = this.getEntityBoundingBox().getSize();
+        if (Double.isNaN(size)) {
+            size = 1.0;
+        }
+        size *= RenderConfig.TARGET_RENDER_DISTANCE.get() * getViewScale();
+        return distance < size * size;
+    }
+
+    @Override
+    public void destroy(DamageSource source) {
+        this.remove(Entity.RemovalReason.KILLED);
+        if (this.world.getGameRules().getBoolean(GameRules.RULE_DOENTITYDROPS)) {
+            ItemStack itemStack = new ItemStack(ModItems.TARGET_MINECART.get());
+            if (this.hasCustomName()) {
+                itemStack.setHoverName(this.getCustomName());
+            }
+            this.spawnAtLocation(itemStack);
+        }
+    }
+
+    @Override
+    protected Item getDropItem() {
+        return ModItems.TARGET_MINECART.get();
+    }
+
+    @Override
+    public ItemStack getPickResult() {
+        ItemStack itemStack = new ItemStack(ModItems.TARGET_MINECART.get());
+        if (this.hasCustomName()) {
+            itemStack.setHoverName(this.getCustomName());
+        }
+        return itemStack;
+    }
+
+    @Nullable
+    public GameProfile getGameProfile() {
+        if (this.gameProfile == null && this.getCustomName() != null) {
+            this.gameProfile = new GameProfile(null, this.getCustomName().getString());
+            SkullBlockEntity.updateGameprofile(this.gameProfile, gameProfile -> this.gameProfile = gameProfile);
+        }
+        return gameProfile;
+    }
+
+    @Override
+    @NotNull
+    public IBlockState getDefaultDisplayBlockState() {
+        return ModBlocks.TARGET.get().defaultBlockState();
+    }
+
+    @NotNull
+    @Override
+    public Type getMinecartType() {
+        return RIDEABLE;
+    }
+
+    @Override
+    public float getMaxCartSpeedOnRail() {
+        return 0.2F;
+    }
+}
