@@ -26,3 +26,6 @@ run
 
 # upstream sources for reference (not part of the port)
 .upstream
+
+# agent worktrees and local Claude Code state
+.claude/
