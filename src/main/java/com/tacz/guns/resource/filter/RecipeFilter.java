@@ -111,9 +111,12 @@ public class RecipeFilter {
         private List<String> toList(List<IFilter<ResourceLocation>> filter) {
             List<String> list = new ArrayList<>();
             for (var f : filter) {
-                if (f instanceof LiteralFilter<ResourceLocation> literalFilter) {
+                // Jabel (Java 8 target) rejects generic type patterns: match the raw type and cast
+                if (f instanceof LiteralFilter<?>) {
+                    LiteralFilter<ResourceLocation> literalFilter = (LiteralFilter<ResourceLocation>) f;
                     list.addAll(literalFilter.getSet().stream().map(ResourceLocation::toString).collect(Collectors.toList()));
-                } else if (f instanceof RegexFilter<ResourceLocation> regexFilter) {
+                } else if (f instanceof RegexFilter<?>) {
+                    RegexFilter<ResourceLocation> regexFilter = (RegexFilter<ResourceLocation>) f;
                     list.add(regexFilter.getPattern().pattern());
                 }
             }

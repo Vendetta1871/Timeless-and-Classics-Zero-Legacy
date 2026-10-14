@@ -3,6 +3,7 @@ package com.tacz.guns.network;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.network.message.*;
 import com.tacz.guns.legacy.network.NetworkDirection;
+import com.tacz.guns.legacy.particle.BulletHoleMessage;
 import com.tacz.guns.legacy.network.NetworkRegistry;
 import com.tacz.guns.legacy.network.PacketDistributor;
 import com.tacz.guns.legacy.network.SimpleChannel;
@@ -137,6 +138,10 @@ public class NetworkHandler {
 //        registerAcknowledge();
         // TODO(port): message not ported yet
 //        registerHandshakeMessage(ServerMessageSyncedEntityDataMapping.class, null);
+
+        // 1.12.2: bullet holes (ServerLevel#sendParticles with a custom particle upstream)
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), BulletHoleMessage.class, BulletHoleMessage::encode, BulletHoleMessage::decode, BulletHoleMessage::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     /**

@@ -351,7 +351,6 @@ tasks.register('generateMixinJson') {
 def portPending = [
         'com/tacz/guns/client/renderer/block/**',              // block entities (block/entity)
         'com/tacz/guns/client/renderer/entity/**',             // EntityKineticBullet, TargetMinecart
-        'com/tacz/guns/api/event/server/AmmoHitBlockEvent.java', // EntityKineticBullet
         'com/tacz/guns/client/renderer/item/GunSmithTableItemRenderer.java', // GunSmithTableRenderer
 ]
 sourceSets.main.java.exclude(portPending)

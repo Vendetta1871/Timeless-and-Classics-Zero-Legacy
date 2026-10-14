@@ -19,8 +19,7 @@ import com.tacz.guns.client.model.bedrock.BedrockPart;
 import com.tacz.guns.client.model.functional.MuzzleFlashRender;
 import com.tacz.guns.client.renderer.item.GunItemRendererWrapper;
 import com.tacz.guns.client.resource.index.ClientAttachmentIndex;
-// TODO(port): needs EntityKineticBullet
-//import com.tacz.guns.entity.EntityKineticBullet;
+import com.tacz.guns.entity.EntityKineticBullet;
 import com.tacz.guns.util.math.Easing;
 import com.tacz.guns.util.math.MathUtil;
 import com.tacz.guns.util.math.PerlinNoise;
@@ -111,13 +110,12 @@ public class FirstPersonRenderGunEvent {
         }
     }
 
-    // TODO(port): needs EntityKineticBullet
-//    private static boolean bulletFromPlayer(Entity entity) {
-//        if (entity instanceof EntityKineticBullet entityBullet) {
-//            return entityBullet.getOwner() instanceof EntityPlayerSP;
-//        }
-//        return false;
-//    }
+   private static boolean bulletFromPlayer(Entity entity) {
+       if (entity instanceof EntityKineticBullet entityBullet) {
+           return entityBullet.getOwner() instanceof EntityPlayerSP;
+       }
+       return false;
+   }
 
     public static void applyFirstPersonGunTransform(EntityPlayerSP player, ItemStack gunItemStack, PoseStack poseStack, BedrockGunModel model, float partialTicks) {
         // 配合运动曲线，计算改装枪口的打开进度
