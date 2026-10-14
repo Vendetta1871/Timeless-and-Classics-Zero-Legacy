@@ -62,6 +62,7 @@ public final class DevClient {
     private static boolean loadFailed;
     private static int stage;
     private static int ticks;
+    private static boolean shootingShotPending;
     private static net.minecraft.entity.EntityLiving target;
 
     private DevClient() {
@@ -209,7 +210,8 @@ public final class DevClient {
                         });
                     }
                     if (ticks == 81) {
-                        screenshot(mc, "shooting");
+                        // the frame rendered after this tick shows the muzzle flash (50 ms)
+                        shootingShotPending = true;
                     }
                 } else if (ticks == 89) {
                     if (DevTools.PACK_DIR == null) {
@@ -239,6 +241,14 @@ public final class DevClient {
         }
         String gun = System.getenv("TACZ_AUTOTEST_GUN");
         return GunItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, gun == null ? "ak47" : gun)).setAmmoCount(30).build();
+    }
+
+    @SubscribeEvent
+    public static void onRenderTick(TickEvent.RenderTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && shootingShotPending) {
+            shootingShotPending = false;
+            screenshot(Minecraft.getMinecraft(), "shooting");
+        }
     }
 
     private static void screenshot(Minecraft mc, String name) {
