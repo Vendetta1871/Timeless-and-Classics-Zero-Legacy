@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import net.minecraft.util.ResourceLocation;
 import com.tacz.guns.legacy.util.GsonHelper;
+import com.tacz.guns.legacy.util.LegacyLoot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.storage.loot.LootContext;
 import net.minecraft.world.storage.loot.LootEntry;
@@ -57,7 +58,9 @@ public final class LootTableInjection {
         if (!object.has("pools")) {
             throw new JsonParseException("Loot injection " + fileId + " must define pools");
         }
-        return new LootTableInjection(lootTables, ForgeHooks.loadLootTable(LOOT_TABLE_GSON, fileId, object.toString(), true, null));
+        // 1.12.2: gun packs write 1.20 loot tables
+        JsonObject legacy = LegacyLoot.toLegacy(object);
+        return new LootTableInjection(lootTables, ForgeHooks.loadLootTable(LOOT_TABLE_GSON, fileId, legacy.toString(), true, null));
     }
 
     private static List<ResourceLocation> readLootTables(ResourceLocation fileId, JsonObject object) {

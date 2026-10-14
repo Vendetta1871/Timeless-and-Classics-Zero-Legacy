@@ -4,6 +4,7 @@ import com.google.gson.*;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.crafting.GunSmithTableIngredient;
 import com.tacz.guns.legacy.util.GsonHelper;
+import com.tacz.guns.legacy.util.LegacyIngredients;
 import net.minecraft.item.crafting.Ingredient;
 import net.minecraftforge.common.crafting.CraftingHelper;
 import net.minecraftforge.common.crafting.JsonContext;
@@ -18,7 +19,8 @@ public class GunSmithTableIngredientSerializer implements JsonDeserializer<GunSm
             if (!jsonObject.has("item")) {
                 throw new JsonSyntaxException("Expected " + jsonObject + " must has a item member");
             }
-            Ingredient ingredient = CraftingHelper.getIngredient(jsonObject.get("item"), new JsonContext(GunMod.MOD_ID));
+            // 1.12.2: 1.20 tags and item ids are mapped to the ore dictionary and 1.12 items
+            Ingredient ingredient = LegacyIngredients.fromJson(jsonObject.get("item"));
             int count = 1;
             if (jsonObject.has("count")) {
                 count = Math.max(GsonHelper.getAsInt(jsonObject, "count"), 1);
