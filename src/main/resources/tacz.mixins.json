@@ -7,7 +7,9 @@
   "compatibilityLevel": "JAVA_8",
   "mixins": [],
   "client": [
+    "client.AbstractButtonMixin",
     "client.GameRendererMixin",
+    "client.ItemInHandLayerMixin",
     "client.ItemInHandRendererMixin",
     "client.MinecraftMixin",
     "client.MouseHandlerMixin"
