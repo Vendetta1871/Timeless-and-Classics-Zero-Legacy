@@ -350,7 +350,7 @@ tasks.register('generateMixinJson') {
 // dependencies exist; the list must be empty by the end of stage 1.
 def portPending = [
         'com/tacz/guns/client/renderer/block/**',              // block entities (block/entity)
-        'com/tacz/guns/client/renderer/entity/**',             // EntityKineticBullet, TargetMinecart
+        'com/tacz/guns/client/renderer/entity/TargetMinecartRenderer.java', // TargetMinecart
         'com/tacz/guns/client/renderer/item/GunSmithTableItemRenderer.java', // GunSmithTableRenderer
 ]
 sourceSets.main.java.exclude(portPending)
