@@ -85,6 +85,14 @@ public class RenderType {
         return entity("energy_swirl", texture, Transparency.ADDITIVE, false, true);
     }
 
+    /**
+     * Stands in for {@code RenderType.create(..)} with a composite state: a textured quad type with the given
+     * transparency, culling and emissive (full-bright, unlit) flags.
+     */
+    public static RenderType create(String name, ResourceLocation texture, Transparency transparency, boolean cull, boolean emissive) {
+        return entity(name, texture, transparency, cull, emissive);
+    }
+
     public static RenderType lines() {
         return CACHE.computeIfAbsent("lines", key ->
                 new RenderType("lines", null, GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR, Transparency.TRANSLUCENT, false, true, true));
@@ -108,7 +116,7 @@ public class RenderType {
     }
 
     public boolean isTranslucent() {
-        return transparency == Transparency.TRANSLUCENT || transparency == Transparency.ADDITIVE;
+        return transparency == Transparency.TRANSLUCENT || transparency == Transparency.ADDITIVE || transparency == Transparency.LIGHTNING;
     }
 
     public boolean isEmissive() {
@@ -136,6 +144,13 @@ public class RenderType {
                 GlStateManager.enableBlend();
                 GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
                         GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+                GlStateManager.enableAlpha();
+                GlStateManager.alphaFunc(GL11.GL_GREATER, 0.003921569F);
+            }
+            case LIGHTNING -> {
+                GlStateManager.enableBlend();
+                GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE,
+                        GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
                 GlStateManager.enableAlpha();
                 GlStateManager.alphaFunc(GL11.GL_GREATER, 0.003921569F);
             }
@@ -208,6 +223,10 @@ public class RenderType {
     }
 
     public enum Transparency {
-        NONE, CUTOUT, TRANSLUCENT, ADDITIVE
+        NONE, CUTOUT, TRANSLUCENT, ADDITIVE,
+        /**
+         * {@code SRC_ALPHA, ONE} (vanilla lightning / TACZ laser beams).
+         */
+        LIGHTNING
     }
 }

@@ -37,6 +37,18 @@ TYPES = {
     'net.minecraft.client.renderer.RenderType': 'com.tacz.guns.legacy.render.RenderType',
     'net.minecraft.client.renderer.LightTexture': 'com.tacz.guns.legacy.render.LightTexture',
     'net.minecraft.client.renderer.texture.OverlayTexture': 'com.tacz.guns.legacy.render.OverlayTexture',
+    'com.mojang.blaze3d.systems.RenderSystem': 'com.tacz.guns.legacy.render.RenderSystem',
+    'net.minecraft.client.renderer.texture.MissingTextureAtlasSprite': ('com.tacz.guns.legacy.render.MissingTexture', 'MissingTexture'),
+    'com.mojang.blaze3d.platform.GlStateManager': 'net.minecraft.client.renderer.GlStateManager',
+    'net.minecraft.client.resources.language.I18n': 'net.minecraft.client.resources.I18n',
+    # resource shims (com.tacz.guns.legacy.resource)
+    'net.minecraft.server.packs.resources.ResourceManager': 'com.tacz.guns.legacy.resource.ResourceManager',
+    'net.minecraft.server.packs.resources.Resource': 'com.tacz.guns.legacy.resource.Resource',
+    'net.minecraft.server.packs.resources.SimplePreparableReloadListener': 'com.tacz.guns.legacy.resource.SimplePreparableReloadListener',
+    'net.minecraft.server.packs.resources.PreparableReloadListener': 'com.tacz.guns.legacy.resource.PreparableReloadListener',
+    'net.minecraft.resources.FileToIdConverter': 'com.tacz.guns.legacy.resource.FileToIdConverter',
+    'net.minecraft.util.profiling.ProfilerFiller': 'com.tacz.guns.legacy.resource.ProfilerFiller',
+    'net.minecraft.server.packs.PackType': 'com.tacz.guns.legacy.resource.PackType',
     # common types
     'net.minecraft.resources.ResourceLocation': 'net.minecraft.util.ResourceLocation',
     'net.minecraft.world.item.ItemDisplayContext': ('net.minecraft.client.renderer.block.model.ItemCameraTransforms', 'ItemCameraTransforms.TransformType'),
@@ -92,6 +104,11 @@ TYPES = {
 CALLS = [
     (r'\bMinecraft\.getInstance\(\)\.renderBuffers\(\)\.bufferSource\(\)', 'RenderBuffers.bufferSource()'),
     (r'\bMinecraft\.getInstance\(\)', 'Minecraft.getMinecraft()'),
+    (r'\bMinecraft\.ON_OSX\b', 'Minecraft.IS_RUNNING_ON_MAC'),
+    (r'\bMinecraft\.getMinecraft\(\)\.font\b', 'Minecraft.getMinecraft().fontRenderer'),
+    (r'\bMinecraft\.getMinecraft\(\)\.getFrameTime\(\)', 'Minecraft.getMinecraft().getRenderPartialTicks()'),
+    (r'\bMinecraft\.getMinecraft\(\)\.getPartialTick\(\)', 'Minecraft.getMinecraft().getRenderPartialTicks()'),
+    (r'\bI18n\.get\(', 'I18n.format('),
 ]
 
 
@@ -128,6 +145,9 @@ def port_source(text):
         rest = re.sub(r'(?<![\w.])%s\b' % re.escape(old), new, rest)
     for pattern, repl in CALLS:
         rest = re.sub(pattern, repl, rest)
+    rest = re.sub(r'\b(\w+)\.firstPerson\(\)', r'DisplayContext.firstPerson(\1)', rest)
+    if 'DisplayContext.firstPerson(' in rest and 'import com.tacz.guns.legacy.render.DisplayContext;' not in head:
+        head += '\nimport com.tacz.guns.legacy.render.DisplayContext;'
     if 'RenderBuffers.bufferSource()' in rest and 'import com.tacz.guns.legacy.render.RenderBuffers;' not in head:
         head += '\nimport com.tacz.guns.legacy.render.RenderBuffers;'
     rest = rest.replace('@OnlyIn(Dist.CLIENT)', '@SideOnly(Side.CLIENT)')
