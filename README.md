@@ -31,16 +31,34 @@
 
 Совместимость с модами, которых нет на 1.12.2: KubeJS, Oculus/Iris, Embeddium, Create, Carry On, Shoulder Surfing Reloaded, Controllable, Player Animator, Accelerated Rendering.
 
+## Отличия от оригинала
+
+То, что на 1.12.2 нельзя сделать так же, как на 1.20.1:
+
+- Рецепты оружейного стола из ганпаков читаются как есть, но теги 1.20 превращаются в OreDictionary
+  (`forge:ingots/iron` → `ingotIron`). Материалов, которых нет в 1.12.2 (медь, аметист, незерит), без других модов нет,
+  и такие рецепты не скрафтить.
+- Ползание (поза плавания) в 1.12.2 отсутствует: состояние синхронизируется, но поза и хитбокс не меняются.
+- Звуки «относительно слушателя» проигрываются в точке игрока.
+
 ## Сборка
 
-Нужны JDK 17 (сборка, Jabel компилирует современный синтаксис в байткод Java 8) и JDK 8 (запуск клиента).
+Gradle (RetroFuturaGradle 2) запускается на JDK 25, исходники компилирует JDK 17 через Jabel в байткод Java 8,
+клиент запускается на JDK 8. Скрипт `./gw` выставляет нужные JDK; путь к JDK 25 задаётся переменной `GRADLE_JDK`
+(по умолчанию `/storage/opt/jdk-25`).
+
+Ассеты TACZ не хранятся в репозитории: перед первой сборкой выкачайте закреплённую версию оригинала.
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew build
+tools/fetch-upstream.sh
 ```
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew runClient
+./gw build
+```
+
+```bash
+./gw runClient
 ```
 
 Готовый jar лежит в `build/libs/`. Зависимость в рантайме: [MixinBooter](https://github.com/CleanroomMC/MixinBooter).
