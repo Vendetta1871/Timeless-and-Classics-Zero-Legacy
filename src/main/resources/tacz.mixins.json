@@ -9,7 +9,8 @@
   "client": [
     "client.GameRendererMixin",
     "client.ItemInHandRendererMixin",
-    "client.MinecraftMixin"
+    "client.MinecraftMixin",
+    "client.MouseHandlerMixin"
   ],
   "server": [],
   "injectors": {
