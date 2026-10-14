@@ -185,6 +185,18 @@ if (propertyBool('use_access_transformer')) {
 
 processResources {
 
+    // TACZ assets (textures, sounds, language files, default gun pack) are taken unmodified from the pinned
+    // upstream checkout (tools/fetch-upstream.sh) instead of being committed here; see README "License".
+    def upstreamResources = file('.upstream/TACZ/src/main/resources')
+    if (upstreamResources.isDirectory()) {
+        from(upstreamResources) {
+            include 'assets/**'
+            include 'icon.png', 'logo.png'
+        }
+    } else {
+        logger.warn('Upstream TACZ checkout missing (.upstream/TACZ): the jar will not contain TACZ assets')
+    }
+
     inputs.property 'mod_id', propertyString('mod_id')
     inputs.property 'mod_name', propertyString('mod_name')
     inputs.property 'mod_version', propertyString('mod_version')
