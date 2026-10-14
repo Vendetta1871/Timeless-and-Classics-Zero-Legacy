@@ -14,7 +14,7 @@ import com.tacz.guns.client.resource.GunDisplayInstance;
 import com.tacz.guns.client.resource.pojo.display.gun.MuzzleFlash;
 import com.tacz.guns.compat.oculus.OculusCompat;
 import com.tacz.guns.resource.modifier.custom.SilenceModifier;
-import it.unimi.dsi.fastutil.Pair;
+import com.tacz.guns.legacy.util.Pair;
 import net.minecraft.client.Minecraft;
 import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.RenderType;

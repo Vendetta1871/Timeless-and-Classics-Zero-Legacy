@@ -4,16 +4,15 @@ import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.VertexConsumer;
 import com.tacz.guns.legacy.render.Axis;
 import com.tacz.guns.api.TimelessAPI;
+import com.tacz.guns.legacy.util.Optionals;
 import com.tacz.guns.api.item.IAttachment;
 import com.tacz.guns.client.model.BedrockAttachmentModel;
 import com.tacz.guns.client.model.SlotModel;
 import com.tacz.guns.client.resource.index.ClientAttachmentIndex;
 import com.tacz.guns.util.RenderDistance;
-import net.minecraft.client.model.geom.EntityModelSet;
 import com.tacz.guns.legacy.render.BlockEntityWithoutLevelRenderer;
 import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.RenderType;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import com.tacz.guns.legacy.render.MissingTexture;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
@@ -36,7 +35,7 @@ public class AttachmentItemRenderer extends BlockEntityWithoutLevelRenderer {
         if (stack.getItem() instanceof IAttachment iAttachment) {
             ResourceLocation attachmentId = iAttachment.getAttachmentId(stack);
             poseStack.pushPose();
-            TimelessAPI.getClientAttachmentIndex(attachmentId).ifPresentOrElse(attachmentIndex -> {
+            Optionals.ifPresentOrElse(TimelessAPI.getClientAttachmentIndex(attachmentId), attachmentIndex -> {
                 // GUI 特殊渲染
                 if (transformType == ItemCameraTransforms.TransformType.GUI) {
                     poseStack.translate(0.5, 1.5, 0.5);

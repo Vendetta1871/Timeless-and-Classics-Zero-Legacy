@@ -4,16 +4,15 @@ import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.VertexConsumer;
 import com.tacz.guns.legacy.render.Axis;
 import com.tacz.guns.api.TimelessAPI;
+import com.tacz.guns.legacy.util.Optionals;
 import com.tacz.guns.api.item.IAmmo;
 import com.tacz.guns.client.model.BedrockAmmoModel;
 import com.tacz.guns.client.model.SlotModel;
 import com.tacz.guns.client.model.bedrock.BedrockPart;
 import com.tacz.guns.client.resource.pojo.TransformScale;
-import net.minecraft.client.model.geom.EntityModelSet;
 import com.tacz.guns.legacy.render.BlockEntityWithoutLevelRenderer;
 import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.RenderType;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import com.tacz.guns.legacy.render.MissingTexture;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
@@ -23,7 +22,7 @@ import org.joml.Vector3f;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static net.minecraft.world.item.ItemDisplayContext.GUI;
+import static net.minecraft.client.renderer.block.model.ItemCameraTransforms.TransformType.GUI;
 
 
 public class AmmoItemRenderer extends BlockEntityWithoutLevelRenderer {
@@ -63,7 +62,7 @@ public class AmmoItemRenderer extends BlockEntityWithoutLevelRenderer {
         }
         ResourceLocation ammoId = iAmmo.getAmmoId(stack);
         poseStack.pushPose();
-        TimelessAPI.getClientAmmoIndex(ammoId).ifPresentOrElse(ammoIndex -> {
+        Optionals.ifPresentOrElse(TimelessAPI.getClientAmmoIndex(ammoId), ammoIndex -> {
             // 先获取 3D 模型，如果为空，统一使用 GUI 渲染
             BedrockAmmoModel ammoModel = ammoIndex.getAmmoModel();
             ResourceLocation modelTexture = ammoIndex.getModelTextureLocation();

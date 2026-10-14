@@ -7,10 +7,12 @@ import com.tacz.guns.client.resource.pojo.display.gun.LayerGunShow;
 import com.tacz.guns.util.math.MathUtil;
 import net.minecraft.client.Minecraft;
 import com.tacz.guns.legacy.render.MultiBufferSource;
-import net.minecraft.client.renderer.entity.ItemRenderer;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderItem;
+import com.tacz.guns.legacy.render.RenderSystem;
 import com.tacz.guns.legacy.render.OverlayTexture;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraft.item.ItemStack;
@@ -24,7 +26,7 @@ public class HumanoidOffhandRender {
     }
 
     private static void renderOffhandGun(EntityLivingBase entity, PoseStack matrixStack, MultiBufferSource buffer, int packedLight) {
-        ItemStack itemStack = entity.getOffhandItem();
+        ItemStack itemStack = entity.getHeldItemOffhand();
         if (itemStack.isEmpty()) {
             return;
         }
@@ -42,12 +44,12 @@ public class HumanoidOffhandRender {
         if (!(entity instanceof EntityPlayer player)) {
             return;
         }
-        Inventory inventory = player.getInventory();
+        InventoryPlayer inventory = player.inventory;
         for (int i = 0; i < 9; i++) {
-            if (i == inventory.selected) {
+            if (i == inventory.currentItem) {
                 continue;
             }
-            ItemStack stack = inventory.getItem(i);
+            ItemStack stack = inventory.getStackInSlot(i);
             renderHotbarGun(entity, matrixStack, buffer, packedLight, stack, i);
         }
     }
@@ -74,7 +76,7 @@ public class HumanoidOffhandRender {
     }
 
     private static void renderGunItem(EntityLivingBase entity, PoseStack matrixStack, MultiBufferSource buffer, int packedLight, ItemStack itemStack, LayerGunShow offhandShow) {
-        ItemRenderer renderer = Minecraft.getMinecraft().getItemRenderer();
+        RenderItem renderer = Minecraft.getMinecraft().getRenderItem();
         Vector3f pos = offhandShow.getPos();
         Vector3f rotate = offhandShow.getRotate();
         Vector3f scale = offhandShow.getScale();
@@ -84,7 +86,11 @@ public class HumanoidOffhandRender {
         Quaternionf rotation = new Quaternionf();
         MathUtil.toQuaternion((float) Math.toRadians(rotate.x), (float) Math.toRadians(rotate.y), (float) Math.toRadians(rotate.z), rotation);
         matrixStack.mulPose(rotation);
-        renderer.renderStatic(itemStack, ItemCameraTransforms.TransformType.FIXED, packedLight, OverlayTexture.NO_OVERLAY, matrixStack, buffer, entity.level(), entity.getId());
+        // 1.12.2: RenderItem draws with the GL matrix (and the current lightmap), so the pose is applied there
+        GlStateManager.pushMatrix();
+        RenderSystem.multMatrix(matrixStack.last().pose());
+        renderer.renderItem(itemStack, ItemCameraTransforms.TransformType.FIXED);
+        GlStateManager.popMatrix();
         matrixStack.popPose();
     }
 }

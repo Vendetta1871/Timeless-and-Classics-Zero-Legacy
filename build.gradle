@@ -191,6 +191,8 @@ processResources {
     if (upstreamResources.isDirectory()) {
         from(upstreamResources) {
             include 'assets/**'
+            // tag, loot and recipe data that the 1.12.2 shims read from the jar (legacy.tags etc.)
+            include 'data/**'
             include 'icon.png', 'logo.png'
         }
     } else {
@@ -344,8 +346,19 @@ tasks.register('generateMixinJson') {
     }
 }
 
+// TEMP(port): sources that cannot compile until the classes they need are ported. Remove an entry as soon as its
+// dependencies exist; the list must be empty by the end of stage 1.
+def portPending = [
+        'com/tacz/guns/client/renderer/block/**',              // block entities (block/entity)
+        'com/tacz/guns/client/renderer/entity/**',             // EntityKineticBullet, TargetMinecart
+        'com/tacz/guns/api/event/server/AmmoHitBlockEvent.java', // EntityKineticBullet
+        'com/tacz/guns/client/renderer/item/GunSmithTableItemRenderer.java', // GunSmithTableRenderer
+]
+sourceSets.main.java.exclude(portPending)
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.compilerArgs += ["-Xmaxerrs", "100000"]
     if (propertyBool('use_modern_java_syntax')) {
         if (it.name in ['compileMcLauncherJava', 'compilePatchedMcJava']) {
             return

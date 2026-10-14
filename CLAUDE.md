@@ -30,7 +30,15 @@ source code imports the original packages. Decompiled Minecraft/Forge sources fo
 
 `tools/port.py <path relative to com/tacz/guns> ...` copies upstream files into `src/` and rewrites imports and simple
 type names that map 1:1 (table in the script). Always start a file with it, then fix the rest by hand.
-`--stdout` previews, `--force` overwrites.
+`--stdout` previews, `--force` overwrites. It also converts simple `record`s to final classes, Java 9+ collection
+factories to Guava, `Optional#ifPresentOrElse`, `"..".formatted(..)` and a list of common 1.20 entity/item/NBT calls;
+extend its tables when you meet a mechanical rewrite more than twice.
+
+`tools/restore_todos.py <Class> ...` uncomments the code under `// TODO(port): needs <Class>` markers once that class
+exists; review the result and compile.
+
+`build.gradle` has a temporary `portPending` list of sources excluded from compilation until their dependencies are
+ported. Remove entries as they start compiling; it must end up empty.
 
 ## Porting rules
 
@@ -76,28 +84,45 @@ Jabel allows Java 17 *syntax*, but the runtime is **Java 8**:
 | `Component.translatable` / `literal` | `new TextComponentTranslation` / `new TextComponentString` |
 | `ChatFormatting` | `TextFormatting` |
 | `Vec3` / `Mth` / `Direction` / `InteractionHand` | `Vec3d` / `MathHelper` / `EnumFacing` / `EnumHand` |
-| `FriendlyByteBuf` | `net.minecraft.network.PacketBuffer` (`new PacketBuffer(buf)` in `IMessage`) |
-| `SimpleChannel` + `NetworkEvent.Context` | `SimpleNetworkWrapper` + `IMessage`/`IMessageHandler`, `MessageContext` |
+| `FriendlyByteBuf` | `legacy.network.FriendlyByteBuf` (extends `PacketBuffer`, adds the 1.20 method names) |
+| `SimpleChannel`, `NetworkEvent.Context`, `PacketDistributor`, `NetworkDirection` | same names in `legacy.network` (shim over an FML event channel; messages keep `encode/decode/handle`) |
 | `DeferredRegister` / `RegistryObject` | `RegistryEvent.Register<T>` handler + static fields |
 | `ForgeConfigSpec` | Forge `Configuration`, wrapped so callers keep `.get()` (see `legacy` config shim) |
 | `ItemStack.EMPTY`, `isEmpty()` | same in 1.12.2 |
 | `entity.level()` | `entity.world` |
 | `player.getMainHandItem()` | `player.getHeldItemMainhand()` |
 
-Packet handlers run on the Netty thread in 1.12.2: always wrap handling in
-`FMLCommonHandler.instance().getWorldThread(ctx.netHandler).addScheduledTask(..)` (client side:
-`Minecraft.getMinecraft().addScheduledTask(..)`).
+Packet handlers run on the Netty thread, as on 1.20.1: keep upstream's `context.enqueueWork(..)` (the shim schedules
+it on the receiving side's main thread). `context.getNetworkManager().isMemoryConnection()` is `isLocalChannel()`.
+`PacketDistributor.DIMENSION` takes the 1.12 dimension id (`entity.dimension`).
 
 When unsure about a 1.12.2 name, look it up in `build/rfg/minecraft-src` rather than guessing.
+
+## 1.12 shims (`com.tacz.guns.legacy`)
+
+Ported code keeps upstream's 1.20 API shape through these shims; prefer them over rewriting call sites.
+
+| 1.20.1 | shim |
+|---|---|
+| `PoseStack`, `VertexConsumer`, `RenderType`, `MultiBufferSource`, `RenderSystem`, `Axis`, BEWLR | `legacy.render` (CPU-transformed vertices on top of the GL matrix) |
+| `ResourceManager`, `Resource`, `FileToIdConverter`, (Simple)`PreparableReloadListener`, `PackType` | `legacy.resource` (gun packs only; `GunPackRepository`) |
+| `FriendlyByteBuf`, `SimpleChannel`, `NetworkEvent`, `PacketDistributor`, `NetworkDirection`, `NetworkRegistry` | `legacy.network` |
+| `DeferredRegister`, `RegistryObject` (items, blocks, sounds, entities, potions, enchantments) | `legacy.registry` |
+| `TagKey`, `BlockTags` (`state.is(tag)` → `tag.contains(state.getBlock())`, entity tags take the entity) | `legacy.tags` |
+| `RecipeManager`, `RecipeType`; `level.getRecipeManager()` → `RecipeManager.of(level)` | `legacy.crafting` |
+| `ForgeConfigSpec` | `legacy.config` |
+| `GsonHelper`, `Util`, `ClipContext`, `FMLPaths`, `Mth` extras (`LegacyMath`), fastutil `Pair`, `Component.*` (`Components`), particle names (`LegacyParticles`), Java 9 `Optional`/`Objects` helpers (`Optionals`), item handler capability (`ItemHandlers`) | `legacy.util` |
+
+Gson 2.8 cannot build `EnumMap` fields: TACZ's Gson instances register `EnumMapTypeAdapterFactory`.
 
 ## Work split
 
 The main session ports the hard parts by hand; routine parts are delegated. **Reserved for the main session
 (do not edit unless asked):**
 
-- `legacy/render/**` — PoseStack / VertexConsumer / RenderType shims over 1.12 `BufferBuilder` + `GlStateManager`
+- `legacy/**` except `legacy/util/**` (new small helpers may be added there)
 - `client/model/**`, `client/renderer/**`, `client/event/**`, `client/gameplay/**`, `client/sound/**`, `client/animation/**`
 - `client/resource/**` except `client/resource/pojo/**` and `client/resource/serialize/**`
   (`client/resource/pojo/model/**` is reserved too: bedrock geometry POJOs)
 - gun pack loading: `resource/*.java` (top level), `resource/manager/**`, `resource/network/**`
-- `entity/EntityKineticBullet.java`, `mixin/**`, `util/RenderHelper.java`
+- `entity/EntityKineticBullet.java`, `mixin/**`, `util/RenderHelper.java`, `util/RenderDistance.java`, `GunMod.java`

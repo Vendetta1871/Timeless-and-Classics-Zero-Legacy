@@ -3,6 +3,7 @@ package com.tacz.guns.client.model.functional;
 import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.VertexConsumer;
 import com.tacz.guns.api.TimelessAPI;
+import com.tacz.guns.legacy.util.Optionals;
 import com.tacz.guns.api.item.IAttachment;
 import com.tacz.guns.api.item.attachment.AttachmentType;
 import com.tacz.guns.client.model.BedrockAttachmentModel;
@@ -38,7 +39,7 @@ public class AttachmentRender implements IFunctionalRenderer {
         poseStack.translate(0, -1.5, 0);
         if (attachmentItem.getItem() instanceof IAttachment iAttachment) {
             ResourceLocation attachmentId = iAttachment.getAttachmentId(attachmentItem);
-            TimelessAPI.getClientAttachmentIndex(attachmentId).ifPresentOrElse(attachmentIndex -> {
+            Optionals.ifPresentOrElse(TimelessAPI.getClientAttachmentIndex(attachmentId), attachmentIndex -> {
                 BedrockAttachmentModel model = attachmentIndex.getAttachmentModel();
                 ResourceLocation texture = attachmentIndex.getModelTexture();
                 // 这里是枪械里的配件渲染，没有模型材质就不渲染

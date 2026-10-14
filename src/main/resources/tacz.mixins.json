@@ -6,7 +6,11 @@
   "minVersion": "0.8.5",
   "compatibilityLevel": "JAVA_8",
   "mixins": [],
-  "client": [],
+  "client": [
+    "client.GameRendererMixin",
+    "client.ItemInHandRendererMixin",
+    "client.MinecraftMixin"
+  ],
   "server": [],
   "injectors": {
     "defaultRequire": 1

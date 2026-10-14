@@ -6,13 +6,11 @@ import com.tacz.guns.legacy.render.Axis;
 import com.tacz.guns.client.model.SlotModel;
 import com.tacz.guns.client.model.bedrock.BedrockModel;
 import com.tacz.guns.client.renderer.block.GunSmithTableRenderer;
-import net.minecraft.client.model.geom.EntityModelSet;
 import com.tacz.guns.legacy.render.BlockEntityWithoutLevelRenderer;
 import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.RenderType;
-import net.minecraft.client.renderer.block.model.ItemTransform;
-import net.minecraft.client.renderer.block.model.ItemTransforms;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.client.renderer.block.model.ItemTransformVec3f;
+import com.tacz.guns.legacy.render.ItemTransforms;
 import com.tacz.guns.legacy.render.MissingTexture;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
@@ -36,11 +34,11 @@ public class GunSmithTableItemRenderer extends BlockEntityWithoutLevelRenderer {
             }
             poseStack.pushPose();
 
-            ItemTransforms transforms = index.getTransforms();
+            ItemCameraTransforms transforms = index.getTransforms();
             if (transforms != null) {
                 poseStack.translate(0.5F, 0.5F, 0.5F);
-                ItemTransform transform = transforms.getTransform(transformType);
-                transform.apply(false, poseStack);
+                ItemTransformVec3f transform = transforms.getTransform(transformType);
+                ItemTransforms.apply(transform, false, poseStack);
                 poseStack.translate(-0.5F, -0.5F, -0.5F);
             }
 

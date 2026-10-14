@@ -1,7 +1,8 @@
 package com.tacz.guns.client.model;
 
 import com.tacz.guns.legacy.render.RenderSystem;
-import com.mojang.blaze3d.vertex.*;
+import com.tacz.guns.legacy.render.PoseStack;
+import com.tacz.guns.legacy.render.VertexConsumer;
 import com.tacz.guns.api.client.gameplay.IClientPlayerGunOperator;
 import com.tacz.guns.client.model.bedrock.BedrockPart;
 import com.tacz.guns.client.model.bedrock.ModelRendererWrapper;
@@ -14,6 +15,10 @@ import com.tacz.guns.compat.ar.ARCompat;
 import com.tacz.guns.compat.oculus.OculusCompat;
 import com.tacz.guns.util.RenderHelper;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.entity.EntityPlayerSP;
 import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.RenderType;
@@ -245,7 +250,13 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
 
     private void renderOcularAndDivision(PoseStack matrixStack, ItemCameraTransforms.TransformType transformType, RenderType renderType, int light, int overlay, boolean selective) {
         if (!ocularNodePaths.isEmpty()) {
-            BufferBuilder builder = Tesselator.getInstance().getBuilder();
+            Tessellator tessellator = Tessellator.getInstance();
+            BufferBuilder builder = tessellator.getBuffer();
+            // 1.12.2: fixed-function state for a plain POSITION_COLOR draw (no texture, nothing may discard fragments)
+            GlStateManager.disableTexture2D();
+            GlStateManager.disableAlpha();
+            boolean lighting = GL11.glIsEnabled(GL11.GL_LIGHTING);
+            GlStateManager.disableLighting();
             // 准备渲染圆形模板层
             RenderSystem.stencilOp(GL11.GL_KEEP, GL11.GL_KEEP, GL11.GL_INVERT);
             RenderSystem.colorMask(false, false, false, false);
@@ -264,15 +275,20 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
                 Vector3f ocularCenter = getBedrockPartCenter(matrixStack, ocularNodePaths.get(i));
                 float centerX = ocularCenter.x() * 16 * 90;
                 float centerY = ocularCenter.y() * 16 * 90;
-                builder.begin(VertexFormat.Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
-                builder.vertex(centerX, centerY, -90.0D).color(255, 255, 255, 255).endVertex();
+                builder.begin(GL11.GL_TRIANGLE_FAN, DefaultVertexFormats.POSITION_COLOR);
+                builder.pos(centerX, centerY, -90.0D).color(255, 255, 255, 255).endVertex();
                 for (int j = 0; j <= 90; j++) {
                     float angle = (float) j * ((float) Math.PI * 2F) / 90.0F;
                     float sin = MathHelper.sin(angle);
                     float cos = MathHelper.cos(angle);
-                    builder.vertex(centerX + cos * rad, centerY + sin * rad, -90.0D).color(255, 255, 255, 255).endVertex();
+                    builder.pos(centerX + cos * rad, centerY + sin * rad, -90.0D).color(255, 255, 255, 255).endVertex();
                 }
-                BufferUploader.drawWithShader(builder.end());
+                tessellator.draw();
+            }
+            GlStateManager.enableTexture2D();
+            GlStateManager.enableAlpha();
+            if (lighting) {
+                GlStateManager.enableLighting();
             }
             RenderSystem.depthMask(true);
             RenderSystem.colorMask(true, true, true, true);
@@ -439,7 +455,9 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
 			// 在层间操作已经绑定了VAO, Minecraft的标准绘制方法会改变全局VAO状态, 因此需要缓存VAO
 			int vao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
 			// 并且需要Invalidate一下原版缓存的VAO绑定, 防止他直接认为缓存还有效导致绑定错误的VAO
-			BufferUploader.invalidate();
+			// 1.12.2: no cached VAO binding to invalidate
+
+			// BufferUploader.invalidate();
 
 			// 渲染目镜以写入模板桓冲值 (暂时只渲染 ocular_scope)
 			renderOcularStencil(poseStack, transformType, renderType, light, overlay, true);
@@ -462,7 +480,9 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
 			// 在层间操作已经绑定了VAO, Minecraft的标准绘制方法会改变全局VAO状态, 因此需要缓存VAO
 			int vao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
 			// 并且需要Invalidate一下原版缓存的VAO绑定, 防止他直接认为缓存还有效导致绑定错误的VAO
-			BufferUploader.invalidate();
+			// 1.12.2: no cached VAO binding to invalidate
+
+			// BufferUploader.invalidate();
 
 			// 渲染目镜以写入模板桓冲值 (渲染其他的目镜)
 			renderOcularStencil(poseStack, transformType, renderType, light, overlay, false);
@@ -520,7 +540,9 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
 			// 在层间操作已经绑定了VAO, Minecraft的标准绘制方法会改变全局VAO状态, 因此需要缓存VAO
 			int vao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
 			// 并且需要Invalidate一下原版缓存的VAO绑定, 防止他直接认为缓存还有效导致绑定错误的VAO
-			BufferUploader.invalidate();
+			// 1.12.2: no cached VAO binding to invalidate
+
+			// BufferUploader.invalidate();
 
 			// 渲染目镜以写入模板桓冲值
 			renderOcularStencil(poseStack, transformType, renderType, light, overlay, false);
@@ -594,7 +616,9 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
 			// 在层间操作已经绑定了VAO, Minecraft的标准绘制方法会改变全局VAO状态, 因此需要缓存VAO
 			int vao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
 			// 并且需要Invalidate一下原版缓存的VAO绑定, 防止他直接认为缓存还有效导致绑定错误的VAO
-			BufferUploader.invalidate();
+			// 1.12.2: no cached VAO binding to invalidate
+
+			// BufferUploader.invalidate();
 
 			// 渲染目镜以写入模板桓冲值
 			renderOcularStencil(poseStack, transformType, renderType, light, overlay, false);
@@ -617,7 +641,9 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
 			// 在层间操作已经绑定了VAO, Minecraft的标准绘制方法会改变全局VAO状态, 因此需要缓存VAO
 			int vao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
 			// 并且需要Invalidate一下原版缓存的VAO绑定, 防止他直接认为缓存还有效导致绑定错误的VAO
-			BufferUploader.invalidate();
+			// 1.12.2: no cached VAO binding to invalidate
+
+			// BufferUploader.invalidate();
 
 			// 渲染目镜遮罩和划分
 			renderOcularAndDivision(poseStack, transformType, renderType, light, overlay, false);

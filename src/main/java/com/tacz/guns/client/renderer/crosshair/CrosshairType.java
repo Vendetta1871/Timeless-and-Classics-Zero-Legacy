@@ -36,7 +36,7 @@ public enum CrosshairType {
     public static ResourceLocation getTextureLocation(CrosshairType type) {
         ResourceLocation location = CACHE.get(type);
         if (location == null) {
-            location = new ResourceLocation(GunMod.MOD_ID, "textures/crosshair/normal/%s.png".formatted(type.name().toLowerCase(Locale.US)));
+            location = new ResourceLocation(GunMod.MOD_ID, String.format("textures/crosshair/normal/%s.png", type.name().toLowerCase(Locale.US)));
             CACHE.put(type, location);
         }
         return location;

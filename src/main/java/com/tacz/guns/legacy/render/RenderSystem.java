@@ -32,6 +32,17 @@ public final class RenderSystem {
         GlStateManager.multMatrix(MATRIX_BUFFER);
     }
 
+    /**
+     * The current GL modelview matrix. In 1.12.2 the camera and entity transforms live there rather than in the
+     * {@link PoseStack} (which starts at identity), so code that measures the pose's distance to the camera combines
+     * the two.
+     */
+    public static Matrix4f getModelViewMatrix() {
+        MATRIX_BUFFER.clear();
+        GlStateManager.getFloat(GL11.GL_MODELVIEW_MATRIX, MATRIX_BUFFER);
+        return new Matrix4f(MATRIX_BUFFER);
+    }
+
     public static void assertOnRenderThread() {
     }
 
