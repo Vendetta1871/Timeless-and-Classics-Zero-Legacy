@@ -117,6 +117,9 @@ TYPES = {
     'net.minecraftforge.event.TickEvent': 'net.minecraftforge.fml.common.gameevent.TickEvent',
     # 1.12-only helpers (com.tacz.guns.legacy.util)
     'net.minecraft.util.GsonHelper': 'com.tacz.guns.legacy.util.GsonHelper',
+    'net.minecraft.client.gui.GuiGraphics': 'com.tacz.guns.legacy.render.GuiGraphics',
+    'com.mojang.blaze3d.platform.Window': 'com.tacz.guns.legacy.render.Window',
+    'net.minecraftforge.client.event.InputEvent': 'com.tacz.guns.legacy.client.InputEvent',
     'net.minecraftforge.registries.DeferredRegister': 'com.tacz.guns.legacy.registry.DeferredRegister',
     'net.minecraftforge.registries.RegistryObject': 'com.tacz.guns.legacy.registry.RegistryObject',
     'net.minecraftforge.registries.ForgeRegistries': 'net.minecraftforge.fml.common.registry.ForgeRegistries',
@@ -186,6 +189,11 @@ CALLS = [
     (r'\.isClientSide\b', '.isRemote'),
     (r'\bMinecraft\.getMinecraft\(\)\.level\b', 'Minecraft.getMinecraft().world'),
     (r'\.isMemoryConnection\(\)', '.isLocalChannel()'),
+    (r'\bMinecraft\.getMinecraft\(\)\.getWindow\(\)', 'Window.get()'),
+    (r'\bMinecraft\.getMinecraft\(\)\.options\b', 'Minecraft.getMinecraft().gameSettings'),
+    (r'\.getCameraType\(\)\.isFirstPerson\(\)', '.thirdPersonView == 0'),
+    (r'\bMinecraft\.getMinecraft\(\)\.hitResult\b', 'Minecraft.getMinecraft().objectMouseOver'),
+    (r'\bMinecraft\.getMinecraft\(\)\.gameMode\b', 'Minecraft.getMinecraft().playerController'),
     (r'\.getBoundingBox\(\)', '.getEntityBoundingBox()'),
     (r'\.isCrouching\(\)', '.isSneaking()'),
     (r'\.isShiftKeyDown\(\)', '.isSneaking()'),
@@ -219,7 +227,6 @@ CALLS = [
     (r'\.xOld\b', '.lastTickPosX'),
     (r'\.zOld\b', '.lastTickPosZ'),
     (r'\.onGround\(\)', '.onGround'),
-    (r'\bIClientItemExtensions\.of\(([^()]*(?:\([^()]*\))?[^()]*)\)\.getCustomRenderer\(\)', r'\1.getTileEntityItemStackRenderer()'),
     (r'\bMinecraft\.getMinecraft\(\)\.options\.bobView\(\)\.get\(\)', 'Minecraft.getMinecraft().gameSettings.viewBobbing'),
     (r'\.getAbilities\(\)\.flying\b', '.capabilities.isFlying'),
     (r'\.getAbilities\(\)\.instabuild\b', '.capabilities.isCreativeMode'),
@@ -371,6 +378,8 @@ def port_source(text):
     rest = re.sub(r'\b(\w+)\.firstPerson\(\)', r'DisplayContext.firstPerson(\1)', rest)
     if 'DisplayContext.firstPerson(' in rest and 'import com.tacz.guns.legacy.render.DisplayContext;' not in head:
         head += '\nimport com.tacz.guns.legacy.render.DisplayContext;'
+    if 'Window.get()' in rest and 'import com.tacz.guns.legacy.render.Window;' not in head:
+        head += '\nimport com.tacz.guns.legacy.render.Window;'
     if 'Components.' in rest and 'import com.tacz.guns.legacy.util.Components;' not in head:
         head += '\nimport com.tacz.guns.legacy.util.Components;'
     if 'RenderBuffers.bufferSource()' in rest and 'import com.tacz.guns.legacy.render.RenderBuffers;' not in head:
@@ -379,6 +388,9 @@ def port_source(text):
     rest = rest.replace('@OnlyIn(Side.CLIENT)', '@SideOnly(Side.CLIENT)')
     rest = rest.replace('@OnlyIn(Dist.DEDICATED_SERVER)', '@SideOnly(Side.SERVER)')
     rest = derecord(rest)
+    # IClientItemExtensions.of(item or stack).getCustomRenderer() -> Item#getTileEntityItemStackRenderer()
+    rest = re.sub(r'\bIClientItemExtensions\.of\(([^()]*(?:\([^()]*\))?[^()]*)\)\.getCustomRenderer\(\)',
+                  lambda m: m.group(1) + ('' if m.group(1).endswith('getItem()') else '.getItem()') + '.getTileEntityItemStackRenderer()', rest)
     # Java 9+ collection factories -> Guava 21 (same null-hostility and immutability)
     for jdk, guava in (('List', 'ImmutableList'), ('Set', 'ImmutableSet'), ('Map', 'ImmutableMap')):
         rest, n = re.subn(r'(?<![\w.])%s\.(of|copyOf)\(' % jdk, guava + r'.\1(', rest)
