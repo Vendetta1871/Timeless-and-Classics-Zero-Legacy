@@ -7,8 +7,7 @@ import com.tacz.guns.api.item.attachment.AttachmentType;
 import com.tacz.guns.api.item.gun.AbstractGunItem;
 import com.tacz.guns.api.item.gun.FireMode;
 import com.tacz.guns.api.item.gun.GunItemManager;
-// TODO(port): needs ModItems
-// import com.tacz.guns.init.ModItems;
+import com.tacz.guns.init.ModItems;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.item.ItemStack;
 import java.util.function.Supplier;
@@ -76,9 +75,7 @@ public final class GunItemBuilder {
      * 可能会返回功能不完整的物品
      */
     public ItemStack forceBuild() {
-        // TODO(port): needs ModItems
-        // ItemStack gun = new ItemStack(ModItems.MODERN_KINETIC_GUN.get(), this.count);
-        ItemStack gun = ItemStack.EMPTY; // placeholder until ModItems is ported
+        ItemStack gun = new ItemStack(ModItems.MODERN_KINETIC_GUN.get(), this.count);
         if (gun.getItem() instanceof IGun iGun) {
             iGun.setGunId(gun, this.gunId);
             iGun.setFireMode(gun, this.fireMode);

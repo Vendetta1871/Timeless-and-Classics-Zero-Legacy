@@ -58,6 +58,8 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.registry.EntityEntry;
+import net.minecraftforge.fml.common.registry.EntityEntryBuilder;
 import net.minecraftforge.fml.common.registry.IEntityAdditionalSpawnData;
 import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.lang3.tuple.Pair;
@@ -86,6 +88,14 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
      */
     public static final int TRACKING_RANGE = 5 * 16;
     public static final int UPDATE_INTERVAL = 5;
+    /**
+     * 1.12.2: the entity entry stands in for {@code EntityType}, registered by {@code ModEntities}.
+     */
+    public static final EntityEntry TYPE = EntityEntryBuilder.create().entity(EntityKineticBullet.class)
+            .id(new ResourceLocation(GunMod.MOD_ID, "bullet"), 1)
+            .name("bullet")
+            .tracker(TRACKING_RANGE, UPDATE_INTERVAL, false)
+            .build();
     public static final TagKey<Entity> USE_MAGIC_DAMAGE_ON = TagKey.create(TagType.ENTITY_TYPE, new ResourceLocation("tacz:use_magic_damage_on"));
     public static final TagKey<Entity> USE_VOID_DAMAGE_ON = TagKey.create(TagType.ENTITY_TYPE, new ResourceLocation("tacz:use_void_damage_on"));
     public static final TagKey<Entity> PRETEND_MELEE_DAMAGE_ON = TagKey.create(TagType.ENTITY_TYPE, new ResourceLocation("tacz:pretend_melee_damage_on"));

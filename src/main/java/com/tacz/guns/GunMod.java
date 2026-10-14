@@ -1,7 +1,9 @@
 package com.tacz.guns;
 
 import com.tacz.guns.api.resource.ResourceManager;
-import com.tacz.guns.init.ModSounds;
+import com.tacz.guns.entity.sync.ModSyncedEntityData;
+import com.tacz.guns.event.LoadingConfigEvent;
+import com.tacz.guns.init.*;
 import com.tacz.guns.legacy.client.LegacyClientSetup;
 import com.tacz.guns.legacy.config.TaczConfigs;
 import com.tacz.guns.network.NetworkHandler;
@@ -12,7 +14,10 @@ import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLLoadCompleteEvent;
+import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.event.FMLServerAboutToStartEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
 import org.apache.logging.log4j.LogManager;
@@ -35,8 +40,14 @@ public class GunMod {
     public GunMod() {
         TaczConfigs.init(Loader.instance().getConfigDir(), FMLCommonHandler.instance().getSide().isClient());
 
-        // TODO(port): ModBlocks, ModCreativeTabs, ModItems, ModEntities, ModContainer, ModParticles, ModAttributes,
-        //  ModPainting, ModLootModifiers are not ported yet
+        LoadingConfigEvent.onLoadingConfig();
+
+        ModBlocks.BLOCKS.register(MinecraftForge.EVENT_BUS);
+        ModCreativeTabs.register();
+        ModItems.ITEMS.register(MinecraftForge.EVENT_BUS);
+        ModEntities.ENTITY_TYPES.register(MinecraftForge.EVENT_BUS);
+        // 1.12.2: no registry (or no counterpart) for these, see the classes: ModContainer (IGuiHandler, registered in
+        // pre-init), ModParticles, ModAttributes (ModAttributes#registerAttributes), ModPainting, ModLootModifiers
         ModSounds.SOUNDS.register(MinecraftForge.EVENT_BUS);
         // TODO(port): KubeJS compat is not ported
 
@@ -49,8 +60,15 @@ public class GunMod {
         ResourceManager.registerExportResource(GunMod.class, jarDefaultPackPath);
     }
 
+    /**
+     * 1.12.2: capabilities, block entities and the gui handler are registered in pre-init, and so are entity
+     * renderers on the client.
+     */
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
+        CapabilityRegistry.onRegisterCapabilities();
+        ModBlocks.registerTileEntities();
+        ModContainer.register(this);
         if (event.getSide().isClient()) {
             LegacyClientSetup.preInit();
         }
@@ -66,7 +84,31 @@ public class GunMod {
             LegacyClientSetup.init();
         }
         NetworkHandler.init();
-        // TODO(port): ModSyncedEntityData.init() (entity/sync is not ported yet)
+        ModSyncedEntityData.init();
+    }
+
+    /**
+     * Upstream {@code CompatRegistry.onEnqueue} ({@code InterModEnqueueEvent}).
+     */
+    @Mod.EventHandler
+    public void postInit(FMLPostInitializationEvent event) {
+        CompatRegistry.onEnqueue();
+    }
+
+    /**
+     * Upstream {@code CommonRegistry.onLoadComplete} ({@code FMLLoadCompleteEvent}).
+     */
+    @Mod.EventHandler
+    public void loadComplete(FMLLoadCompleteEvent event) {
+        CommonRegistry.onLoadComplete();
+    }
+
+    /**
+     * Upstream {@code RegisterCommandsEvent}.
+     */
+    @Mod.EventHandler
+    public void serverStarting(FMLServerStartingEvent event) {
+        CommandRegistry.onServerStaring(event);
     }
 
     /**

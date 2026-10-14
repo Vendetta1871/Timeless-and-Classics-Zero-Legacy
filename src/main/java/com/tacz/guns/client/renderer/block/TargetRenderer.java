@@ -12,24 +12,23 @@ import com.tacz.guns.config.client.RenderConfig;
 import net.minecraft.client.Minecraft;
 import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.RenderType;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
-import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import com.tacz.guns.legacy.util.BlockEntityRenderer;
 import com.tacz.guns.legacy.render.OverlayTexture;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.util.EnumFacing;
-import net.minecraft.core.UUIDUtil;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.MathHelper;
+import com.tacz.guns.legacy.util.LegacyMath;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraft.block.state.IBlockState;
 
 import java.util.Optional;
 
-public class TargetRenderer implements BlockEntityRenderer<TargetBlockEntity> {
+public class TargetRenderer extends BlockEntityRenderer<TargetBlockEntity> {
     private static final String UPPER_NAME = "target_upper";
     private static final String HEAD_NAME = "head";
 
-    public TargetRenderer(BlockEntityRendererProvider.Context context) {
+    public TargetRenderer() {
     }
 
     public static Optional<BedrockModel> getModel() {
@@ -43,13 +42,13 @@ public class TargetRenderer implements BlockEntityRenderer<TargetBlockEntity> {
             EnumFacing facing = blockState.getValue(TargetBlock.FACING);
             BedrockPart headModel = model.getNode(HEAD_NAME);
             BedrockPart upperModel = model.getNode(UPPER_NAME);
-            float deg = -MathHelper.lerp(partialTick, blockEntity.oRot, blockEntity.rot);
+            float deg = -LegacyMath.lerp(partialTick, blockEntity.oRot, blockEntity.rot);
             upperModel.xRot = (float) Math.toRadians(deg);
             headModel.visible = false;
 
             poseStack.pushPose();
             poseStack.translate(0.5, 0.225, 0.5);
-            poseStack.mulPose(Axis.YN.rotationDegrees(facing.get2DDataValue() * 90));
+            poseStack.mulPose(Axis.YN.rotationDegrees(facing.getHorizontalIndex() * 90));
             poseStack.mulPose(Axis.ZN.rotationDegrees(180));
             poseStack.translate(0, -1.275, 0.0125);
             RenderType renderType = RenderType.entityTranslucent(InternalAssetLoader.TARGET_TEXTURE_LOCATION);
@@ -58,12 +57,12 @@ public class TargetRenderer implements BlockEntityRenderer<TargetBlockEntity> {
                 poseStack.translate(0, 1.25, 0);
                 poseStack.mulPose(Axis.XP.rotationDegrees(deg));
                 Minecraft minecraft = Minecraft.getMinecraft();
-                var map = minecraft.getSkinManager().getInsecureSkinInformation(blockEntity.getOwner());
+                var map = minecraft.getSkinManager().loadSkinFromCache(blockEntity.getOwner());
                 ResourceLocation skin;
                 if (map.containsKey(MinecraftProfileTexture.Type.SKIN)) {
-                    skin = minecraft.getSkinManager().registerTexture(map.get(MinecraftProfileTexture.Type.SKIN), MinecraftProfileTexture.Type.SKIN);
+                    skin = minecraft.getSkinManager().loadSkin(map.get(MinecraftProfileTexture.Type.SKIN), MinecraftProfileTexture.Type.SKIN);
                 } else {
-                    skin = DefaultPlayerSkin.getDefaultSkin(UUIDUtil.getOrCreatePlayerUUID(blockEntity.getOwner()));
+                    skin = DefaultPlayerSkin.getDefaultSkin(EntityPlayer.getUUID(blockEntity.getOwner()));
                 }
                 headModel.visible = true;
                 RenderType skullRenderType = RenderType.entityCutout(skin);
@@ -73,7 +72,7 @@ public class TargetRenderer implements BlockEntityRenderer<TargetBlockEntity> {
         });
     }
 
-    @Override
+    // 1.12.2: the view distance is TargetBlockEntity#getMaxRenderDistanceSquared
     public int getViewDistance() {
         return RenderConfig.TARGET_RENDER_DISTANCE.get();
     }

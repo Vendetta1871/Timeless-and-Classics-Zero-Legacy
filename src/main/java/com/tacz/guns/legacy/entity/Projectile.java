@@ -54,6 +54,38 @@ public abstract class Projectile extends Entity {
         }
     }
 
+    /**
+     * 1.20.1 {@code Projectile#shootFromRotation}.
+     */
+    public void shootFromRotation(Entity shooter, float pitch, float yaw, float roll, float velocity, float inaccuracy) {
+        float f = -MathHelper.sin(yaw * ((float) Math.PI / 180F)) * MathHelper.cos(pitch * ((float) Math.PI / 180F));
+        float f1 = -MathHelper.sin((pitch + roll) * ((float) Math.PI / 180F));
+        float f2 = MathHelper.cos(yaw * ((float) Math.PI / 180F)) * MathHelper.cos(pitch * ((float) Math.PI / 180F));
+        this.shoot(f, f1, f2, velocity, inaccuracy);
+        this.motionX += shooter.motionX;
+        this.motionY += shooter.onGround ? 0.0D : shooter.motionY;
+        this.motionZ += shooter.motionZ;
+    }
+
+    /**
+     * 1.20.1 {@code Projectile#shoot}: the direction with a triangular spread scaled by {@code inaccuracy}.
+     */
+    public void shoot(double x, double y, double z, float velocity, float inaccuracy) {
+        double length = Math.sqrt(x * x + y * y + z * z);
+        double spread = 0.0172275D * (double) inaccuracy;
+        double vx = (x / length + spread * (this.rand.nextDouble() - this.rand.nextDouble())) * velocity;
+        double vy = (y / length + spread * (this.rand.nextDouble() - this.rand.nextDouble())) * velocity;
+        double vz = (z / length + spread * (this.rand.nextDouble() - this.rand.nextDouble())) * velocity;
+        this.motionX = vx;
+        this.motionY = vy;
+        this.motionZ = vz;
+        double horizontal = Math.sqrt(vx * vx + vz * vz);
+        this.rotationYaw = (float) (MathHelper.atan2(vx, vz) * (double) (180F / (float) Math.PI));
+        this.rotationPitch = (float) (MathHelper.atan2(vy, horizontal) * (double) (180F / (float) Math.PI));
+        this.prevRotationYaw = this.rotationYaw;
+        this.prevRotationPitch = this.rotationPitch;
+    }
+
     protected static float lerpRotation(float current, float target) {
         while (target - current < -180.0F) {
             current -= 360.0F;

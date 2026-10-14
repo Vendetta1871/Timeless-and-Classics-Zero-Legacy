@@ -7,8 +7,7 @@ import com.tacz.guns.api.event.common.EntityKillByGunEvent;
 //import com.tacz.guns.client.gui.overlay.KillAmountOverlay;
 import com.tacz.guns.client.sound.SoundPlayManager;
 import com.tacz.guns.config.client.RenderConfig;
-// TODO(port): needs TargetMinecart
-//import com.tacz.guns.entity.TargetMinecart;
+import com.tacz.guns.entity.TargetMinecart;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.util.text.ITextComponent;
@@ -44,18 +43,17 @@ public class ClientHitMark {
                 TimelessAPI.getGunDisplay(gunDisplayId, gunId).ifPresent(index -> SoundPlayManager.playFleshHitSound(player, index));
             }
 
-            // TODO(port): needs TargetMinecart
-//            if(hurtEntity instanceof TargetMinecart){
-//                if(System.currentTimeMillis() - lastHitTimestamp < RenderConfig.DAMAGE_COUNTER_RESET_TIME.get()) {
-//                    damageAmount += event.getAmount();
-//                } else {
-//                    damageAmount = event.getAmount();
-//                }
-//                float distance = player.getDistance(event.getHurtEntity());
-//                player.sendStatusMessage(Components.translatable("message.tacz.target_minecart.hit", String.format("%.1f", damageAmount), String.format("%.2f", distance)), true);
-//
-//                lastHitTimestamp = System.currentTimeMillis();
-//            }
+           if(hurtEntity instanceof TargetMinecart){
+               if(System.currentTimeMillis() - lastHitTimestamp < RenderConfig.DAMAGE_COUNTER_RESET_TIME.get()) {
+                   damageAmount += event.getAmount();
+               } else {
+                   damageAmount = event.getAmount();
+               }
+               float distance = player.getDistance(event.getHurtEntity());
+               player.sendStatusMessage(Components.translatable("message.tacz.target_minecart.hit", String.format("%.1f", damageAmount), String.format("%.2f", distance)), true);
+
+               lastHitTimestamp = System.currentTimeMillis();
+           }
         }
     }
 

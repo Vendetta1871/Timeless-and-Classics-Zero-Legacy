@@ -8,15 +8,15 @@ import com.tacz.guns.client.model.bedrock.BedrockModel;
 import com.tacz.guns.client.model.bedrock.BedrockPart;
 import com.tacz.guns.client.resource.InternalAssetLoader;
 import com.tacz.guns.entity.TargetMinecart;
+import com.tacz.guns.legacy.render.RenderBuffers;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.geom.ModelLayers;
+import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.entity.RenderMinecart;
+import net.minecraft.entity.player.EntityPlayer;
 import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.RenderType;
-import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.minecraft.client.renderer.entity.MinecartRenderer;
 import com.tacz.guns.legacy.render.OverlayTexture;
 import net.minecraft.client.resources.DefaultPlayerSkin;
-import net.minecraft.core.UUIDUtil;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraft.block.state.IBlockState;
@@ -26,13 +26,17 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import java.util.Optional;
 
 @SideOnly(Side.CLIENT)
-public class TargetMinecartRenderer extends MinecartRenderer<TargetMinecart> {
+/**
+ * 1.12.2: a {@link RenderMinecart}; {@code renderMinecartContents} is {@code renderCartContents}, drawn on the GL
+ * matrix at the same place, so the contents get a fresh pose stack and the cart's light.
+ */
+public class TargetMinecartRenderer extends RenderMinecart<TargetMinecart> {
     private static final String HEAD_NAME = "head";
     private static final String HEAD_2_NAME = "head2";
 
-    public TargetMinecartRenderer(EntityRendererProvider.Context ctx) {
-        super(ctx, ModelLayers.TNT_MINECART);
-        this.shadowRadius = 0.25F;
+    public TargetMinecartRenderer(RenderManager renderManager) {
+        super(renderManager);
+        this.shadowSize = 0.25F;
     }
 
     public static Optional<BedrockModel> getModel() {
@@ -40,11 +44,17 @@ public class TargetMinecartRenderer extends MinecartRenderer<TargetMinecart> {
     }
 
     @Override
-    public ResourceLocation getTextureLocation(TargetMinecart minecart) {
+    protected ResourceLocation getEntityTexture(TargetMinecart minecart) {
         return InternalAssetLoader.ENTITY_EMPTY_TEXTURE;
     }
 
     @Override
+    protected void renderCartContents(TargetMinecart targetMinecart, float pPartialTicks, IBlockState pState) {
+        MultiBufferSource.BufferSource buffer = RenderBuffers.bufferSource();
+        renderMinecartContents(targetMinecart, pPartialTicks, pState, new PoseStack(), buffer, targetMinecart.getBrightnessForRender());
+        buffer.endBatch();
+    }
+
     protected void renderMinecartContents(TargetMinecart targetMinecart, float pPartialTicks, IBlockState pState, PoseStack stack, MultiBufferSource buffer, int pPackedLight) {
         getModel().ifPresent(model -> {
             BedrockPart headModel = model.getNode(HEAD_NAME);
@@ -63,12 +73,12 @@ public class TargetMinecartRenderer extends MinecartRenderer<TargetMinecart> {
                 stack.translate(0, 1, -4.5 / 16d);
                 Minecraft minecraft = Minecraft.getMinecraft();
                 GameProfile gameProfile = targetMinecart.getGameProfile();
-                var map = minecraft.getSkinManager().getInsecureSkinInformation(gameProfile);
+                var map = minecraft.getSkinManager().loadSkinFromCache(gameProfile);
                 ResourceLocation skin;
                 if (map.containsKey(MinecraftProfileTexture.Type.SKIN)) {
-                    skin = minecraft.getSkinManager().registerTexture(map.get(MinecraftProfileTexture.Type.SKIN), MinecraftProfileTexture.Type.SKIN);
+                    skin = minecraft.getSkinManager().loadSkin(map.get(MinecraftProfileTexture.Type.SKIN), MinecraftProfileTexture.Type.SKIN);
                 } else {
-                    skin = DefaultPlayerSkin.getDefaultSkin(UUIDUtil.getOrCreatePlayerUUID(gameProfile));
+                    skin = DefaultPlayerSkin.getDefaultSkin(EntityPlayer.getUUID(gameProfile));
                 }
                 headModel.visible = true;
                 RenderType skullRenderType = RenderType.entityTranslucentCull(skin);

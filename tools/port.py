@@ -178,6 +178,32 @@ CALLS = [
     (r'\b(?:ITextComponent|Component)\.translatable\(', 'Components.translatable('),
     (r'\b(?:ITextComponent|Component)\.literal\(', 'Components.literal('),
     (r'\b(?:ITextComponent|Component)\.empty\(\)', 'Components.literal("")'),
+    (r'\.putString\(', '.setString('),
+    (r'\.putInt\(', '.setInteger('),
+    (r'\.putBoolean\(', '.setBoolean('),
+    (r'\.putFloat\(', '.setFloat('),
+    (r'\.putDouble\(', '.setDouble('),
+    (r'\.putLong\(', '.setLong('),
+    (r'\.putByte\(', '.setByte('),
+    (r'\.putShort\(', '.setShort('),
+    (r'\.putUUID\(', '.setUniqueId('),
+    (r'(\w+)::getXRot\b', r'() -> \1.rotationPitch'),
+    (r'(\w+)::getYRot\b', r'() -> \1.rotationYaw'),
+    (r'\.getXRot\(\)', '.rotationPitch'),
+    (r'\.getYRot\(\)', '.rotationYaw'),
+    (r'\.containerMenu\.containerId\b', '.openContainer.windowId'),
+    (r'\.containerMenu\b', '.openContainer'),
+    (r'\.inventoryMenu\.broadcastChanges\(\)', '.inventoryContainer.detectAndSendChanges()'),
+    (r'\binventory\.getItem\(', 'inventory.getStackInSlot('),
+    (r'\binventory\.setItem\(', 'inventory.setInventorySlotContents('),
+    (r'\binventory\.add\(', 'inventory.addItemStackToInventory('),
+    (r'\.get2DDataValue\(\)', '.getHorizontalIndex()'),
+    (r'\.dot\(', '.dotProduct('),
+    (r'\b(level|world)\.getEntity\(', r'\1.getEntityByID('),
+    (r'\.getEyePosition\(\)', '.getPositionEyes(1.0F)'),
+    (r'\.sendParticles\(', '.spawnParticle('),
+    (r'\.isAlive\(\)', '.isEntityAlive()'),
+    (r'\.addFreshEntity\(', '.spawnEntity('),
     (r'\.getTag\(\)', '.getTagCompound()'),
     (r'\.hasTag\(\)', '.hasTagCompound()'),
     (r'\.setTag\(', '.setTagCompound('),
@@ -308,19 +334,29 @@ def derecord(text):
         body += '%s}\n' % i2
         for t, n in fields:
             body += '\n%spublic %s %s() {\n%sreturn %s;\n%s}\n' % (i2, t, n, i3, n, i2)
+        # members the record body already declares must not be generated again
+        depth, k = 1, m.end()
+        while k < len(text) and depth:
+            depth += {'{': 1, '}': -1}.get(text[k], 0)
+            k += 1
+        rec_body = text[m.end():k]
+        has_eq = re.search(r'\bboolean\s+equals\s*\(', rec_body) is not None
+        has_hash = re.search(r'\bint\s+hashCode\s*\(', rec_body) is not None
+        has_str = re.search(r'\bString\s+toString\s*\(', rec_body) is not None
         if fields:
             eq = ' && '.join('java.util.Objects.equals(%s, that.%s)' % (n, n) for t, n in fields)
-            body += ('\n%s@Override\n%spublic boolean equals(Object o) {\n%sif (this == o) return true;\n'
-                     '%sif (!(o instanceof %s)) return false;\n%s%s<?> that = (%s<?>) o;\n%sreturn %s;\n%s}\n') % (
-                i2, i2, i3, i3, name, i3, name, name, i3, eq, i2) if generics else (
-                '\n%s@Override\n%spublic boolean equals(Object o) {\n%sif (this == o) return true;\n'
-                '%sif (!(o instanceof %s)) return false;\n%s%s that = (%s) o;\n%sreturn %s;\n%s}\n') % (
-                i2, i2, i3, i3, name, i3, name, name, i3, eq, i2)
-            body += '\n%s@Override\n%spublic int hashCode() {\n%sreturn java.util.Objects.hash(%s);\n%s}\n' % (
-                i2, i2, i3, ', '.join(n for t, n in fields), i2)
-            ts = ' + ", " + '.join('"%s=" + %s' % (n, n) for t, n in fields)
-            body += '\n%s@Override\n%spublic String toString() {\n%sreturn "%s[" + %s + "]";\n%s}\n' % (
-                i2, i2, i3, name, ts, i2)
+            if not has_eq:
+                wild = '<?>' if generics else ''
+                body += ('\n%s@Override\n%spublic boolean equals(Object o) {\n%sif (this == o) return true;\n'
+                         '%sif (!(o instanceof %s)) return false;\n%s%s%s that = (%s%s) o;\n%sreturn %s;\n%s}\n') % (
+                    i2, i2, i3, i3, name, i3, name, wild, name, wild, i3, eq, i2)
+            if not has_hash:
+                body += '\n%s@Override\n%spublic int hashCode() {\n%sreturn java.util.Objects.hash(%s);\n%s}\n' % (
+                    i2, i2, i3, ', '.join(n for t, n in fields), i2)
+            if not has_str:
+                ts = ' + ", " + '.join('"%s=" + %s' % (n, n) for t, n in fields)
+                body += '\n%s@Override\n%spublic String toString() {\n%sreturn "%s[" + %s + "]";\n%s}\n' % (
+                    i2, i2, i3, name, ts, i2)
         out.append(text[pos:m.start()])
         out.append(head + body)
         pos = m.end()

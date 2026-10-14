@@ -1,8 +1,7 @@
 package com.tacz.guns.util.block;
 
 import com.tacz.guns.config.common.AmmoConfig;
-// TODO(port): needs ModBlocks
-// import com.tacz.guns.init.ModBlocks;
+import com.tacz.guns.init.ModBlocks;
 import com.tacz.guns.legacy.util.ClipContext;
 import com.tacz.guns.legacy.util.LegacyMath;
 import net.minecraft.block.Block;
@@ -22,10 +21,9 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 public final class BlockRayTrace {
-    // TODO(port): needs ModBlocks (BULLET_IGNORE_BLOCKS block tag; 1.12.2 has no block tags)
-    // private static final Predicate<IBlockState> IGNORES = input -> input != null &&
-    //         input.is(ModBlocks.BULLET_IGNORE_BLOCKS);
-    private static final Predicate<IBlockState> IGNORES = input -> false; // placeholder until ModBlocks is ported
+    // 1.12.2: no block tags, state.is(tag) is tag.contains(state.getBlock())
+    private static final Predicate<IBlockState> IGNORES = input -> input != null &&
+            ModBlocks.BULLET_IGNORE_BLOCKS.contains(input.getBlock());
 
     public static RayTraceResult rayTraceBlocks(World level, ClipContext context) {
         return performRayTrace(context, (rayTraceContext, blockPos) -> {

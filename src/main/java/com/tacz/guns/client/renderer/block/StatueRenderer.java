@@ -7,13 +7,13 @@ import com.tacz.guns.block.entity.StatueBlockEntity;
 import com.tacz.guns.client.model.bedrock.BedrockModel;
 import com.tacz.guns.client.resource.InternalAssetLoader;
 import com.tacz.guns.config.client.RenderConfig;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
+import com.tacz.guns.legacy.render.RenderSystem;
 import com.tacz.guns.legacy.render.LightTexture;
 import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.RenderType;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
-import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import com.tacz.guns.legacy.util.BlockEntityRenderer;
 import com.tacz.guns.legacy.render.OverlayTexture;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
@@ -25,8 +25,8 @@ import net.minecraft.util.math.Vec3d;
 
 import java.util.Optional;
 
-public class StatueRenderer implements BlockEntityRenderer<StatueBlockEntity> {
-    public StatueRenderer(BlockEntityRendererProvider.Context context) {
+public class StatueRenderer extends BlockEntityRenderer<StatueBlockEntity> {
+    public StatueRenderer() {
     }
 
     public static Optional<BedrockModel> getModel() {
@@ -36,7 +36,7 @@ public class StatueRenderer implements BlockEntityRenderer<StatueBlockEntity> {
     @Override
     public void render(StatueBlockEntity blockEntity, float partialTick, PoseStack poseStack, MultiBufferSource bufferIn, int combinedLightIn, int combinedOverlayIn) {
         getModel().ifPresent(model -> {
-            World level = blockEntity.getLevel();
+            World level = blockEntity.getWorld();
             if (level == null) {
                 return;
             }
@@ -48,7 +48,7 @@ public class StatueRenderer implements BlockEntityRenderer<StatueBlockEntity> {
 
                 poseStack.translate(0.5, 1.5, 0.5);
 
-                poseStack.mulPose(Axis.YN.rotationDegrees((facing.get2DDataValue() + 2) % 4 * 90));
+                poseStack.mulPose(Axis.YN.rotationDegrees((facing.getHorizontalIndex() + 2) % 4 * 90));
                 poseStack.mulPose(Axis.ZN.rotationDegrees(180));
 
                 RenderType renderType = RenderConfig.BLOCK_ENTITY_TRANSLUCENT.get() ?
@@ -60,21 +60,19 @@ public class StatueRenderer implements BlockEntityRenderer<StatueBlockEntity> {
                 poseStack.translate(0, -0.875, -1.2);
                 poseStack.mulPose(Axis.ZP.rotationDegrees(180));
 
-                double offset = Math.sin(Util.getMillis() / 500.0) * 0.1;
+                double offset = Math.sin(System.currentTimeMillis() / 500.0) * 0.1;
                 poseStack.translate(0, offset, 0);
 
                 ItemStack stack = blockEntity.getGunItem();
 
-                Minecraft.getMinecraft().getItemRenderer().renderStatic(
-                        stack,
-                        ItemCameraTransforms.TransformType.FIXED,
-                        LightTexture.pack(15, 15),
-                        OverlayTexture.NO_OVERLAY,
-                        poseStack,
-                        bufferIn,
-                        level,
-                        0
-                );
+                // 1.12.2: the item is rendered through GL with the pose stack's matrix; draw what is batched first
+                if (bufferIn instanceof MultiBufferSource.BufferSource bufferSource) {
+                    bufferSource.endBatch();
+                }
+                GlStateManager.pushMatrix();
+                RenderSystem.multMatrix(poseStack.last().pose());
+                Minecraft.getMinecraft().getRenderItem().renderItem(stack, ItemCameraTransforms.TransformType.FIXED);
+                GlStateManager.popMatrix();
             }
             poseStack.popPose();
         });
@@ -84,7 +82,7 @@ public class StatueRenderer implements BlockEntityRenderer<StatueBlockEntity> {
         return InternalAssetLoader.STATUE_TEXTURE_LOCATION;
     }
 
-    @Override
+    // 1.12.2: the view distance is StatueBlockEntity#getMaxRenderDistanceSquared
     public int getViewDistance() {
         return RenderConfig.TARGET_RENDER_DISTANCE.get();
     }
@@ -92,10 +90,5 @@ public class StatueRenderer implements BlockEntityRenderer<StatueBlockEntity> {
     @Override
     public boolean shouldRenderOffScreen(StatueBlockEntity blockEntity) {
         return true;
-    }
-
-    @Override
-    public boolean shouldRender(StatueBlockEntity pBlockEntity, Vec3d pCameraPos) {
-        return Vec3d.atCenterOf(pBlockEntity.getBlockPos().above()).closerThan(pCameraPos, this.getViewDistance());
     }
 }
