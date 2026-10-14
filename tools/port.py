@@ -42,6 +42,10 @@ TYPES = {
     'com.mojang.blaze3d.platform.GlStateManager': 'net.minecraft.client.renderer.GlStateManager',
     'net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer': 'com.tacz.guns.legacy.render.BlockEntityWithoutLevelRenderer',
     'net.minecraft.client.resources.language.I18n': 'net.minecraft.client.resources.I18n',
+    # SimpleBedrockModel first-person API (com.tacz.guns.legacy.fp)
+    'com.github.mcmodderanchor.simplebedrockmodel.v1.client.renderer.IFPGeoItemRenderer': 'com.tacz.guns.legacy.fp.IFPGeoItemRenderer',
+    'com.github.mcmodderanchor.simplebedrockmodel.v1.client.animation.IFPAnimationInstance': 'com.tacz.guns.legacy.fp.IFPAnimationInstance',
+    'com.github.mcmodderanchor.simplebedrockmodel.v1.client.handler.FirstPersonRenderHandler': 'com.tacz.guns.legacy.fp.FirstPersonRenderHandler',
     # resource shims (com.tacz.guns.legacy.resource)
     'net.minecraft.server.packs.resources.ResourceManager': 'com.tacz.guns.legacy.resource.ResourceManager',
     'net.minecraft.server.packs.resources.Resource': 'com.tacz.guns.legacy.resource.Resource',
@@ -97,6 +101,7 @@ TYPES = {
     'net.minecraft.client.gui.Font': ('net.minecraft.client.gui.FontRenderer', 'FontRenderer'),
     'net.minecraft.client.gui.screens.Screen': ('net.minecraft.client.gui.GuiScreen', 'GuiScreen'),
     'net.minecraft.client.KeyMapping': ('net.minecraft.client.settings.KeyBinding', 'KeyBinding'),
+    'net.minecraftforge.client.event.ViewportEvent': 'net.minecraftforge.client.event.EntityViewRenderEvent',
     'net.minecraftforge.api.distmarker.OnlyIn': ('net.minecraftforge.fml.relauncher.SideOnly', 'SideOnly'),
     'net.minecraftforge.api.distmarker.Dist': ('net.minecraftforge.fml.relauncher.Side', 'Side'),
 }
@@ -105,18 +110,43 @@ TYPES = {
 CALLS = [
     (r'\bMinecraft\.getInstance\(\)\.renderBuffers\(\)\.bufferSource\(\)', 'RenderBuffers.bufferSource()'),
     (r'\bMinecraft\.getInstance\(\)', 'Minecraft.getMinecraft()'),
+    (r'\bViewportEvent\.ComputeCameraAngles\b', 'EntityViewRenderEvent.CameraSetup'),
+    (r'\bViewportEvent\.ComputeFov\b', 'EntityViewRenderEvent.FOVModifier'),
+    (r'\bViewportEvent\.RenderFog\b', 'EntityViewRenderEvent.RenderFogEvent'),
     (r'\bMinecraft\.ON_OSX\b', 'Minecraft.IS_RUNNING_ON_MAC'),
     (r'\bMinecraft\.getMinecraft\(\)\.font\b', 'Minecraft.getMinecraft().fontRenderer'),
     (r'\bMinecraft\.getMinecraft\(\)\.getFrameTime\(\)', 'Minecraft.getMinecraft().getRenderPartialTicks()'),
     (r'\bMinecraft\.getMinecraft\(\)\.getPartialTick\(\)', 'Minecraft.getMinecraft().getRenderPartialTicks()'),
     (r'\bI18n\.get\(', 'I18n.format('),
+    (r'\bItemStack\.matches\(', 'ItemStack.areItemStacksEqual('),
+    (r'\bItemStack\.isSameItem\(', 'ItemStack.areItemsEqual('),
+    (r'\bItemStack\.isSameItemSameTags\(', 'ItemStack.areItemStacksEqual('),
 ]
+
+
+# static imports of upstream enums / holders -> 1.12.2 owner
+STATIC_OWNERS = {
+    'net.minecraft.world.item.ItemDisplayContext': 'net.minecraft.client.renderer.block.model.ItemCameraTransforms.TransformType',
+}
+
+SWAY_1_20 = '''float xRotOffset = MathHelper.lerp(partialTick, player.xBobO, player.xBob);
+            float yRotOffset = MathHelper.lerp(partialTick, player.yBobO, player.yBob);
+            float xRot = player.getViewXRot(partialTick) - xRotOffset;
+            float yRot = player.getViewYRot(partialTick) - yRotOffset;'''
+SWAY_1_12 = '''// 1.12.2: the same terms vanilla ItemRenderer#rotateArm put on the GL matrix (xBob / yBob there)
+            float xRotOffset = player.prevRenderArmPitch + (player.renderArmPitch - player.prevRenderArmPitch) * partialTick;
+            float yRotOffset = player.prevRenderArmYaw + (player.renderArmYaw - player.prevRenderArmYaw) * partialTick;
+            float xRot = player.rotationPitch - xRotOffset;
+            float yRot = player.rotationYaw - yRotOffset;'''
 
 
 def port_source(text):
     simple_renames = {}
     out_lines = []
     for line in text.split('\n'):
+        sm = re.match(r'^import static ([\w.]+)\.(\*|\w+);\s*$', line)
+        if sm and sm.group(1) in STATIC_OWNERS:
+            line = 'import static %s.%s;' % (STATIC_OWNERS[sm.group(1)], sm.group(2))
         m = re.match(r'^import (static )?([\w.]+)(\.\*)?;\s*$', line)
         if m and not m.group(1) and not m.group(3):
             fqn = m.group(2)
@@ -146,6 +176,11 @@ def port_source(text):
         rest = re.sub(r'(?<![\w.])%s\b' % re.escape(old), new, rest)
     for pattern, repl in CALLS:
         rest = re.sub(pattern, repl, rest)
+    rest = rest.replace(SWAY_1_20, SWAY_1_12)
+    # Optional#ifPresentOrElse (Java 9) on a single-line receiver
+    rest, n = re.subn(r'([\w.]+(?:\([^()]*\))?)\.ifPresentOrElse\(', r'Optionals.ifPresentOrElse(\1, ', rest)
+    if n and 'import com.tacz.guns.legacy.util.Optionals;' not in head:
+        head += '\nimport com.tacz.guns.legacy.util.Optionals;'
     rest = re.sub(r'\b(\w+)\.firstPerson\(\)', r'DisplayContext.firstPerson(\1)', rest)
     if 'DisplayContext.firstPerson(' in rest and 'import com.tacz.guns.legacy.render.DisplayContext;' not in head:
         head += '\nimport com.tacz.guns.legacy.render.DisplayContext;'
