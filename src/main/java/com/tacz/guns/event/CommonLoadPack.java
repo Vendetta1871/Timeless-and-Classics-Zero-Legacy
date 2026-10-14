@@ -1,15 +1,11 @@
 package com.tacz.guns.event;
 
-import com.tacz.guns.GunMod;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-
-@Mod.EventBusSubscriber(value = Side.DEDICATED_SERVER, modid = GunMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+/**
+ * Upstream: {@code FMLCommonSetupEvent} listener on the dedicated server. The body is commented out upstream, so
+ * there is nothing to register on 1.12.2 either.
+ */
 public class CommonLoadPack {
-    @SubscribeEvent
-    public static void loadGunPack(FMLCommonSetupEvent commonSetupEvent) {
+    public static void loadGunPack() {
 //        DedicatedServerReloadManager.loadGunPack();
     }
 }

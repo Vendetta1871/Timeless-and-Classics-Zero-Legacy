@@ -34,7 +34,7 @@ public class ClientMessageCraft {
                 if (entity == null) {
                     return;
                 }
-                if (entity.containerMenu.containerId == message.menuId && entity.containerMenu instanceof GunSmithTableMenu menu) {
+                if (entity.openContainer.windowId == message.menuId && entity.openContainer instanceof GunSmithTableMenu menu) {
                     menu.doCraft(message.recipeId, entity);
                 }
             });

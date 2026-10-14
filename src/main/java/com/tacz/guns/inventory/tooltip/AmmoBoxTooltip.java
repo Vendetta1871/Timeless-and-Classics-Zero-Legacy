@@ -1,9 +1,9 @@
 package com.tacz.guns.inventory.tooltip;
 
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.item.ItemStack;
 
-public class AmmoBoxTooltip implements TooltipComponent {
+// TODO(port): 1.12.2 has no TooltipComponent: this is a plain data holder until a tooltip image hook exists
+public class AmmoBoxTooltip {
     private final ItemStack ammoBox;
     private final ItemStack ammo;
     private final int count;

@@ -1,49 +1,49 @@
 package com.tacz.guns.item;
 
+import com.tacz.guns.GunMod;
 import com.tacz.guns.entity.TargetMinecart;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.world.InteractionResult;
+import net.minecraft.block.BlockRailBase;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-import net.minecraft.world.level.block.BaseRailBlock;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.world.level.block.state.properties.RailShape;
-import net.minecraft.world.level.gameevent.GameEvent;
 import org.jetbrains.annotations.NotNull;
 
 public class TargetMinecartItem extends Item {
     public TargetMinecartItem() {
-        super((new Item.Properties()).stacksTo(1));
+        super();
+        this.setMaxStackSize(1);
+        this.setTranslationKey(GunMod.MOD_ID + ".target_minecart");
     }
 
     @NotNull
     @Override
-    public InteractionResult useOn(UseOnContext context) {
-        World level = context.getLevel();
-        BlockPos blockpos = context.getClickedPos();
+    public EnumActionResult onItemUse(EntityPlayer player, World level, BlockPos blockpos, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ) {
         IBlockState blockstate = level.getBlockState(blockpos);
-        if (!blockstate.is(BlockTags.RAILS)) {
-            return InteractionResult.FAIL;
+        // 1.12.2: no block tags, vanilla's own rail check (also covers modded rails)
+        if (!BlockRailBase.isRailBlock(blockstate)) {
+            return EnumActionResult.FAIL;
         } else {
-            ItemStack itemstack = context.getHeldItem();
+            ItemStack itemstack = player.getHeldItem(hand);
             if (!level.isRemote) {
-                RailShape railshape = blockstate.getBlock() instanceof BaseRailBlock baseRailBlock ? baseRailBlock.getRailDirection(blockstate, level, blockpos, null) : RailShape.NORTH_SOUTH;
+                BlockRailBase.EnumRailDirection railshape = blockstate.getBlock() instanceof BlockRailBase baseRailBlock ? baseRailBlock.getRailDirection(level, blockpos, blockstate, null) : BlockRailBase.EnumRailDirection.NORTH_SOUTH;
                 double yOffset = 0;
                 if (railshape.isAscending()) {
                     yOffset = 0.5;
                 }
                 TargetMinecart targetMinecart = new TargetMinecart(level, (double) blockpos.getX() + 0.5, (double) blockpos.getY() + 0.0625 + yOffset, (double) blockpos.getZ() + 0.5);
-                if (itemstack.hasCustomHoverName()) {
-                    targetMinecart.setCustomName(itemstack.getHoverName());
+                if (itemstack.hasDisplayName()) {
+                    targetMinecart.setCustomNameTag(itemstack.getDisplayName());
                 }
-                level.addFreshEntity(targetMinecart);
-                level.gameEvent(context.getPlayer(), GameEvent.ENTITY_PLACE, blockpos);
+                level.spawnEntity(targetMinecart);
             }
             itemstack.shrink(1);
-            return InteractionResult.sidedSuccess(level.isRemote);
+            return EnumActionResult.SUCCESS;
         }
     }
 }

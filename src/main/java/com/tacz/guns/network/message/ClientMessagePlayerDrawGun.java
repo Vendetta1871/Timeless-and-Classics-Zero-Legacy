@@ -29,7 +29,7 @@ public class ClientMessagePlayerDrawGun {
                 }
                 InventoryPlayer inventory = entity.inventory;
                 int selected = inventory.currentItem;
-                IGunOperator.fromLivingEntity(entity).draw(() -> inventory.getItem(selected));
+                IGunOperator.fromLivingEntity(entity).draw(() -> inventory.getStackInSlot(selected));
             });
         }
         context.setPacketHandled(true);

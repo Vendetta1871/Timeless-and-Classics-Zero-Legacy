@@ -2,64 +2,61 @@ package com.tacz.guns.event;
 
 import com.tacz.guns.GunMod;
 import com.tacz.guns.entity.sync.core.*;
+import com.tacz.guns.legacy.network.PacketDistributor;
 import com.tacz.guns.network.NetworkHandler;
 import com.tacz.guns.network.message.ServerMessageUpdateEntityData;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
-import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.common.Mod;
-import com.tacz.guns.legacy.network.PacketDistributor;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.relauncher.Side;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Mod.EventBusSubscriber
+@Mod.EventBusSubscriber(modid = GunMod.MOD_ID)
 public final class SyncedEntityDataEvent {
     @SubscribeEvent
     public static void attachCapabilities(AttachCapabilitiesEvent<Entity> event) {
         if (SyncedEntityData.instance().hasSyncedDataKey(event.getObject())) {
             DataHolderCapabilityProvider provider = new DataHolderCapabilityProvider();
             event.addCapability(new ResourceLocation(GunMod.MOD_ID, "synced_entity_data"), provider);
-            // Don't add invalidate to server player since it's persistent
-            if (!(event.getObject() instanceof EntityPlayerMP)) {
-                event.addListener(provider::invalidate);
-            }
+            // 1.12.2: capabilities are never invalidated (no AttachCapabilitiesEvent#addListener), nothing to clean up
         }
     }
 
     @SubscribeEvent
     public static void onStartTracking(PlayerEvent.StartTracking event) {
-        if (!event.getEntity().world.isRemote) {
+        if (!event.getEntityPlayer().world.isRemote) {
             Entity entity = event.getTarget();
             DataHolder holder = SyncedEntityData.instance().getDataHolder(entity);
             if (holder != null) {
                 List<DataEntry<?, ?>> entries = holder.gatherAll();
                 entries.removeIf(entry -> !entry.getKey().syncMode().isTracking());
                 if (!entries.isEmpty()) {
-                    NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (EntityPlayerMP) event.getEntity()), new ServerMessageUpdateEntityData(entity.getId(), entries));
+                    NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (EntityPlayerMP) event.getEntityPlayer()), new ServerMessageUpdateEntityData(entity.getEntityId(), entries));
                 }
             }
         }
     }
 
     @SubscribeEvent
-    public static void onPlayerJoinWorld(EntityJoinLevelEvent event) {
+    public static void onPlayerJoinWorld(EntityJoinWorldEvent event) {
         Entity entity = event.getEntity();
-        if (entity instanceof EntityPlayer player && !event.getLevel().isRemote) {
+        if (entity instanceof EntityPlayer player && !event.getWorld().isRemote) {
             DataHolder holder = SyncedEntityData.instance().getDataHolder(player);
             if (holder != null) {
                 List<DataEntry<?, ?>> entries = holder.gatherAll();
                 if (!entries.isEmpty()) {
-                    NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (EntityPlayerMP) player), new ServerMessageUpdateEntityData(player.getId(), entries));
+                    NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (EntityPlayerMP) player), new ServerMessageUpdateEntityData(player.getEntityId(), entries));
                 }
             }
         }
@@ -68,13 +65,11 @@ public final class SyncedEntityDataEvent {
     @SubscribeEvent
     public static void onPlayerClone(PlayerEvent.Clone event) {
         EntityPlayer original = event.getOriginal();
-        original.reviveCaps();
         DataHolder oldHolder = SyncedEntityData.instance().getDataHolder(original);
         if (oldHolder == null) {
             return;
         }
-        original.invalidateCaps();
-        EntityPlayer player = event.getEntity();
+        EntityPlayer player = event.getEntityPlayer();
         DataHolder newHolder = SyncedEntityData.instance().getDataHolder(player);
         if (newHolder == null) {
             return;
@@ -114,11 +109,11 @@ public final class SyncedEntityDataEvent {
             }
             List<DataEntry<?, ?>> selfEntries = entries.stream().filter(entry -> entry.getKey().syncMode().isSelf()).collect(Collectors.toList());
             if (!selfEntries.isEmpty() && entity instanceof EntityPlayerMP) {
-                NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (EntityPlayerMP) entity), new ServerMessageUpdateEntityData(entity.getId(), selfEntries));
+                NetworkHandler.CHANNEL.send(PacketDistributor.PLAYER.with(() -> (EntityPlayerMP) entity), new ServerMessageUpdateEntityData(entity.getEntityId(), selfEntries));
             }
             List<DataEntry<?, ?>> trackingEntries = entries.stream().filter(entry -> entry.getKey().syncMode().isTracking()).collect(Collectors.toList());
             if (!trackingEntries.isEmpty()) {
-                NetworkHandler.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> entity), new ServerMessageUpdateEntityData(entity.getId(), trackingEntries));
+                NetworkHandler.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> entity), new ServerMessageUpdateEntityData(entity.getEntityId(), trackingEntries));
             }
             holder.clean();
         }

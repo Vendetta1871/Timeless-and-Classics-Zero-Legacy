@@ -65,7 +65,7 @@ public class LivingEntityReload {
             if (MinecraftForge.EVENT_BUS.post(new GunReloadEvent(shooter, currentGunItem, Side.SERVER))) {
                 return;
             }
-            NetworkHandler.sendToTrackingEntity(new ServerMessageGunReload(shooter.getId(), currentGunItem), shooter);
+            NetworkHandler.sendToTrackingEntity(new ServerMessageGunReload(shooter.getEntityId(), currentGunItem), shooter);
             Bolt boltType = gunIndex.getGunData().getBolt();
             int ammoCount = gunItem.getCurrentAmmoCount(currentGunItem) + (gunItem.hasBulletInBarrel(currentGunItem) && boltType != Bolt.OPEN_BOLT ? 1 : 0);
             if (ammoCount <= 0) {

@@ -47,7 +47,7 @@ public class ServerMessageGunShoot {
         if (level == null) {
             return;
         }
-        if (level.getEntity(message.shooterId) instanceof EntityLivingBase shooter) {
+        if (level.getEntityByID(message.shooterId) instanceof EntityLivingBase shooter) {
             GunShootEvent gunShootEvent = new GunShootEvent(shooter, message.gunItemStack, Side.CLIENT);
             MinecraftForge.EVENT_BUS.post(gunShootEvent);
         }

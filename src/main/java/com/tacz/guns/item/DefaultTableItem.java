@@ -1,9 +1,9 @@
 package com.tacz.guns.item;
 
 import com.tacz.guns.GunMod;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.item.ItemStack;
 import net.minecraft.block.Block;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

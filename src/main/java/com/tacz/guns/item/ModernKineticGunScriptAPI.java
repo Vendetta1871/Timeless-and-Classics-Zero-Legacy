@@ -15,7 +15,8 @@ import com.tacz.guns.api.util.LuaEntityAccessor;
 import com.tacz.guns.api.util.LuaNbtAccessor;
 import com.tacz.guns.client.animation.statemachine.GunAnimationStateContext;
 import com.tacz.guns.config.common.AmmoConfig;
-import com.tacz.guns.entity.EntityKineticBullet;
+// TODO(port): needs EntityKineticBullet
+// import com.tacz.guns.entity.EntityKineticBullet;
 import com.tacz.guns.entity.shooter.ShooterDataHolder;
 import com.tacz.guns.network.NetworkHandler;
 import com.tacz.guns.network.message.event.ServerMessageGunFire;
@@ -33,7 +34,8 @@ import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import com.tacz.guns.legacy.util.ItemHandlers;
+import com.tacz.guns.legacy.util.Optionals;
 import net.minecraftforge.fml.relauncher.Side;
 import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaFunction;
@@ -161,7 +163,7 @@ public class ModernKineticGunScriptAPI {
             // 触发击发事件
             boolean fire = !MinecraftForge.EVENT_BUS.post(new GunFireEvent(shooter, itemStack, Side.SERVER));
             if (fire) {
-                NetworkHandler.sendToTrackingEntity(new ServerMessageGunFire(shooter.getId(), itemStack), shooter);
+                NetworkHandler.sendToTrackingEntity(new ServerMessageGunFire(shooter.getEntityId(), itemStack), shooter);
                 // 削减弹药
                 if (consumeAmmo) {
                     if (!this.reduceAmmoOnce()) {
@@ -170,29 +172,29 @@ public class ModernKineticGunScriptAPI {
                 }
                 //Handle Heat Data
                 if(gunIndex.getGunData().hasHeatData()) {
-                    Optional.ofNullable(gunIndex.getScript())
-                            .map(script -> checkFunction(script.get("handle_shoot_heat")))
-                            .ifPresentOrElse(
-                                    func -> func.call(CoerceJavaToLua.coerce(this)),
-                                    this::handleShootHeat
-                            );
+                    Optionals.ifPresentOrElse(Optional.ofNullable(gunIndex.getScript())
+                                    .map(script -> checkFunction(script.get("handle_shoot_heat"))),
+                            func -> func.call(CoerceJavaToLua.coerce(this)),
+                            this::handleShootHeat
+                    );
                 }
                 // 获取射击方向（pitch 和 yaw）
-                float pitch = pitchSupplier != null ? pitchSupplier.get() : shooter.getXRot();
-                float yaw = yawSupplier != null ? yawSupplier.get() : shooter.getYRot();
+                float pitch = pitchSupplier != null ? pitchSupplier.get() : shooter.rotationPitch;
+                float yaw = yawSupplier != null ? yawSupplier.get() : shooter.rotationYaw;
                 // 生成子弹
                 World world = shooter.world;
                 ResourceLocation ammoId = gunData.getAmmoId();
-                for (int i = 0; i < bulletAmount; i++) {
-                    boolean isTracer = bulletData.hasTracerAmmo() && gunOperator.nextBulletIsTracer(bulletData.getTracerCountInterval());
-                    EntityKineticBullet bullet = new EntityKineticBullet(world, shooter, itemStack, ammoId, gunId,
-                            gunDisplayId, isTracer, gunData, bulletData);
-                    bullet.applyShotgunDamageSpread(bulletAmount);
-                    bullet.setShotDamageMultiplier(shotDamageMultiplier);
-                    abstractGunItem.doBulletSpread(dataHolder, itemStack, shooter, bullet, i, processedSpeed,
-                            inaccuracy, pitch, yaw);
-                    world.addFreshEntity(bullet);
-                }
+                // TODO(port): needs EntityKineticBullet
+                // for (int i = 0; i < bulletAmount; i++) {
+                //     boolean isTracer = bulletData.hasTracerAmmo() && gunOperator.nextBulletIsTracer(bulletData.getTracerCountInterval());
+                //     EntityKineticBullet bullet = new EntityKineticBullet(world, shooter, itemStack, ammoId, gunId,
+                //             gunDisplayId, isTracer, gunData, bulletData);
+                //     bullet.applyShotgunDamageSpread(bulletAmount);
+                //     bullet.setShotDamageMultiplier(shotDamageMultiplier);
+                //     abstractGunItem.doBulletSpread(dataHolder, itemStack, shooter, bullet, i, processedSpeed,
+                //             inaccuracy, pitch, yaw);
+                //     world.spawnEntity(bullet);
+                // }
                 // 播放枪声
                 if (soundDistance > 0) {
                     String soundId = useSilenceSound ? SoundManager.SILENCE_3P_SOUND : SoundManager.SHOOT_3P_SOUND;
@@ -547,7 +549,7 @@ public class ModernKineticGunScriptAPI {
         if (abstractGunItem.useDummyAmmo(itemStack)) {
             return abstractGunItem.findAndExtractDummyAmmo(itemStack, neededAmount);
         } else {
-            return shooter.getCapability(ForgeCapabilities.ITEM_HANDLER, null)
+            return ItemHandlers.of(shooter)
                     .map(cap -> abstractGunItem.findAndExtractInventoryAmmo(cap, itemStack, neededAmount))
                     .orElse(0);
         }
@@ -565,7 +567,7 @@ public class ModernKineticGunScriptAPI {
         if (abstractGunItem.useDummyAmmo(itemStack)) {
             return abstractGunItem.getDummyAmmoAmount(itemStack) > 0;
         }
-        return shooter.getCapability(ForgeCapabilities.ITEM_HANDLER, null).map(cap -> {
+        return ItemHandlers.of(shooter).map(cap -> {
             // 背包检查
             for (int i = 0; i < cap.getSlots(); i++) {
                 ItemStack checkAmmoStack = cap.getStackInSlot(i);

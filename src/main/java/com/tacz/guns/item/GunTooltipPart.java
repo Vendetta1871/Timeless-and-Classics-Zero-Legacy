@@ -1,8 +1,10 @@
 package com.tacz.guns.item;
 
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTBase;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.util.Constants;
+
+import com.tacz.guns.legacy.util.StackNbt;
 
 public enum GunTooltipPart {
     DESCRIPTION,
@@ -20,13 +22,14 @@ public enum GunTooltipPart {
 
     public static int getHideFlags(ItemStack stack) {
         NBTTagCompound tag = stack.getTagCompound();
-        if (tag != null && tag.contains("HideFlags", NBTBase.TAG_ANY_NUMERIC)) {
-            return tag.getInt("HideFlags");
+        if (tag != null && tag.hasKey("HideFlags", Constants.NBT.TAG_ANY_NUMERIC)) {
+            return tag.getInteger("HideFlags");
         }
-        return stack.getItem().getDefaultTooltipHideFlags(stack);
+        // 1.12.2: Item#getDefaultTooltipHideFlags does not exist, items have no default hide flags
+        return 0;
     }
 
     public static void setHideFlags(ItemStack stack, int mask) {
-        stack.getOrCreateTag().setInteger("HideFlags", mask);
+        StackNbt.getOrCreateTag(stack).setInteger("HideFlags", mask);
     }
 }

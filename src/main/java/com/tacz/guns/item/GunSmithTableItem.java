@@ -3,48 +3,56 @@ package com.tacz.guns.item;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.item.builder.BlockItemBuilder;
 import com.tacz.guns.api.item.nbt.BlockItemDataAccessor;
+import com.tacz.guns.block.AbstractGunSmithTableBlock;
 import com.tacz.guns.client.renderer.item.GunSmithTableItemRenderer;
 import com.tacz.guns.client.resource.index.ClientBlockIndex;
 import com.tacz.guns.inventory.tooltip.BlockItemTooltip;
-import net.minecraft.client.Minecraft;
-import com.tacz.guns.legacy.render.BlockEntityWithoutLevelRenderer;
-import net.minecraft.core.NonNullList;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
 import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import net.minecraftforge.client.extensions.common.IClientItemExtensions;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
-import java.util.function.Consumer;
-import com.tacz.guns.legacy.util.Components;
 
-public class GunSmithTableItem extends BlockItem implements BlockItemDataAccessor {
+public class GunSmithTableItem extends ItemBlock implements BlockItemDataAccessor {
     public GunSmithTableItem(Block block) {
-        super(block, (new Item.Properties()).stacksTo(1));
+        super(block);
+        this.setMaxStackSize(1);
+        if (FMLCommonHandler.instance().getSide().isClient()) {
+            this.initializeClient();
+        }
     }
 
-    @Override
-    public void initializeClient(Consumer<IClientItemExtensions> consumer) {
-        consumer.accept(new IClientItemExtensions() {
-            GunSmithTableItemRenderer renderer;
-            @Override
-            public BlockEntityWithoutLevelRenderer getCustomRenderer() {
-                if (renderer == null) {
-                    Minecraft minecraft = Minecraft.getMinecraft();
-                    renderer = new GunSmithTableItemRenderer(minecraft.getBlockEntityRenderDispatcher(), minecraft.getEntityModels());
-                }
+    /**
+     * 1.12.2: {@code IClientItemExtensions#getCustomRenderer}
+     */
+    @SideOnly(Side.CLIENT)
+    private void initializeClient() {
+        this.setTileEntityItemStackRenderer(new GunSmithTableItemRenderer());
+    }
 
-                return renderer;
-            }
-        });
+    /**
+     * 1.12.2: upstream's {@code getStateForPlacement} returns {@code null} (no placement) when the second half of a
+     * two-block table has no room.
+     */
+    @Override
+    public boolean placeBlockAt(ItemStack stack, EntityPlayer player, World world, BlockPos pos, EnumFacing side, float hitX, float hitY, float hitZ, IBlockState newState) {
+        if (newState.getBlock() instanceof AbstractGunSmithTableBlock table && !table.canPlaceAt(world, pos, newState)) {
+            return false;
+        }
+        return super.placeBlockAt(stack, player, world, pos, side, hitX, hitY, hitZ, newState);
     }
 
     public static NonNullList<ItemStack> fillItemCategory() {
@@ -59,36 +67,36 @@ public class GunSmithTableItem extends BlockItem implements BlockItemDataAccesso
     @Override
     @Nonnull
     @SideOnly(Side.CLIENT)
-    public ITextComponent getName(@Nonnull ItemStack stack) {
+    public String getItemStackDisplayName(@Nonnull ItemStack stack) {
         ResourceLocation blockId = this.getBlockId(stack);
         Optional<ClientBlockIndex> blockIndex = TimelessAPI.getClientBlockIndex(blockId);
         if (blockIndex.isPresent()) {
-            return Components.translatable(blockIndex.get().getName());
+            return I18n.format(blockIndex.get().getName());
         }
-        return super.getName(stack);
+        return super.getItemStackDisplayName(stack);
     }
 
 //    @Override
-//    @SideOnly(Side.CLIENT)
-//    public void appendHoverText(ItemStack stack, @Nullable Level level, List<ITextComponent> components, TooltipFlag isAdvanced) {
+//    @OnlyIn(Dist.CLIENT)
+//    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> components, TooltipFlag isAdvanced) {
 //        ResourceLocation blockId = this.getBlockId(stack);
 //        TimelessAPI.getClientBlockIndex(blockId).ifPresent(index -> {
 //            String tooltipKey = index.getTooltipKey();
 //            if (tooltipKey != null) {
-//                components.add(Components.translatable(tooltipKey).withStyle(ChatFormatting.GRAY));
+//                components.add(Component.translatable(tooltipKey).withStyle(ChatFormatting.GRAY));
 //            }
 //        });
 //
 //        PackInfo packInfoObject = ClientAssetsManager.INSTANCE.getPackInfo(blockId);
 //        if (packInfoObject != null) {
-//            MutableComponent component = Components.translatable(packInfoObject.getName()).withStyle(ChatFormatting.BLUE).withStyle(ChatFormatting.ITALIC);
+//            MutableComponent component = Component.translatable(packInfoObject.getName()).withStyle(ChatFormatting.BLUE).withStyle(ChatFormatting.ITALIC);
 //            components.add(component);
 //        }
 //    }
 
-    @Override
+    // TODO(port): 1.12.2 has no TooltipComponent / Item#getTooltipImage; BlockItemTooltip is a plain class here and needs a tooltip event hook
     @NotNull
-    public Optional<TooltipComponent> getTooltipImage(ItemStack pStack) {
+    public Optional<BlockItemTooltip> getTooltipImage(ItemStack pStack) {
         return Optional.of(new BlockItemTooltip(this.getBlockId(pStack)));
     }
 }

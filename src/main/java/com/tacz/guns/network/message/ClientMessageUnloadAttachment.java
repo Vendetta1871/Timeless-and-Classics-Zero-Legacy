@@ -39,7 +39,7 @@ public class ClientMessageUnloadAttachment {
                     return;
                 }
                 InventoryPlayer inventory = player.inventory;
-                ItemStack gunItem = inventory.getItem(message.gunSlotIndex);
+                ItemStack gunItem = inventory.getStackInSlot(message.gunSlotIndex);
                 IGun iGun = IGun.getIGunOrNull(gunItem);
                 if (iGun != null) {
                     // 服务端校验配件锁
@@ -47,7 +47,7 @@ public class ClientMessageUnloadAttachment {
                         return;
                     }
                     ItemStack attachmentItem = iGun.getAttachment(gunItem, message.attachmentType);
-                    if (!attachmentItem.isEmpty() && inventory.add(attachmentItem)) {
+                    if (!attachmentItem.isEmpty() && inventory.addItemStackToInventory(attachmentItem)) {
                         iGun.unloadAttachment(gunItem, message.attachmentType);
                         // 刷新配件数据
                         AttachmentPropertyManager.postChangeEvent(player, gunItem);
@@ -55,7 +55,7 @@ public class ClientMessageUnloadAttachment {
                         if (message.attachmentType == AttachmentType.EXTENDED_MAG) {
                             iGun.dropAllAmmo(player, gunItem);
                         }
-                        player.inventoryMenu.broadcastChanges();
+                        player.inventoryContainer.detectAndSendChanges();
                         NetworkHandler.sendToClientPlayer(new ServerMessageRefreshRefitScreen(), player);
                     }
                 }

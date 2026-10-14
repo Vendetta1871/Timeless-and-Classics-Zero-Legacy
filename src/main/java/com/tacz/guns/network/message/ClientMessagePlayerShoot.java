@@ -43,7 +43,7 @@ public class ClientMessagePlayerShoot {
                 if (entity == null) {
                     return;
                 }
-                IGunOperator.fromLivingEntity(entity).shoot(entity::getXRot, entity::getYRot, message.timestamp, message.chargeProgress);
+                IGunOperator.fromLivingEntity(entity).shoot(() -> entity.rotationPitch, () -> entity.rotationYaw, message.timestamp, message.chargeProgress);
             });
         }
         context.setPacketHandled(true);

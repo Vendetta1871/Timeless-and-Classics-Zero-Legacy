@@ -1,5 +1,6 @@
 package com.tacz.guns.item;
 
+import com.tacz.guns.GunMod;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.item.IAmmo;
 import com.tacz.guns.api.item.builder.AmmoItemBuilder;
@@ -8,37 +9,39 @@ import com.tacz.guns.client.renderer.item.AmmoItemRenderer;
 import com.tacz.guns.client.resource.ClientAssetsManager;
 import com.tacz.guns.client.resource.index.ClientAmmoIndex;
 import com.tacz.guns.client.resource.pojo.PackInfo;
+import com.tacz.guns.legacy.util.Components;
 import com.tacz.guns.resource.index.CommonAmmoIndex;
-import net.minecraft.util.text.TextFormatting;
-import net.minecraft.client.Minecraft;
-import com.tacz.guns.legacy.render.BlockEntityWithoutLevelRenderer;
-import net.minecraft.core.NonNullList;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import net.minecraftforge.client.extensions.common.IClientItemExtensions;
-import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
-import com.tacz.guns.legacy.util.Components;
 
 public class AmmoItem extends Item implements AmmoItemDataAccessor {
     public AmmoItem() {
-        super(new Properties().stacksTo(1));
+        super();
+        this.setMaxStackSize(1);
+        this.setTranslationKey(GunMod.MOD_ID + ".ammo");
+        if (FMLCommonHandler.instance().getSide().isClient()) {
+            this.initializeClient();
+        }
     }
 
     @Override
-    public int getMaxStackSize(ItemStack stack) {
+    public int getItemStackLimit(ItemStack stack) {
         if (stack.getItem() instanceof IAmmo iAmmo) {
             return TimelessAPI.getCommonAmmoIndex(iAmmo.getAmmoId(stack))
                     .map(CommonAmmoIndex::getStackSize).orElse(1);
@@ -49,13 +52,13 @@ public class AmmoItem extends Item implements AmmoItemDataAccessor {
     @Override
     @Nonnull
     @SideOnly(Side.CLIENT)
-    public ITextComponent getName(@Nonnull ItemStack stack) {
+    public String getItemStackDisplayName(@Nonnull ItemStack stack) {
         ResourceLocation ammoId = this.getAmmoId(stack);
         Optional<ClientAmmoIndex> ammoIndex = TimelessAPI.getClientAmmoIndex(ammoId);
         if (ammoIndex.isPresent()) {
-            return Components.translatable(ammoIndex.get().getName());
+            return I18n.format(ammoIndex.get().getName());
         }
-        return super.getName(stack);
+        return super.getItemStackDisplayName(stack);
     }
 
     private static Comparator<Map.Entry<ResourceLocation, CommonAmmoIndex>> idNameSort() {
@@ -71,36 +74,28 @@ public class AmmoItem extends Item implements AmmoItemDataAccessor {
         return stacks;
     }
 
-    @Override
-    public void initializeClient(Consumer<IClientItemExtensions> consumer) {
-        consumer.accept(new IClientItemExtensions() {
-            AmmoItemRenderer renderer;
-            @Override
-            public BlockEntityWithoutLevelRenderer getCustomRenderer() {
-                if (renderer == null) {
-                    Minecraft minecraft = Minecraft.getMinecraft();
-                    renderer = new AmmoItemRenderer(minecraft.getBlockEntityRenderDispatcher(), minecraft.getEntityModels());
-                }
-                return renderer;
-            }
-        });
+    /**
+     * 1.12.2: {@code IClientItemExtensions#getCustomRenderer}
+     */
+    @SideOnly(Side.CLIENT)
+    private void initializeClient() {
+        this.setTileEntityItemStackRenderer(new AmmoItemRenderer());
     }
 
     @Override
     @SideOnly(Side.CLIENT)
-    public void appendHoverText(ItemStack stack, @Nullable World level, List<ITextComponent> components, ITooltipFlag isAdvanced) {
+    public void addInformation(ItemStack stack, @Nullable World level, List<String> components, ITooltipFlag isAdvanced) {
         ResourceLocation ammoId = this.getAmmoId(stack);
         TimelessAPI.getClientAmmoIndex(ammoId).ifPresent(index -> {
             String tooltipKey = index.getTooltipKey();
             if (tooltipKey != null) {
-                components.add(Components.translatable(tooltipKey).withStyle(TextFormatting.GRAY));
+                components.add(Components.translatable(tooltipKey).withStyle(TextFormatting.GRAY).getFormattedText());
             }
         });
 
         PackInfo packInfoObject = ClientAssetsManager.INSTANCE.getPackInfo(ammoId);
         if (packInfoObject != null) {
-            ITextComponent component = Components.translatable(packInfoObject.getName()).withStyle(TextFormatting.BLUE).withStyle(TextFormatting.ITALIC);
-            components.add(component);
+            components.add(Components.translatable(packInfoObject.getName()).withStyle(TextFormatting.BLUE).withStyle(TextFormatting.ITALIC).getFormattedText());
         }
     }
 }

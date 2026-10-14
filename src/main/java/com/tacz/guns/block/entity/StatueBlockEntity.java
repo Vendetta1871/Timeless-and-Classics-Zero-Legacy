@@ -2,6 +2,7 @@ package com.tacz.guns.block.entity;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockDoublePlant;
+import com.tacz.guns.config.client.RenderConfig;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -107,6 +108,16 @@ public class StatueBlockEntity extends TileEntity implements ITickable {
     @Override
     public NBTTagCompound getUpdateTag() {
         return writeToNBT(new NBTTagCompound());
+    }
+
+    /**
+     * 1.12.2: upstream's block entity renderer view distance ({@code RenderConfig.TARGET_RENDER_DISTANCE}).
+     */
+    @Override
+    @SideOnly(Side.CLIENT)
+    public double getMaxRenderDistanceSquared() {
+        double distance = RenderConfig.TARGET_RENDER_DISTANCE.get();
+        return distance * distance;
     }
 
     @Override

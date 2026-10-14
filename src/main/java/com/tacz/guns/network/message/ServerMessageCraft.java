@@ -1,6 +1,7 @@
 package com.tacz.guns.network.message;
 
-import com.tacz.guns.client.gui.GunSmithTableScreen;
+// TODO(port): needs GunSmithTableScreen
+// import com.tacz.guns.client.gui.GunSmithTableScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import com.tacz.guns.legacy.network.FriendlyByteBuf;
@@ -36,8 +37,9 @@ public class ServerMessageCraft {
     @SideOnly(Side.CLIENT)
     private static void updateScreen(int containerId) {
         EntityPlayerSP player = Minecraft.getMinecraft().player;
-        if (player != null && player.containerMenu.containerId == containerId && Minecraft.getMinecraft().currentScreen instanceof GunSmithTableScreen screen) {
-            screen.updateIngredientCount();
-        }
+        // TODO(port): needs GunSmithTableScreen
+        // if (player != null && player.openContainer.windowId == containerId && Minecraft.getMinecraft().currentScreen instanceof GunSmithTableScreen screen) {
+        //     screen.updateIngredientCount();
+        // }
     }
 }

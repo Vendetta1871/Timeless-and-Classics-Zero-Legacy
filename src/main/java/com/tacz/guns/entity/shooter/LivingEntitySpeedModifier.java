@@ -9,7 +9,7 @@ import com.tacz.guns.resource.modifier.custom.WeightModifier;
 import com.tacz.guns.resource.pojo.data.gun.MoveSpeed;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.item.ItemStack;
 
 import java.util.UUID;
@@ -25,10 +25,10 @@ public class LivingEntitySpeedModifier {
     }
 
     public void updateSpeedModifier() {
-        if (!shooter.isAlive()) return;
+        if (!shooter.isEntityAlive()) return;
 
         ItemStack stack = shooter.getHeldItemMainhand();
-        var speedModifier = shooter.getAttributes().getInstance(Attributes.MOVEMENT_SPEED);
+        var speedModifier = shooter.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED);
         if (speedModifier == null) return;
 
         if (stack.getItem() instanceof AbstractGunItem) {
@@ -42,8 +42,8 @@ public class LivingEntitySpeedModifier {
                     AttributeModifier currentModifier = speedModifier.getModifier(WEIGHT_SPEED_MODIFIER_UUID);
                     if (currentModifier == null || currentModifier.getAmount() != targetSpeed) {
                         speedModifier.removeModifier(WEIGHT_SPEED_MODIFIER_UUID);
-                        speedModifier.addTransientModifier(new AttributeModifier(WEIGHT_SPEED_MODIFIER_UUID, "Gun Speed Modifier",
-                                targetSpeed, AttributeModifier.Operation.MULTIPLY_BASE));
+                        speedModifier.applyModifier(new AttributeModifier(WEIGHT_SPEED_MODIFIER_UUID, "Gun Speed Modifier",
+                                targetSpeed, 1 /* Operation.MULTIPLY_BASE */));
                     }
                 }
 
@@ -53,8 +53,8 @@ public class LivingEntitySpeedModifier {
                     AttributeModifier currentModifier = speedModifier.getModifier(EXTRA_SPEED_MODIFIER_UUID);
                     if (currentModifier == null || currentModifier.getAmount() != targetSpeed) {
                         speedModifier.removeModifier(EXTRA_SPEED_MODIFIER_UUID);
-                        speedModifier.addTransientModifier(new AttributeModifier(EXTRA_SPEED_MODIFIER_UUID, "Extra Gun Speed Modifier",
-                                targetSpeed, AttributeModifier.Operation.MULTIPLY_TOTAL));
+                        speedModifier.applyModifier(new AttributeModifier(EXTRA_SPEED_MODIFIER_UUID, "Extra Gun Speed Modifier",
+                                targetSpeed, 2 /* Operation.MULTIPLY_TOTAL */));
                     }
                 }
             }

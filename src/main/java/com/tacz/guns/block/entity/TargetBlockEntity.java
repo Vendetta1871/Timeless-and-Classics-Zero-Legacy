@@ -5,6 +5,7 @@ import com.tacz.guns.block.TargetBlock;
 import com.tacz.guns.config.common.OtherConfig;
 import com.tacz.guns.init.ModSounds;
 import com.tacz.guns.legacy.util.Components;
+import com.tacz.guns.config.client.RenderConfig;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTUtil;
@@ -91,7 +92,7 @@ public class TargetBlockEntity extends TileEntity implements IWorldNameable, ITi
 
     public void setOwner(@Nullable GameProfile owner) {
         // 1.12.2: fills the profile (textures) from the profile cache / session server, synchronously
-        this.owner = TileEntitySkull.updateGameprofile(owner);
+        this.owner = TileEntitySkull.updateGameProfile(owner);
         this.refresh();
     }
 
@@ -166,6 +167,16 @@ public class TargetBlockEntity extends TileEntity implements IWorldNameable, ITi
             IBlockState state = world.getBlockState(pos);
             world.notifyBlockUpdate(pos, state, state, 3);
         }
+    }
+
+    /**
+     * 1.12.2: upstream's block entity renderer view distance ({@code RenderConfig.TARGET_RENDER_DISTANCE}).
+     */
+    @Override
+    @SideOnly(Side.CLIENT)
+    public double getMaxRenderDistanceSquared() {
+        double distance = RenderConfig.TARGET_RENDER_DISTANCE.get();
+        return distance * distance;
     }
 
     @Override

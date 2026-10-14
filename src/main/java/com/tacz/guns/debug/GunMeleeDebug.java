@@ -1,6 +1,6 @@
 package com.tacz.guns.debug;
 
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.world.WorldServer;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.util.math.Vec3d;
@@ -12,7 +12,7 @@ public class GunMeleeDebug {
         }
         // 起点坐标
         int half = distance / 2;
-        Vec3d startPos = user.getEyePosition().subtract(half, half, half);
+        Vec3d startPos = user.getPositionEyes(1.0F).subtract(half, half, half);
         // 先尝试生成 distance^3 范围的坐标
         for (int i = 0; i < distance * 2; i++) {
             for (int j = 0; j < distance * 2; j++) {
@@ -28,10 +28,10 @@ public class GunMeleeDebug {
                         continue;
                     }
                     // 计算出向量夹角
-                    double degree = Math.toDegrees(Math.acos(targetVec.dot(eyeVec) / (targetLength * distance)));
+                    double degree = Math.toDegrees(Math.acos(targetVec.dotProduct(eyeVec) / (targetLength * distance)));
                     // 向量夹角在范围内的，生成粒子
                     if (degree < (rangeAngle / 2)) {
-                        serverLevel.sendParticles(ParticleTypes.FLAME, tmpPos.x, tmpPos.y, tmpPos.z, 1, 0, 0, 0, 0);
+                        serverLevel.spawnParticle(EnumParticleTypes.FLAME, tmpPos.x, tmpPos.y, tmpPos.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
                     }
                 }
             }

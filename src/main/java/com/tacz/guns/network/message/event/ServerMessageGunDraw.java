@@ -51,7 +51,7 @@ public class ServerMessageGunDraw {
         if (level == null) {
             return;
         }
-        if (level.getEntity(message.entityId) instanceof EntityLivingBase livingEntity) {
+        if (level.getEntityByID(message.entityId) instanceof EntityLivingBase livingEntity) {
             GunDrawEvent gunDrawEvent = new GunDrawEvent(livingEntity, message.previousGunItem, message.currentGunItem, Side.CLIENT);
             MinecraftForge.EVENT_BUS.post(gunDrawEvent);
         }

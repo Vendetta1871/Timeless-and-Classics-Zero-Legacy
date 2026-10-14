@@ -1,22 +1,23 @@
 package com.tacz.guns.event;
 
+import com.tacz.guns.GunMod;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.config.common.GunConfig;
 import com.tacz.guns.item.ModernKineticGunScriptAPI;
 import com.tacz.guns.resource.pojo.data.gun.FeedType;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 
-@Mod.EventBusSubscriber
+@Mod.EventBusSubscriber(modid = GunMod.MOD_ID)
 public class PlayerRespawnEvent {
     @SubscribeEvent
     public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
         // 重生自动换弹
         if (!GunConfig.AUTO_RELOAD_WHEN_RESPAWN.get()) return;
 
-        var player = event.getEntity();
-        player.inventory.items.forEach(itemStack -> {
+        var player = event.player;
+        player.inventory.mainInventory.forEach(itemStack -> {
             if (!(itemStack.getItem() instanceof IGun)) return;
 
             var api = new ModernKineticGunScriptAPI();

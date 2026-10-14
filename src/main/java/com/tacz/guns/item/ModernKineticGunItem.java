@@ -13,28 +13,38 @@ import com.tacz.guns.api.item.gun.FireMode;
 import com.tacz.guns.api.item.nbt.GunItemDataAccessor;
 import com.tacz.guns.command.sub.DebugCommand;
 import com.tacz.guns.debug.GunMeleeDebug;
-import com.tacz.guns.entity.EntityKineticBullet;
+// TODO(port): needs EntityKineticBullet
+// import com.tacz.guns.entity.EntityKineticBullet;
 import com.tacz.guns.entity.shooter.ShooterDataHolder;
 import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.pojo.data.attachment.EffectData;
 import com.tacz.guns.resource.pojo.data.attachment.MeleeData;
 import com.tacz.guns.resource.pojo.data.gun.*;
 import com.tacz.guns.util.AllowAttachmentTagMatcher;
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.WorldServer;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.entity.SharedMonsterAttributes;
+import net.minecraft.entity.ai.attributes.IAttributeInstance;
+import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.util.DamageSource;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.entity.Entity;
+import com.tacz.guns.legacy.util.Optionals;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+import com.tacz.guns.client.renderer.item.GunItemRendererWrapper;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import org.apache.logging.log4j.MarkerManager;
-import org.joml.Vector2d;
+// TODO(port): needs EntityKineticBullet
+// import org.joml.Vector2d;
 import org.luaj.vm2.*;
 import org.luaj.vm2.lib.jse.CoerceJavaToLua;
 import org.luaj.vm2.lib.jse.CoerceLuaToJava;
@@ -55,11 +65,24 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
 
     private static final DoubleFunction<AttributeModifier> AM_FACTORY = amount -> new AttributeModifier(
             UUID.randomUUID(), "TACZ Melee Damage",
-            amount, AttributeModifier.Operation.ADDITION
+            amount, 0 /* Operation.ADDITION */
     );
 
     public ModernKineticGunItem() {
-        super(new Properties().stacksTo(1));
+        super();
+        this.setMaxStackSize(1);
+        this.setTranslationKey(GunMod.MOD_ID + ".modern_kinetic_gun");
+        if (FMLCommonHandler.instance().getSide().isClient()) {
+            this.initializeClient();
+        }
+    }
+
+    /**
+     * 1.12.2: {@code IClientItemExtensions#getCustomRenderer} (upstream: {@code AbstractGunItem#initializeClient})
+     */
+    @SideOnly(Side.CLIENT)
+    private void initializeClient() {
+        this.setTileEntityItemStackRenderer(new GunItemRendererWrapper());
     }
 
     @Override
@@ -110,11 +133,10 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
             return;
         }
 
-        Optional.ofNullable(gunIndex.getScript())
-                .map(script -> checkFunction(script.get("shoot")))
-                .ifPresentOrElse(
-                        func -> func.call(CoerceJavaToLua.coerce(api)),
-                        ()   -> api.shootOnce(api.isShootingNeedConsumeAmmo()));
+        Optionals.ifPresentOrElse(Optional.ofNullable(gunIndex.getScript())
+                        .map(script -> checkFunction(script.get("shoot"))),
+                func -> func.call(CoerceJavaToLua.coerce(api)),
+                ()   -> api.shootOnce(api.isShootingNeedConsumeAmmo()));
     }
 
     @Override
@@ -217,12 +239,11 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
         if (gunIndex == null) {
             return;
         }
-        Optional.ofNullable(gunIndex.getScript())
-                .map(script -> checkFunction(script.get("tick_heat")))
-                .ifPresentOrElse(
-                        func -> func.call(CoerceJavaToLua.coerce(api), LuaValue.valueOf(heatTimestamp)),
-                        () -> defaultTickHeat(heatTimestamp, gunItem)
-                );
+        Optionals.ifPresentOrElse(Optional.ofNullable(gunIndex.getScript())
+                        .map(script -> checkFunction(script.get("tick_heat"))),
+                func -> func.call(CoerceJavaToLua.coerce(api), LuaValue.valueOf(heatTimestamp)),
+                () -> defaultTickHeat(heatTimestamp, gunItem)
+        );
     }
 
     private void defaultTickHeat(long heatTimestamp, ItemStack gunItem) {
@@ -307,34 +328,36 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
     }
 
     @Override
-    public void doBulletSpread(ShooterDataHolder dataHolder, ItemStack gunItem, EntityLivingBase shooter, Projectile projectile,
+    public void doBulletSpread(ShooterDataHolder dataHolder, ItemStack gunItem, EntityLivingBase shooter, Entity projectile,
                                int bulletCnt, float processedSpeed, float inaccuracy, float pitch, float yaw) {
-        if (!(projectile instanceof EntityKineticBullet bullet)) {
-            return;
-        }
-        ModernKineticGunScriptAPI api = new ModernKineticGunScriptAPI();
-        api.setItemStack(gunItem);
-        api.setShooter(shooter);
-        api.setDataHolder(dataHolder);
-
-        CommonGunIndex gunIndex = api.getGunIndex();
-        if (gunIndex == null) {
-            return;
-        }
-        Optional.ofNullable(gunIndex.getScript())
-                .map(script -> checkFunction(script.get("calcSpread")))
-                .map(func -> func.call(CoerceJavaToLua.coerce(api) , LuaValue.valueOf(bulletCnt), LuaValue.valueOf(inaccuracy)))
-                .map(luaValue -> {
-                    if (luaValue.istable()){
-                        LuaTable table = luaValue.checktable();
-                        return new Vector2d(table.get(1).checkdouble(), table.get(2).checkdouble());
-                    }
-                    return null;
-                }).ifPresentOrElse(vector2d -> {
-                    bullet.shootFromRotation(shooter, pitch, yaw, 0.0F, processedSpeed, vector2d);
-                },() -> {
-                    bullet.shootFromRotation(shooter, pitch, yaw, 0.0F, processedSpeed, inaccuracy);
-                });
+        // TODO(port): needs EntityKineticBullet
+        // if (!(projectile instanceof EntityKineticBullet bullet)) {
+        //     return;
+        // }
+        // ModernKineticGunScriptAPI api = new ModernKineticGunScriptAPI();
+        // api.setItemStack(gunItem);
+        // api.setShooter(shooter);
+        // api.setDataHolder(dataHolder);
+        //
+        // CommonGunIndex gunIndex = api.getGunIndex();
+        // if (gunIndex == null) {
+        //     return;
+        // }
+        // Optionals.ifPresentOrElse(Optional.ofNullable(gunIndex.getScript())
+        //         .map(script -> checkFunction(script.get("calcSpread")))
+        //         .map(func -> func.call(CoerceJavaToLua.coerce(api) , LuaValue.valueOf(bulletCnt), LuaValue.valueOf(inaccuracy)))
+        //         .map(luaValue -> {
+        //             if (luaValue.istable()){
+        //                 LuaTable table = luaValue.checktable();
+        //                 return new Vector2d(table.get(1).checkdouble(), table.get(2).checkdouble());
+        //             }
+        //             return null;
+        //         }), vector2d -> {
+        //             bullet.shootFromRotation(shooter, pitch, yaw, 0.0F, processedSpeed, vector2d);
+        //         },() -> {
+        //             bullet.shootFromRotation(shooter, pitch, yaw, 0.0F, processedSpeed, inaccuracy);
+        //         });
+        super.doBulletSpread(dataHolder, gunItem, shooter, projectile, bulletCnt, processedSpeed, inaccuracy, pitch, yaw); // placeholder until EntityKineticBullet is ported
     }
 
     private boolean defaultTickBolt(ModernKineticGunScriptAPI api) {
@@ -452,16 +475,16 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
     private void doMelee(EntityLivingBase user, float gunDistance, float meleeDistance, float rangeAngle, float knockback, float damage, List<EffectData> effects) {
         // 枪长 + 刺刀长 = 总长
         double distance = gunDistance + meleeDistance;
-        float xRot = (float) Math.toRadians(-user.getXRot());
-        float yRot = (float) Math.toRadians(-user.getYRot());
+        float xRot = (float) Math.toRadians(-user.rotationPitch);
+        float yRot = (float) Math.toRadians(-user.rotationYaw);
         // 视角向量
-        Vec3d eyeVec = new Vec3d(0, 0, 1).xRot(xRot).yRot(yRot).normalize().scale(distance);
+        Vec3d eyeVec = new Vec3d(0, 0, 1).rotatePitch(xRot).rotateYaw(yRot).normalize().scale(distance);
         // 球心坐标
-        Vec3d centrePos = user.getEyePosition().subtract(eyeVec);
+        Vec3d centrePos = user.getPositionEyes(1.0F).subtract(eyeVec);
         // 先获取范围内所有的实体
-        List<EntityLivingBase> entityList = user.world.getEntitiesOfClass(EntityLivingBase.class, user.getEntityBoundingBox().grow(distance));
+        List<EntityLivingBase> entityList = user.world.getEntitiesWithinAABB(EntityLivingBase.class, user.getEntityBoundingBox().grow(distance));
         Supplier<Float> realDamage = Suppliers.memoize(() -> {
-            var instance = user.getAttribute(Attributes.ATTACK_DAMAGE);
+            IAttributeInstance instance = user.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE);
             if (instance == null) {
                 return damage;
             }
@@ -469,8 +492,8 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
             var modifier = AM_FACTORY.apply(damage);
             try {
                 instance.setBaseValue(0);
-                instance.addTransientModifier(modifier);
-                return (float)instance.getValue();
+                instance.applyModifier(modifier);
+                return (float)instance.getAttributeValue();
             } finally {
                 instance.setBaseValue(oldBase);
                 instance.removeModifier(modifier);
@@ -479,7 +502,7 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
         // 而后检查是否在锥形范围内
         for (EntityLivingBase living : entityList) {
             // 先计算出球心->目标向量
-            Vec3d targetVec = living.getEyePosition().subtract(centrePos);
+            Vec3d targetVec = living.getPositionEyes(1.0F).subtract(centrePos);
             // 目标到球心距离
             double targetLength = targetVec.length();
             // 距离在一倍距离之内的，在玩家背后，不进行伤害
@@ -487,11 +510,11 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
                 continue;
             }
             // 计算出向量夹角
-            double degree = Math.toDegrees(Math.acos(targetVec.dot(eyeVec) / (targetLength * distance)));
+            double degree = Math.toDegrees(Math.acos(targetVec.dotProduct(eyeVec) / (targetLength * distance)));
             // 向量夹角在范围内的，才能进行伤害
             if (degree < (rangeAngle / 2)) {
                 // 判断实体和玩家之间是否有阻隔
-                if (user.hasLineOfSight(living)) {
+                if (user.canEntityBeSeen(living)) {
                     doPerLivingHurt(user, living, knockback, realDamage.get(), effects);
                 }
             }
@@ -499,7 +522,7 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
 
         // 玩家扣饱食度
         if (user instanceof EntityPlayer player) {
-            player.causeFoodExhaustion(0.1F);
+            player.addExhaustion(0.1F);
         }
 
         // Debug 模式
@@ -512,16 +535,18 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
         if (target.equals(user)) {
             return;
         }
-        target.knockback(knockback, (float) Math.sin(Math.toRadians(user.getYRot())), (float) -Math.cos(Math.toRadians(user.getYRot())));
+        target.knockBack(user, knockback, (float) Math.sin(Math.toRadians(user.rotationYaw)), (float) -Math.cos(Math.toRadians(user.rotationYaw)));
         if (user instanceof EntityPlayer player) {
-            target.hurt(user.damageSources().playerAttack(player), damage);
+            target.attackEntityFrom(DamageSource.causePlayerDamage(player), damage);
         } else {
-            target.hurt(user.damageSources().mobAttack(user), damage);
+            target.attackEntityFrom(DamageSource.causeMobDamage(user), damage);
         }
         // 修复近战枪械不触发神化词条/宝石的bug
-        user.doEnchantDamageEffects(user, target);
+        // 1.12.2: EntityLivingBase#doEnchantDamageEffects
+        EnchantmentHelper.applyThornEnchantments(target, user);
+        EnchantmentHelper.applyArthropodEnchantments(user, target);
 
-        if (!target.isAlive()) {
+        if (!target.isEntityAlive()) {
             return;
         }
         for (EffectData data : effects) {
@@ -532,11 +557,11 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
             int time = Math.max(0, data.getTime() * 20);
             int amplifier = Math.max(0, data.getAmplifier());
             PotionEffect effectInstance = new PotionEffect(mobEffect, time, amplifier, false, data.isHideParticles());
-            target.addEffect(effectInstance);
+            target.addPotionEffect(effectInstance);
         }
         if (user.world instanceof WorldServer serverLevel) {
             int count = (int) (damage * 0.5);
-            serverLevel.sendParticles(ParticleTypes.DAMAGE_INDICATOR, target.getX(), target.getY(0.5), target.getZ(), count, 0.1, 0, 0.1, 0.2);
+            serverLevel.spawnParticle(EnumParticleTypes.DAMAGE_INDICATOR, target.posX, target.posY + target.height * 0.5, target.posZ, count, 0.1, 0, 0.1, 0.2);
         }
     }
 

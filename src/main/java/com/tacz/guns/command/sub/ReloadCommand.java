@@ -1,51 +1,62 @@
 package com.tacz.guns.command.sub;
 
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
 import com.tacz.guns.client.resource.ClientAssetsManager;
+import com.tacz.guns.legacy.util.Components;
 import com.tacz.guns.resource.CommonAssetsManager;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.DistExecutor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.server.MinecraftServer;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import org.apache.commons.lang3.time.StopWatch;
 
 import java.util.concurrent.TimeUnit;
-import com.tacz.guns.legacy.util.Components;
 
-public class ReloadCommand {
+public class ReloadCommand extends CommandBase {
     private static final String RELOAD_NAME = "reload";
 
-    public static LiteralArgumentBuilder<CommandSourceStack> get() {
-        LiteralArgumentBuilder<CommandSourceStack> reload = Commands.literal(RELOAD_NAME);
-        reload.executes(ReloadCommand::reloadAllPack);
-        return reload;
+    @Override
+    public String getName() {
+        return RELOAD_NAME;
     }
 
-    private static int reloadAllPack(CommandContext<CommandSourceStack> context) {
+    @Override
+    public String getUsage(ICommandSender sender) {
+        return "/tacz reload";
+    }
+
+    @Override
+    public int getRequiredPermissionLevel() {
+        return 2;
+    }
+
+    @Override
+    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
         StopWatch watch = StopWatch.createStarted();
         {
-            DistExecutor.unsafeRunWhenOn(Side.CLIENT, () -> ReloadCommand::reloadClient);
-            DistExecutor.safeRunWhenOn(Side.DEDICATED_SERVER, () -> CommonAssetsManager::reloadAllPack);
+            if (FMLCommonHandler.instance().getSide().isClient()) {
+                // 1.12.2: the command runs on the server thread, the resource reload must run on the client thread
+                Minecraft.getMinecraft().addScheduledTask(ReloadCommand::reloadClient);
+            } else {
+                CommonAssetsManager.reloadAllPack();
+            }
         }
         watch.stop();
         double time = watch.getTime(TimeUnit.MICROSECONDS) / 1000.0;
 //        if (context.getSource().getEntity() instanceof ServerPlayer serverPlayer) {
 //
 //            if (OtherConfig.DEFAULT_PACK_DEBUG.get()) {
-//                serverPlayer.sendSystemMessage(Components.translatable("commands.tacz.reload.overwrite_off"));
-//                serverPlayer.sendSystemMessage(Components.translatable("commands.tacz.reload.overwrite_command.off"));
+//                serverPlayer.sendSystemMessage(Component.translatable("commands.tacz.reload.overwrite_off"));
+//                serverPlayer.sendSystemMessage(Component.translatable("commands.tacz.reload.overwrite_command.off"));
 //            } else {
-//                serverPlayer.sendSystemMessage(Components.translatable("commands.tacz.reload.overwrite_on"));
-//                serverPlayer.sendSystemMessage(Components.translatable("commands.tacz.reload.overwrite_command.on"));
-//                serverPlayer.sendSystemMessage(Components.translatable("commands.tacz.reload.backup"));
+//                serverPlayer.sendSystemMessage(Component.translatable("commands.tacz.reload.overwrite_on"));
+//                serverPlayer.sendSystemMessage(Component.translatable("commands.tacz.reload.overwrite_command.on"));
+//                serverPlayer.sendSystemMessage(Component.translatable("commands.tacz.reload.backup"));
 //            }
 //        }
 //        GunMod.LOGGER.info("Model loading time: {} ms", time);
-        context.getSource().sendSystemMessage(Components.translatable("commands.tacz.reload.success", time));
-        return Command.SINGLE_SUCCESS;
+        sender.sendMessage(Components.translatable("commands.tacz.reload.success", time));
     }
 
     public static void reloadClient() {

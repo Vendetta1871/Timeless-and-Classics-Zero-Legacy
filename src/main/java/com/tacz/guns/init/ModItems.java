@@ -3,16 +3,17 @@ package com.tacz.guns.init;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.api.item.gun.GunItemManager;
 import com.tacz.guns.item.*;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import com.tacz.guns.legacy.registry.DeferredRegister;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.registries.RegisterEvent;
 import com.tacz.guns.legacy.registry.RegistryObject;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemBlock;
+import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.EventPriority;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(modid = GunMod.MOD_ID)
 public class ModItems {
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, GunMod.MOD_ID);
 
@@ -29,15 +30,17 @@ public class ModItems {
     public static RegistryObject<GunSmithTableItem> WORKBENCH_121 = ITEMS.register("workbench_c", () -> new GunSmithTableItem(ModBlocks.WORKBENCH_121.get()));
 
 
-    public static RegistryObject<Item> TARGET = ITEMS.register("target", () -> new BlockItem(ModBlocks.TARGET.get(), new Item.Properties()));
-    public static RegistryObject<Item> STATUE = ITEMS.register("statue", () -> new BlockItem(ModBlocks.STATUE.get(), new Item.Properties()));
+    public static RegistryObject<Item> TARGET = ITEMS.register("target", () -> new ItemBlock(ModBlocks.TARGET.get()));
+    public static RegistryObject<Item> STATUE = ITEMS.register("statue", () -> new ItemBlock(ModBlocks.STATUE.get()));
     public static RegistryObject<Item> AMMO_BOX = ITEMS.register("ammo_box", AmmoBoxItem::new);
     public static RegistryObject<Item> TARGET_MINECART = ITEMS.register("target_minecart", TargetMinecartItem::new);
 
-    @SubscribeEvent
-    public static void onItemRegister(RegisterEvent event) {
-        if (event.getRegistryKey().equals(ForgeRegistries.ITEMS.getRegistryKey())) {
-            GunItemManager.registerGunItem(ModernKineticGunItem.TYPE_NAME, MODERN_KINETIC_GUN);
-        }
+    /**
+     * 1.12.2: {@code RegisterEvent} for the item registry is {@code RegistryEvent.Register<Item>}; the items themselves
+     * are created at HIGH priority by the {@link DeferredRegister}.
+     */
+    @SubscribeEvent(priority = EventPriority.LOW)
+    public static void onItemRegister(RegistryEvent.Register<Item> event) {
+        GunItemManager.registerGunItem(ModernKineticGunItem.TYPE_NAME, MODERN_KINETIC_GUN);
     }
 }

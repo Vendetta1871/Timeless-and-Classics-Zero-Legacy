@@ -47,7 +47,7 @@ public class ServerMessageGunReload {
         if (level == null) {
             return;
         }
-        if (level.getEntity(message.shooterId) instanceof EntityLivingBase shooter) {
+        if (level.getEntityByID(message.shooterId) instanceof EntityLivingBase shooter) {
             GunReloadEvent gunReloadEvent = new GunReloadEvent(shooter, message.gunItemStack, Side.CLIENT);
             MinecraftForge.EVENT_BUS.post(gunReloadEvent);
         }

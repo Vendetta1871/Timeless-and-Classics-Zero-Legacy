@@ -1,43 +1,73 @@
 package com.tacz.guns.command.sub;
 
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
 import com.tacz.guns.config.sync.SyncConfig;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraftforge.server.command.EnumArgument;
 import com.tacz.guns.legacy.util.Components;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.math.BlockPos;
 
-public class ConfigCommand {
+import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ConfigCommand extends CommandBase {
     private static final String CONFIG_NAME = "config";
-    private static final String KEY = "key";
-    private static final String ENABLE = "state";
 
-    public static LiteralArgumentBuilder<CommandSourceStack> get() {
-        var config = Commands.literal(CONFIG_NAME);
-        var configKey = Commands.argument(KEY, EnumArgument.enumArgument(ConfigKey.class));
-        var state = Commands.argument(ENABLE, BoolArgumentType.bool());
-        return config.then(configKey.then(state.executes(ConfigCommand::setConfig)));
+    @Override
+    public String getName() {
+        return CONFIG_NAME;
     }
 
-    private static int setConfig(CommandContext<CommandSourceStack> context) {
-        ConfigKey key = context.getArgument(KEY, ConfigKey.class);
-        boolean state = BoolArgumentType.getBool(context, ENABLE);
+    @Override
+    public String getUsage(ICommandSender sender) {
+        return "/tacz config <defaultTableLimit|serverShootNetworkCheck|serverShootCooldownCheck> <true|false>";
+    }
 
-        if (key == null) {
-            return 0;
+    @Override
+    public int getRequiredPermissionLevel() {
+        return 2;
+    }
+
+    @Override
+    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length < 2) {
+            throw new WrongUsageException(getUsage(sender));
         }
+        ConfigKey key = null;
+        for (ConfigKey value : ConfigKey.values()) {
+            if (value.name().equals(args[0])) {
+                key = value;
+            }
+        }
+        if (key == null) {
+            throw new WrongUsageException(getUsage(sender));
+        }
+        boolean state = parseBoolean(args[1]);
+
         switch (key) {
             case defaultTableLimit -> SyncConfig.ENABLE_TABLE_FILTER.set(state);
             case serverShootNetworkCheck -> SyncConfig.SERVER_SHOOT_NETWORK_V.set(state);
             case serverShootCooldownCheck -> SyncConfig.SERVER_SHOOT_COOLDOWN_V.set(state);
         }
-        context.getSource().sendSystemMessage(Components.translatable(key.lang + "." + (state ? "enabled" : "disabled")));
+        sender.sendMessage(Components.translatable(key.lang + "." + (state ? "enabled" : "disabled")));
+    }
 
-        return Command.SINGLE_SUCCESS;
+    @Override
+    public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args, @Nullable BlockPos targetPos) {
+        if (args.length == 1) {
+            List<String> names = new ArrayList<>();
+            for (ConfigKey key : ConfigKey.values()) {
+                names.add(key.name());
+            }
+            return getListOfStringsMatchingLastWord(args, names);
+        }
+        if (args.length == 2) {
+            return getListOfStringsMatchingLastWord(args, "true", "false");
+        }
+        return super.getTabCompletions(server, sender, args, targetPos);
     }
 
     public enum ConfigKey {

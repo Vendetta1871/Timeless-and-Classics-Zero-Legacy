@@ -61,7 +61,7 @@ public class ServerMessageSyncedEntityDataMapping extends LoginIndexHolder imple
         CountDownLatch block = new CountDownLatch(1);
         supplier.get().enqueueWork(() -> {
             if (!SyncedEntityData.instance().updateMappings(message)) {
-                supplier.get().getNetworkManager().disconnect(Components.literal("Connection closed - [TacZ] Received unknown synced data keys."));
+                supplier.get().getNetworkManager().closeChannel(Components.literal("Connection closed - [TacZ] Received unknown synced data keys."));
             }
             block.countDown();
         });
@@ -71,7 +71,8 @@ public class ServerMessageSyncedEntityDataMapping extends LoginIndexHolder imple
             e.printStackTrace();
         }
         supplier.get().setPacketHandled(true);
-        NetworkHandler.HANDSHAKE_CHANNEL.reply(new Acknowledge(), supplier.get());
+        // 1.12.2: no login phase, so there is nothing to acknowledge (Acknowledge is not ported)
+//        NetworkHandler.HANDSHAKE_CHANNEL.reply(new Acknowledge(), supplier.get());
     }
 
     public Map<ResourceLocation, List<Pair<ResourceLocation, Integer>>> getKeyMap() {

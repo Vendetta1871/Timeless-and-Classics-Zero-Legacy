@@ -53,7 +53,7 @@ public class ServerMessageUpdateEntityData {
         if (level == null) {
             return;
         }
-        Entity entity = level.getEntity(message.entityId);
+        Entity entity = level.getEntityByID(message.entityId);
         if (entity == null) {
             return;
         }

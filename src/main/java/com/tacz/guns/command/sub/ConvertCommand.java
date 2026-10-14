@@ -1,25 +1,34 @@
 package com.tacz.guns.command.sub;
 
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
 import com.tacz.guns.resource.PackConvertor;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.DistExecutor;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.server.MinecraftServer;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 
-public class ConvertCommand {
+public class ConvertCommand extends CommandBase {
     private static final String CONVERT_NAME = "convert";
 
-    public static LiteralArgumentBuilder<CommandSourceStack> get() {
-        LiteralArgumentBuilder<CommandSourceStack> reload = Commands.literal(CONVERT_NAME);
-        reload.executes(ConvertCommand::convert);
-        return reload;
+    @Override
+    public String getName() {
+        return CONVERT_NAME;
     }
 
-    private static int convert(CommandContext<CommandSourceStack> context) {
-        DistExecutor.unsafeRunWhenOn(Side.CLIENT, () -> () -> PackConvertor.convert(context.getSource()));
-        return Command.SINGLE_SUCCESS;
+    @Override
+    public String getUsage(ICommandSender sender) {
+        return "/tacz convert";
+    }
+
+    @Override
+    public int getRequiredPermissionLevel() {
+        return 2;
+    }
+
+    @Override
+    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (FMLCommonHandler.instance().getSide().isClient()) {
+            PackConvertor.convert(sender);
+        }
     }
 }

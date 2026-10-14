@@ -21,7 +21,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import com.tacz.guns.legacy.util.ItemHandlers;
 import net.minecraftforge.fml.relauncher.Side;
 import com.tacz.guns.legacy.network.PacketDistributor;
 
@@ -58,7 +58,7 @@ public class LivingEntityShoot {
         }
         ResourceLocation gunId = iGun.getGunId(currentGunItem);
         Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(gunId);
-        if (gunIndexOptional.isEmpty()) {
+        if (!gunIndexOptional.isPresent()) {
             return ShootResult.ID_NOT_EXIST;
         }
         CommonGunIndex gunIndex = gunIndexOptional.get();
@@ -76,7 +76,7 @@ public class LivingEntityShoot {
         if (SyncConfig.SERVER_SHOOT_NETWORK_V.get()) {
             // 根据 tick time 和 允许的网络延迟波动 计算 时间戳的接受窗口
             MinecraftServer server = Objects.requireNonNull(shooter.getServer());
-            double tickTime = Math.max(server.tickTimes[server.getTickCount() % 100] * 1.0E-6D, 50);
+            double tickTime = Math.max(server.tickTimeArray[server.getTickCounter() % 100] * 1.0E-6D, 50);
             long alpha = System.currentTimeMillis() - data.baseTimestamp - timestamp;
             if (alpha < -300 || alpha > 300 + tickTime * 2) { // 允许 +- 300ms 的网络波动、窗口下限再扩大 2 个 tick time 时间(最坏情况射击会延迟2个 tick)
                 if (shooter instanceof EntityPlayerMP player) {
@@ -146,7 +146,7 @@ public class LivingEntityShoot {
             return ShootResult.FORGE_EVENT_CANCEL;
         }
 
-        NetworkHandler.sendToTrackingEntity(new ServerMessageGunShoot(shooter.getId(), currentGunItem), shooter);
+        NetworkHandler.sendToTrackingEntity(new ServerMessageGunShoot(shooter.getEntityId(), currentGunItem), shooter);
         data.lastShootTimestamp = data.shootTimestamp;
         data.heatTimestamp = System.currentTimeMillis();
         data.shootTimestamp = timestamp;
@@ -276,8 +276,8 @@ public class LivingEntityShoot {
         if (abstractGunItem.useDummyAmmo(itemStack)) {
             abstractGunItem.findAndExtractDummyAmmo(itemStack, neededAmount);
         } else {
-            shooter.getCapability(ForgeCapabilities.ITEM_HANDLER, null)
-                    .map(cap -> abstractGunItem.findAndExtractInventoryAmmo(cap, itemStack, neededAmount));
+            ItemHandlers.of(shooter)
+                    .ifPresent(cap -> abstractGunItem.findAndExtractInventoryAmmo(cap, itemStack, neededAmount));
         }
     }
 }

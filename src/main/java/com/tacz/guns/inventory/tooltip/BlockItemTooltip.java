@@ -1,9 +1,9 @@
 package com.tacz.guns.inventory.tooltip;
 
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
 
-public class BlockItemTooltip implements TooltipComponent {
+// TODO(port): 1.12.2 has no TooltipComponent: this is a plain data holder until a tooltip image hook exists
+public class BlockItemTooltip {
     private final ResourceLocation blockId;
 
     public BlockItemTooltip(ResourceLocation blockId) {

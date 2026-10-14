@@ -12,8 +12,7 @@ import com.tacz.guns.client.resource.index.ClientBlockIndex;
 import com.tacz.guns.config.client.RenderConfig;
 import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.RenderType;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
-import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import com.tacz.guns.legacy.util.BlockEntityRenderer;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
@@ -22,8 +21,8 @@ import net.minecraft.block.state.IBlockState;
 
 import java.util.Optional;
 
-public class GunSmithTableRenderer implements BlockEntityRenderer<GunSmithTableBlockEntity> {
-    public GunSmithTableRenderer(BlockEntityRendererProvider.Context context) {
+public class GunSmithTableRenderer extends BlockEntityRenderer<GunSmithTableBlockEntity> {
+    public GunSmithTableRenderer() {
     }
 
     public Optional<ClientBlockIndex> getIndex(GunSmithTableBlockEntity blockEntity) {

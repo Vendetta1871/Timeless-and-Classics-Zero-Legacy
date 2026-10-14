@@ -1,5 +1,6 @@
 package com.tacz.guns.item;
 
+import com.tacz.guns.GunMod;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.item.IAttachment;
 import com.tacz.guns.api.item.attachment.AttachmentType;
@@ -9,44 +10,44 @@ import com.tacz.guns.client.renderer.item.AttachmentItemRenderer;
 import com.tacz.guns.client.resource.index.ClientAttachmentIndex;
 import com.tacz.guns.inventory.tooltip.AttachmentItemTooltip;
 import com.tacz.guns.resource.index.CommonAttachmentIndex;
-import net.minecraft.client.Minecraft;
-import com.tacz.guns.legacy.render.BlockEntityWithoutLevelRenderer;
-import net.minecraft.core.NonNullList;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import net.minecraftforge.client.extensions.common.IClientItemExtensions;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 import static com.tacz.guns.util.datafixer.AttachmentIdFix.updateAttachmentIdInTag;
-import com.tacz.guns.legacy.util.Components;
 
 public class AttachmentItem extends Item implements AttachmentItemDataAccessor {
     public AttachmentItem() {
-        super(new Properties().stacksTo(1));
+        super();
+        this.setMaxStackSize(1);
+        this.setTranslationKey(GunMod.MOD_ID + ".attachment");
+        if (FMLCommonHandler.instance().getSide().isClient()) {
+            this.initializeClient();
+        }
     }
 
     @Override
     @Nonnull
     @SideOnly(Side.CLIENT)
-    public ITextComponent getName(@Nonnull ItemStack stack) {
+    public String getItemStackDisplayName(@Nonnull ItemStack stack) {
         ResourceLocation attachmentId = this.getAttachmentId(stack);
         Optional<ClientAttachmentIndex> attachmentIndex = TimelessAPI.getClientAttachmentIndex(attachmentId);
         if (attachmentIndex.isPresent()) {
-            return Components.translatable(attachmentIndex.get().getName());
+            return I18n.format(attachmentIndex.get().getName());
         }
-        return super.getName(stack);
+        return super.getItemStackDisplayName(stack);
     }
 
     private static Comparator<Map.Entry<ResourceLocation, CommonAttachmentIndex>> idNameSort() {
@@ -67,20 +68,12 @@ public class AttachmentItem extends Item implements AttachmentItemDataAccessor {
         return stacks;
     }
 
-    @Override
-    public void initializeClient(Consumer<IClientItemExtensions> consumer) {
-        consumer.accept(new IClientItemExtensions() {
-            AttachmentItemRenderer renderer;
-            @Override
-            public BlockEntityWithoutLevelRenderer getCustomRenderer() {
-                if (renderer == null) {
-                    Minecraft minecraft = Minecraft.getMinecraft();
-                    renderer = new AttachmentItemRenderer(minecraft.getBlockEntityRenderDispatcher(), minecraft.getEntityModels());
-                }
-
-                return renderer;
-            }
-        });
+    /**
+     * 1.12.2: {@code IClientItemExtensions#getCustomRenderer}
+     */
+    @SideOnly(Side.CLIENT)
+    private void initializeClient() {
+        this.setTileEntityItemStackRenderer(new AttachmentItemRenderer());
     }
 
     @Override
@@ -95,12 +88,12 @@ public class AttachmentItem extends Item implements AttachmentItemDataAccessor {
         }
     }
 
-    @Override
-    public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
+    // TODO(port): 1.12.2 has no TooltipComponent / Item#getTooltipImage; AttachmentItemTooltip is a plain class here and needs a tooltip event hook
+    public Optional<AttachmentItemTooltip> getTooltipImage(ItemStack stack) {
         return Optional.of(new AttachmentItemTooltip(this.getAttachmentId(stack), this.getType(stack), stack));
     }
 
-    @Override
+    // TODO(port): 1.12.2 has no Item#verifyTagAfterLoad; the attachment id data fix needs a hook where stacks are read
     public void verifyTagAfterLoad(@NotNull NBTTagCompound tag) {
         updateAttachmentIdInTag(tag);
     }

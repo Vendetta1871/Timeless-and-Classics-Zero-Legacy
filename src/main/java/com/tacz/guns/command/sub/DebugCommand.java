@@ -1,37 +1,44 @@
 package com.tacz.guns.command.sub;
 
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.builder.RequiredArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.entity.player.EntityPlayerMP;
 import com.tacz.guns.legacy.util.Components;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
 
-public class DebugCommand {
+public class DebugCommand extends CommandBase {
     public static boolean DEBUG = false;
     private static final String DEBUG_NAME = "debug";
-    private static final String ENABLE = "enable";
 
-    public static LiteralArgumentBuilder<CommandSourceStack> get() {
-        LiteralArgumentBuilder<CommandSourceStack> debugCommand = Commands.literal(DEBUG_NAME);
-        RequiredArgumentBuilder<CommandSourceStack, Boolean> enable = Commands.argument(ENABLE, BoolArgumentType.bool());
-        debugCommand.then(enable.executes(DebugCommand::setValue));
-        return debugCommand;
+    @Override
+    public String getName() {
+        return DEBUG_NAME;
     }
 
-    private static int setValue(CommandContext<CommandSourceStack> context) {
-        DEBUG = BoolArgumentType.getBool(context, ENABLE);
-        if (context.getSource().getEntity() instanceof EntityPlayerMP serverPlayer) {
+    @Override
+    public String getUsage(ICommandSender sender) {
+        return "/tacz debug <true|false>";
+    }
+
+    @Override
+    public int getRequiredPermissionLevel() {
+        return 2;
+    }
+
+    @Override
+    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length < 1) {
+            throw new WrongUsageException(getUsage(sender));
+        }
+        DEBUG = parseBoolean(args[0]);
+        if (sender.getCommandSenderEntity() instanceof EntityPlayerMP serverPlayer) {
             if (DEBUG) {
-                serverPlayer.sendSystemMessage(Components.literal("TacZ Debug Mode is Turn On"));
+                serverPlayer.sendMessage(Components.literal("TacZ Debug Mode is Turn On"));
             } else {
-                serverPlayer.sendSystemMessage(Components.literal("TacZ Debug Mode is Turn Off"));
+                serverPlayer.sendMessage(Components.literal("TacZ Debug Mode is Turn Off"));
             }
         }
-        return Command.SINGLE_SUCCESS;
     }
 }

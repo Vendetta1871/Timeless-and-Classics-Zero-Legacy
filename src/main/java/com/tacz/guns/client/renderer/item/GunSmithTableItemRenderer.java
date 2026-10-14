@@ -4,6 +4,7 @@ import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.VertexConsumer;
 import com.tacz.guns.legacy.render.Axis;
 import com.tacz.guns.client.model.SlotModel;
+import com.tacz.guns.legacy.util.Optionals;
 import com.tacz.guns.client.model.bedrock.BedrockModel;
 import com.tacz.guns.client.renderer.block.GunSmithTableRenderer;
 import com.tacz.guns.legacy.render.BlockEntityWithoutLevelRenderer;
@@ -26,7 +27,7 @@ public class GunSmithTableItemRenderer extends BlockEntityWithoutLevelRenderer {
 
     @Override
     public void renderByItem(@Nonnull ItemStack stack, @Nonnull ItemCameraTransforms.TransformType transformType, @Nonnull PoseStack poseStack, @Nonnull MultiBufferSource pBuffer, int pPackedLight, int pPackedOverlay) {
-        GunSmithTableRenderer.getIndex(stack).ifPresentOrElse(index -> {
+        Optionals.ifPresentOrElse(GunSmithTableRenderer.getIndex(stack), index -> {
             BedrockModel model = index.getModel();
             ResourceLocation texture = index.getTexture();
             if (model == null) {

@@ -1,38 +1,47 @@
 package com.tacz.guns.command.sub;
 
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.builder.RequiredArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
 import com.tacz.guns.config.PreLoadConfig;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.entity.player.EntityPlayerMP;
 import com.tacz.guns.legacy.util.Components;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
 
-public class OverwriteCommand {
+public class OverwriteCommand extends CommandBase {
     private static final String OVERWRITE_NAME = "overwrite";
-    private static final String ENABLE = "enable";
 
-    public static LiteralArgumentBuilder<CommandSourceStack> get() {
-        LiteralArgumentBuilder<CommandSourceStack> reload = Commands.literal(OVERWRITE_NAME);
-        RequiredArgumentBuilder<CommandSourceStack, Boolean> enable = Commands.argument(ENABLE, BoolArgumentType.bool());
-        reload.then(enable.executes(OverwriteCommand::setOverwrite));
-        return reload;
+    @Override
+    public String getName() {
+        return OVERWRITE_NAME;
     }
 
-    private static int setOverwrite(CommandContext<CommandSourceStack> context) {
-        boolean enable = BoolArgumentType.getBool(context, ENABLE);
+    @Override
+    public String getUsage(ICommandSender sender) {
+        return "/tacz overwrite <true|false>";
+    }
+
+    @Override
+    public int getRequiredPermissionLevel() {
+        return 2;
+    }
+
+    @Override
+    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length < 1) {
+            throw new WrongUsageException(getUsage(sender));
+        }
+        boolean enable = parseBoolean(args[0]);
         PreLoadConfig.override.set(!enable);
-        if (context.getSource().getEntity() instanceof EntityPlayerMP serverPlayer) {
+        // 1.12.2: the config is not written back by itself (no ModConfig)
+        PreLoadConfig.save();
+        if (sender.getCommandSenderEntity() instanceof EntityPlayerMP serverPlayer) {
             if (PreLoadConfig.override.get()) {
-                serverPlayer.sendSystemMessage(Components.translatable("commands.tacz.reload.overwrite_off"));
+                serverPlayer.sendMessage(Components.translatable("commands.tacz.reload.overwrite_off"));
             } else {
-                serverPlayer.sendSystemMessage(Components.translatable("commands.tacz.reload.overwrite_on"));
+                serverPlayer.sendMessage(Components.translatable("commands.tacz.reload.overwrite_on"));
             }
         }
-        return Command.SINGLE_SUCCESS;
     }
 }

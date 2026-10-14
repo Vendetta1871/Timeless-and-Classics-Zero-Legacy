@@ -47,7 +47,7 @@ public class ServerMessageGunFireSelect {
         if (level == null) {
             return;
         }
-        if (level.getEntity(message.shooterId) instanceof EntityLivingBase shooter) {
+        if (level.getEntityByID(message.shooterId) instanceof EntityLivingBase shooter) {
             GunFireSelectEvent gunFireSelectEvent = new GunFireSelectEvent(shooter, message.gunItemStack, Side.CLIENT);
             MinecraftForge.EVENT_BUS.post(gunFireSelectEvent);
         }

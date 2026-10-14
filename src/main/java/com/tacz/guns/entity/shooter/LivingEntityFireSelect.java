@@ -31,7 +31,7 @@ public class LivingEntityFireSelect {
         if (MinecraftForge.EVENT_BUS.post(new GunFireSelectEvent(shooter, currentGunItem, Side.SERVER))) {
             return;
         }
-        NetworkHandler.sendToTrackingEntity(new ServerMessageGunFireSelect(shooter.getId(), currentGunItem), shooter);
+        NetworkHandler.sendToTrackingEntity(new ServerMessageGunFireSelect(shooter.getEntityId(), currentGunItem), shooter);
         if (iGun instanceof AbstractGunItem logicGun) {
             logicGun.fireSelect(data, currentGunItem);
             // 刷新配件缓存

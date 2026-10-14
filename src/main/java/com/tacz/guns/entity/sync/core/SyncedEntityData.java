@@ -152,7 +152,7 @@ public class SyncedEntityData {
 
     @Nullable
     public DataHolder getDataHolder(Entity entity) {
-        return entity.getCapability(DataHolderCapabilityProvider.CAPABILITY, null).resolve().orElse(null);
+        return entity.getCapability(DataHolderCapabilityProvider.CAPABILITY, null);
     }
 
 //    public boolean hasSyncedDataKey(Class<? extends Entity> entityClass) {

@@ -43,8 +43,8 @@ public class ClientMessageRefitGun {
                     return;
                 }
                 InventoryPlayer inventory = player.inventory;
-                ItemStack attachmentItem = inventory.getItem(message.attachmentSlotIndex);
-                ItemStack gunItem = inventory.getItem(message.gunSlotIndex);
+                ItemStack attachmentItem = inventory.getStackInSlot(message.attachmentSlotIndex);
+                ItemStack gunItem = inventory.getStackInSlot(message.gunSlotIndex);
                 IGun iGun = IGun.getIGunOrNull(gunItem);
                 if (iGun != null) {
                     // 服务端校验配件锁
@@ -62,12 +62,12 @@ public class ClientMessageRefitGun {
                         iGun.installAttachment(gunItem, attachmentItem);
                         // 刷新配件数据
                         AttachmentPropertyManager.postChangeEvent(player, gunItem);
-                        inventory.setItem(message.attachmentSlotIndex, oldAttachmentItem);
+                        inventory.setInventorySlotContents(message.attachmentSlotIndex, oldAttachmentItem);
                         // 如果卸载的是扩容弹匣，吐出所有子弹
                         if (realType == AttachmentType.EXTENDED_MAG) {
                             iGun.dropAllAmmo(player, gunItem);
                         }
-                        player.inventoryMenu.broadcastChanges();
+                        player.inventoryContainer.detectAndSendChanges();
                         NetworkHandler.sendToClientPlayer(new ServerMessageRefreshRefitScreen(), player);
                     }
                 }

@@ -34,7 +34,8 @@ public class ServerMessageSyncBaseTimestamp {
             context.enqueueWork(() -> updateBaseTimestamp(timestamp));
         }
         context.setPacketHandled(true);
-        NetworkHandler.CHANNEL.reply(new ClientMessageSyncBaseTimestamp(), context);
+        // 1.12.2: the SimpleChannel shim has no reply(); this handler only runs on the client, so reply = send to the server
+        NetworkHandler.CHANNEL.sendToServer(new ClientMessageSyncBaseTimestamp());
     }
 
     @SideOnly(Side.CLIENT)

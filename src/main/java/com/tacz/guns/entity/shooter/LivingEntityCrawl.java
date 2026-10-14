@@ -4,7 +4,6 @@ import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.item.IGun;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.world.entity.Pose;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 
@@ -37,13 +36,14 @@ public class LivingEntityCrawl {
         }
         // 如果获取不到 gunIndex，则取消趴下状态
         ResourceLocation gunId = iGun.getGunId(currentGunItem);
-        if (TimelessAPI.getCommonGunIndex(gunId).isEmpty()) {
+        if (!TimelessAPI.getCommonGunIndex(gunId).isPresent()) {
             data.isCrawling = false;
             this.setCrawlPose();
             return;
         }
         // 如果是观察者模型、骑乘、跳跃、在游泳、不在地上，取消
-        if (shooter.isSpectator() || shooter.isPassenger() || shooter.jumping || shooter.isSwimming() || !shooter.onGround) {
+        // 1.12.2: EntityLivingBase#jumping is protected, an entity that jumped is not on the ground anyway; swimming is "in water"
+        if ((shooter instanceof EntityPlayer && ((EntityPlayer) shooter).isSpectator()) || shooter.isRiding() || shooter.isInWater() || !shooter.onGround) {
             data.isCrawling = false;
             this.setCrawlPose();
             return;
@@ -52,16 +52,18 @@ public class LivingEntityCrawl {
     }
 
     private void setCrawlPose() {
-        if (data.isCrawling) {
-            if (shooter instanceof EntityPlayer player) {
-                player.setForcedPose(Pose.SWIMMING);
-            } else {
-                this.shooter.setPose(Pose.SWIMMING);
-            }
-        } else {
-            if (shooter instanceof EntityPlayer player) {
-                player.setForcedPose(null);
-            }
-        }
+        // TODO(port): crawling (1.12.2 has no Pose.SWIMMING / EntityPlayer#setForcedPose, so the crawl state is only synced,
+        //  the entity is not put in the swimming pose)
+//        if (data.isCrawling) {
+//            if (shooter instanceof EntityPlayer player) {
+//                player.setForcedPose(Pose.SWIMMING);
+//            } else {
+//                this.shooter.setPose(Pose.SWIMMING);
+//            }
+//        } else {
+//            if (shooter instanceof EntityPlayer player) {
+//                player.setForcedPose(null);
+//            }
+//        }
     }
 }

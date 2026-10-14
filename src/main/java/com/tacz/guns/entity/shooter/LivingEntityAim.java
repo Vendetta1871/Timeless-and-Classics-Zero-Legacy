@@ -15,6 +15,8 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.ItemStack;
 
+import com.tacz.guns.legacy.util.Optionals;
+
 import java.util.Optional;
 
 public class LivingEntityAim {
@@ -62,7 +64,7 @@ public class LivingEntityAim {
         // 如果获取不到 gunIndex，则取消瞄准状态并将 aimingProgress 归零，返回。
         ResourceLocation gunId = iGun.getGunId(currentGunItem);
         Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(gunId);
-        if (gunIndexOptional.isEmpty()) {
+        if (!gunIndexOptional.isPresent()) {
             data.aimingProgress = 0;
             return;
         }
@@ -106,7 +108,7 @@ public class LivingEntityAim {
         if (iGun == null) {
             return;
         }
-        TimelessAPI.getCommonGunIndex(iGun.getGunId(gunItem)).ifPresentOrElse(gunIndex -> {
+        Optionals.ifPresentOrElse(TimelessAPI.getCommonGunIndex(iGun.getGunId(gunItem)), gunIndex -> {
             float gunSprintTime = gunIndex.getGunData().getSprintTime();
             if (shooter.isSprinting() && !shooter.isSneaking()) {
                 data.sprintTimeS += (System.currentTimeMillis() - data.sprintTimestamp) / 1000f;

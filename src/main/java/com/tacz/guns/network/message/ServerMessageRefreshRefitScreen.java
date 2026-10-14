@@ -1,6 +1,7 @@
 package com.tacz.guns.network.message;
 
-import com.tacz.guns.client.gui.GunRefitScreen;
+// TODO(port): needs GunRefitScreen
+// import com.tacz.guns.client.gui.GunRefitScreen;
 import com.tacz.guns.resource.modifier.AttachmentPropertyManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -30,10 +31,11 @@ public class ServerMessageRefreshRefitScreen {
     @SideOnly(Side.CLIENT)
     private static void updateScreen() {
         EntityPlayerSP player = Minecraft.getMinecraft().player;
-        if (player != null && Minecraft.getMinecraft().currentScreen instanceof GunRefitScreen screen) {
-            screen.init();
-            // 刷新配件数据，客户端的
-            AttachmentPropertyManager.postChangeEvent(player, player.getHeldItemMainhand());
-        }
+        // TODO(port): needs GunRefitScreen
+        // if (player != null && Minecraft.getMinecraft().currentScreen instanceof GunRefitScreen screen) {
+        //     screen.init();
+        //     // 刷新配件数据，客户端的
+        //     AttachmentPropertyManager.postChangeEvent(player, player.getHeldItemMainhand());
+        // }
     }
 }

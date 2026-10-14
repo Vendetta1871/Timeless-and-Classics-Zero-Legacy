@@ -53,7 +53,7 @@ public class LivingEntityMelee {
         if (MinecraftForge.EVENT_BUS.post(new GunMeleeEvent(shooter, currentGunItem, Side.SERVER))) {
             return;
         }
-        NetworkHandler.sendToTrackingEntity(new ServerMessageGunMelee(shooter.getId(), currentGunItem), shooter);
+        NetworkHandler.sendToTrackingEntity(new ServerMessageGunMelee(shooter.getEntityId(), currentGunItem), shooter);
         if (currentGunItem.getItem() instanceof AbstractGunItem logicGun) {
             data.meleeTimestamp = System.currentTimeMillis();
 

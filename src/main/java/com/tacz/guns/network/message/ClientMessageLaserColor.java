@@ -67,7 +67,7 @@ public class ClientMessageLaserColor {
                     return;
                 }
                 InventoryPlayer inventory = player.inventory;
-                ItemStack gunItem = inventory.getItem(message.gunSlotIndex);
+                ItemStack gunItem = inventory.getStackInSlot(message.gunSlotIndex);
                 IGun iGun = IGun.getIGunOrNull(gunItem);
                 if (iGun != null) {
                     for (var entry : message.colorMap.entrySet()) {
