@@ -1,8 +1,11 @@
 package com.tacz.guns.legacy.client;
 
+import com.tacz.guns.client.renderer.entity.EntityBulletRenderer;
+import com.tacz.guns.entity.EntityKineticBullet;
 import com.tacz.guns.legacy.resource.ClientGunPacks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.IReloadableResourceManager;
+import net.minecraftforge.fml.client.registry.RenderingRegistry;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -12,6 +15,14 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 @SideOnly(Side.CLIENT)
 public final class LegacyClientSetup {
     private LegacyClientSetup() {
+    }
+
+    /**
+     * Entity renderers must be registered before init on 1.12.2.
+     */
+    public static void preInit() {
+        // upstream: client/init/ModEntitiesRender (EntityRenderers.register)
+        RenderingRegistry.registerEntityRenderingHandler(EntityKineticBullet.class, EntityBulletRenderer::new);
     }
 
     public static void init() {
