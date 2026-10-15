@@ -3,6 +3,9 @@ package com.tacz.guns.entity;
 import com.mojang.authlib.GameProfile;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.api.entity.ITargetEntity;
+import com.tacz.guns.api.event.common.EntityHurtByGunEvent;
+import com.tacz.guns.network.NetworkHandler;
+import com.tacz.guns.network.message.event.ServerMessageGunHurt;
 import com.tacz.guns.config.client.RenderConfig;
 import com.tacz.guns.config.common.OtherConfig;
 import com.tacz.guns.init.ModBlocks;
@@ -21,6 +24,9 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.world.World;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.relauncher.Side;
+import org.apache.commons.lang3.tuple.Pair;
 import net.minecraftforge.fml.common.registry.EntityEntry;
 import net.minecraftforge.fml.common.registry.EntityEntryBuilder;
 import org.jetbrains.annotations.NotNull;
@@ -71,13 +77,12 @@ public class TargetMinecart extends EntityMinecart implements ITargetEntity {
             volume = Math.max(volume, 0);
             world.playSound(null, this.posX, this.posY, this.posZ, ModSounds.TARGET_HIT.get(), SoundCategory.BLOCKS, volume, this.world.rand.nextFloat() * 0.1F + 0.9F);
 
-            // TODO(port): needs EntityKineticBullet (EntityHurtByGunEvent.Post, ServerMessageGunHurt)
-//            if (entity instanceof EntityKineticBullet projectile) {
-//                boolean isHeadshot = false;
-//                float headshotMultiplier = 1;
-//                MinecraftForge.EVENT_BUS.post(new EntityHurtByGunEvent.Post(projectile, this, player, projectile.getGunId(), projectile.getGunDisplayId(), damage, Pair.of(source, source), isHeadshot, headshotMultiplier, Side.SERVER));
-//                NetworkHandler.sendToDimension(new ServerMessageGunHurt(projectile.getEntityId(), this.getEntityId(), player.getEntityId(), projectile.getGunId(), projectile.getGunDisplayId(), damage, isHeadshot, headshotMultiplier), this);
-//            }
+            if (entity instanceof EntityKineticBullet projectile) {
+                boolean isHeadshot = false;
+                float headshotMultiplier = 1;
+                MinecraftForge.EVENT_BUS.post(new EntityHurtByGunEvent.Post(projectile, this, player, projectile.getGunId(), projectile.getGunDisplayId(), damage, Pair.of(source, source), isHeadshot, headshotMultiplier, Side.SERVER));
+                NetworkHandler.sendToDimension(new ServerMessageGunHurt(projectile.getEntityId(), this.getEntityId(), player.getEntityId(), projectile.getGunId(), projectile.getGunDisplayId(), damage, isHeadshot, headshotMultiplier), this);
+            }
         }
     }
 

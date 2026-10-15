@@ -15,9 +15,8 @@ public class EntityDamageEvent {
 
     @SubscribeEvent(priority = EventPriority.LOW)
     public static void onLivingHurt(LivingHurtEvent event){
-        // TODO(port): needs ModDamageTypes (BULLETS_TAG)
-        // if (event.getSource().is(ModDamageTypes.BULLETS_TAG)) {
-        if (false) { // placeholder until ModDamageTypes is ported
+        // 1.12.2: source.is(tag) -> tag.contains(source)
+        if (ModDamageTypes.BULLETS_TAG.contains(event.getSource())) {
             EntityLivingBase living = event.getEntityLiving();
 
             IAttributeInstance resistance = living.getEntityAttribute(ModAttributes.BULLET_RESISTANCE.get());
