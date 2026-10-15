@@ -1,6 +1,7 @@
 package com.tacz.guns.client.init;
 
 import com.tacz.guns.GunMod;
+import com.tacz.guns.api.client.other.ThirdPersonManager;
 import com.tacz.guns.client.gui.overlay.GunHudOverlay;
 import com.tacz.guns.client.gui.overlay.HeatBarOverlay;
 import com.tacz.guns.client.gui.overlay.InteractKeyTextOverlay;
@@ -73,8 +74,7 @@ public class ClientSetupEvent {
      */
     public static void onClientSetupInit() {
         // 注册自己的的硬编码第三人称动画
-        // TODO(port): needs ThirdPersonManager (third-person arm poses, stage 2)
-        // ThirdPersonManager.registerDefault();
+        ThirdPersonManager.registerDefault();
 
         // 注册颜色
         Minecraft.getMinecraft().getItemColors().registerItemColorHandler(AmmoBoxItem::getColor, ModItems.AMMO_BOX.get());
