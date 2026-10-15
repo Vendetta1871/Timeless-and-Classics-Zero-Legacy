@@ -1,5 +1,7 @@
 package com.tacz.guns.client.event;
 
+import com.tacz.guns.GunMod;
+import net.minecraftforge.fml.relauncher.Side;
 import com.tacz.guns.api.item.nbt.AmmoItemDataAccessor;
 import com.tacz.guns.api.item.nbt.AttachmentItemDataAccessor;
 import com.tacz.guns.api.item.nbt.BlockItemDataAccessor;
@@ -15,7 +17,8 @@ import net.minecraftforge.fml.common.Mod;
 import com.tacz.guns.legacy.util.Components;
 
 
-@Mod.EventBusSubscriber
+// 1.12.2: ItemTooltipEvent is client-only there (ITooltipFlag)
+@Mod.EventBusSubscriber(value = Side.CLIENT, modid = GunMod.MOD_ID)
 public class TooltipEvent {
     @SubscribeEvent
     public static void onTooltip(ItemTooltipEvent event) {
