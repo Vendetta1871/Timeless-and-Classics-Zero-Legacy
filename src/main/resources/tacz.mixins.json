@@ -13,14 +13,17 @@
   ],
   "client": [
     "client.AbstractButtonMixin",
+    "client.EntityRendererAccessor",
     "client.GameRendererMixin",
     "client.HumanoidModelMixin",
     "client.ItemInHandLayerMixin",
     "client.ItemInHandRendererMixin",
     "client.LocalPlayerMixin",
+    "client.MinecraftAccessor",
     "client.MinecraftMixin",
     "client.MouseHandlerMixin",
-    "client.PlayerModelMixin"
+    "client.PlayerModelMixin",
+    "client.RenderGlobalAccessor"
   ],
   "server": [],
   "injectors": {

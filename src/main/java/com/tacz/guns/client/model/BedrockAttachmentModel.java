@@ -25,6 +25,7 @@ import com.tacz.guns.legacy.render.RenderType;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraft.item.ItemStack;
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -37,6 +38,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.tacz.guns.legacy.client.ScopeView;
 import com.tacz.guns.legacy.render.DisplayContext;
 import com.tacz.guns.legacy.render.RenderBuffers;
 
@@ -199,6 +201,35 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
         return result;
     }
 
+    /**
+     * 1.12.2: the pose of a part, see {@link #getBedrockPartCenter}.
+     */
+    private Matrix4f getBedrockPartPose(PoseStack poseStack, @Nonnull List<BedrockPart> path) {
+        poseStack.pushPose();
+        for (BedrockPart part : path) {
+            part.translateAndRotateAndScale(poseStack);
+        }
+        Matrix4f result = new Matrix4f(poseStack.last().pose());
+        poseStack.popPose();
+        return result;
+    }
+
+    /**
+     * 1.12.2: renders a part into a vertex consumer of the caller (no render state).
+     */
+    private void renderTempPart(PoseStack poseStack, ItemCameraTransforms.TransformType transformType, VertexConsumer consumer,
+                                @Nonnull List<BedrockPart> path) {
+        poseStack.pushPose();
+        for (int i = 0; i < path.size() - 1; ++i) {
+            path.get(i).translateAndRotateAndScale(poseStack);
+        }
+        BedrockPart part = path.get(path.size() - 1);
+        part.visible = true;
+        part.render(poseStack, transformType, consumer, 0, 0);
+        part.visible = false;
+        poseStack.popPose();
+    }
+
     private void renderTempPart(PoseStack poseStack, ItemCameraTransforms.TransformType transformType, RenderType renderType,
                                 int light, int overlay, @Nonnull List<BedrockPart> path) {
         poseStack.pushPose();
@@ -268,7 +299,13 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
             float rad = 80 * scopeViewRadiusModifier;
             EntityPlayerSP player = Minecraft.getMinecraft().player;
             if (player != null) {
-                rad *= IClientPlayerGunOperator.fromLocalPlayer(player).getClientAimingProgress(Minecraft.getMinecraft().getRenderPartialTicks());
+                float aimingProgress = IClientPlayerGunOperator.fromLocalPlayer(player).getClientAimingProgress(Minecraft.getMinecraft().getRenderPartialTicks());
+                if (ScopeView.isActive()) {
+                    // 1.12.2: the lens shows the scope view from the hip too; the black mask only closes in while aiming
+                    rad /= Math.max(aimingProgress, 0.05F);
+                } else {
+                    rad *= aimingProgress;
+                }
             }
             for (int i = 0; i < ocularNodePaths.size(); i++) {
                 if (selective && !isScopeOcular.get(i)) {
@@ -309,10 +346,29 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
                     // 渲染目镜黑色遮罩
                     RenderSystem.stencilFunc(GL11.GL_EQUAL, i + 1, 0xFF);
                     renderTempPart(matrixStack, transformType, renderType, light, overlay, ocularNodePaths.get(i));
+                    // 1.12.2: the picture-in-picture view through the scope
+                    if (ScopeView.isReady()) {
+                        RenderSystem.stencilFunc(GL11.GL_EQUAL, ~(i + 1) & 0xFF, 0xFF);
+                        Vector3f ocularCenter = getBedrockPartCenter(matrixStack, ocularNodePaths.get(i));
+                        renderTempPart(matrixStack, transformType, ScopeView.lensOutline(), ocularNodePaths.get(i));
+                        ScopeView.drawLens(ocularCenter.x(), ocularCenter.y(), ocularCenter.z());
+                    }
                     // 渲染划分
+                    // 1.12.2: the division plane sits deep inside the tube, so the gun's own depth would clip it;
+                    // like renderDivisionOnly, draw it without the depth test (the stencil already limits it to the lens)
                     int b = ~(i+1) & 0xFF;
                     RenderSystem.stencilFunc(GL11.GL_EQUAL, b, 0xFF);
-                    renderTempPart(matrixStack, transformType, renderType, light, overlay, divisionNodePaths.get(i));
+                    GlStateManager.disableDepth();
+                    if (ScopeView.isActive()) {
+                        // 1.12.2: keep the division over the lens when the eye is off the scope's axis (from the hip)
+                        matrixStack.pushPose();
+                        ScopeView.alignDivision(matrixStack.last().pose(), getBedrockPartPose(matrixStack, ocularNodePaths.get(i)));
+                        renderTempPart(matrixStack, transformType, renderType, light, overlay, divisionNodePaths.get(i));
+                        matrixStack.popPose();
+                    } else {
+                        renderTempPart(matrixStack, transformType, renderType, light, overlay, divisionNodePaths.get(i));
+                    }
+                    GlStateManager.enableDepth();
                 }
             }
         }

@@ -169,7 +169,11 @@ public class RenderType {
         if (emissive) {
             GlStateManager.disableLighting();
         }
-        GlStateManager.depthMask(writeDepth);
+        // as in 1.20 (WriteMaskStateShard): only turns depth writes off, so a caller's depthMask(false) (the scope's
+        // stencil passes) stays in effect
+        if (!writeDepth) {
+            GlStateManager.depthMask(false);
+        }
         GlStateManager.enableRescaleNormal();
         GlStateManager.shadeModel(GL11.GL_SMOOTH);
     }
@@ -189,7 +193,9 @@ public class RenderType {
         if (emissive && lightingWasEnabled) {
             GlStateManager.enableLighting();
         }
-        GlStateManager.depthMask(true);
+        if (!writeDepth) {
+            GlStateManager.depthMask(true);
+        }
         GlStateManager.shadeModel(GL11.GL_FLAT);
     }
 

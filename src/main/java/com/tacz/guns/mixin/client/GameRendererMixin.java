@@ -3,7 +3,10 @@ package com.tacz.guns.mixin.client;
 import com.tacz.guns.api.client.event.RenderItemInHandBobEvent;
 import com.tacz.guns.api.client.event.RenderLevelBobEvent;
 import com.tacz.guns.client.renderer.other.GunHurtBobTweak;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.tacz.guns.legacy.client.FovContext;
+import com.tacz.guns.legacy.client.ScopeView;
 import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -80,5 +83,35 @@ public abstract class GameRendererMixin {
     public void switchRenderType(float pPartialTicks, boolean pUseFOVSetting, CallbackInfoReturnable<Float> cir) {
         this.tacz$useFovSetting = pUseFOVSetting;
         FovContext.setUseFovSetting(pUseFOVSetting);
+    }
+
+    /**
+     * 1.12.2 only: the scope's view is rendered by an extra world pass before the main one, see {@link ScopeView}.
+     */
+    @WrapOperation(method = "renderWorld(FJ)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/EntityRenderer;renderWorldPass(IFJ)V"))
+    public void renderScopeView(EntityRenderer renderer, int pass, float partialTicks, long finishTimeNano, Operation<Void> original) {
+        if (pass == 2) {
+            ScopeView.renderBeforeWorld(() -> original.call(renderer, pass, partialTicks, finishTimeNano));
+        } else {
+            ScopeView.reset();
+        }
+        original.call(renderer, pass, partialTicks, finishTimeNano);
+    }
+
+    /**
+     * 1.12.2 only: the scope view pass uses the scope's FOV; the world FOV (after the FOV event) is what it magnifies.
+     */
+    @Inject(method = "getFOVModifier(FZ)F", at = @At("HEAD"), cancellable = true)
+    public void scopeViewFov(float pPartialTicks, boolean pUseFOVSetting, CallbackInfoReturnable<Float> cir) {
+        if (pUseFOVSetting && ScopeView.isRendering()) {
+            cir.setReturnValue(ScopeView.getFov());
+        }
+    }
+
+    @Inject(method = "getFOVModifier(FZ)F", at = @At("RETURN"))
+    public void recordWorldFov(float pPartialTicks, boolean pUseFOVSetting, CallbackInfoReturnable<Float> cir) {
+        if (pUseFOVSetting && !ScopeView.isRendering()) {
+            ScopeView.recordWorldFov(cir.getReturnValueF());
+        }
     }
 }

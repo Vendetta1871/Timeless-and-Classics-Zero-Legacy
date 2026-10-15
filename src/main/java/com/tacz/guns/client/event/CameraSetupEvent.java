@@ -18,6 +18,7 @@ import com.tacz.guns.client.resource.GunDisplayInstance;
 import com.tacz.guns.client.resource.index.ClientGunIndex;
 import com.tacz.guns.config.client.RenderConfig;
 import com.tacz.guns.legacy.client.FovContext;
+import com.tacz.guns.legacy.client.ScopeView;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
 import com.tacz.guns.resource.modifier.custom.RecoilModifier;
 import com.tacz.guns.resource.pojo.data.gun.GunData;
@@ -103,6 +104,10 @@ public class CameraSetupEvent {
             }
             float zoom = iGun.getAimingZoom(stack);
             if (livingEntity instanceof EntityPlayerSP localPlayer) {
+                // 1.12.2: a picture-in-picture scope magnifies only its own view, not the world
+                if (ScopeView.isReady()) {
+                    zoom = 1;
+                }
                 IClientPlayerGunOperator gunOperator = IClientPlayerGunOperator.fromLocalPlayer(localPlayer);
                 float aimingProgress = gunOperator.getClientAimingProgress((float) event.getRenderPartialTicks());
                 float fov = WORLD_FOV_DYNAMICS.update((float) MathUtil.magnificationToFov(1 + (zoom - 1) * aimingProgress, event.getFOV()));
@@ -205,6 +210,10 @@ public class CameraSetupEvent {
 
     @SubscribeEvent
     public static void applyCameraRecoil(EntityViewRenderEvent.CameraSetup event) {
+        // 1.12.2: the scope view pass sees the same camera as the main pass; the recoil moves it once per frame
+        if (ScopeView.isRendering()) {
+            return;
+        }
         EntityPlayerSP player = Minecraft.getMinecraft().player;
         if (player == null) {
             return;

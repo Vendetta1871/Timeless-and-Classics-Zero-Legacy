@@ -22,6 +22,10 @@ public class RenderConfig {
     public static ForgeConfigSpec.BooleanValue DISABLE_MOVEMENT_ATTRIBUTE_FOV;
     public static ForgeConfigSpec.BooleanValue ENABLE_TACZ_ID_IN_TOOLTIP;
     public static ForgeConfigSpec.BooleanValue BLOCK_ENTITY_TRANSLUCENT;
+    // 1.12.2 only: picture-in-picture scopes (com.tacz.guns.legacy.client.ScopeView)
+    public static ForgeConfigSpec.BooleanValue SCOPE_PICTURE_IN_PICTURE;
+    public static ForgeConfigSpec.DoubleValue SCOPE_VIEW_RESOLUTION;
+    public static ForgeConfigSpec.DoubleValue SCOPE_FISHEYE;
 
     public static void init(ForgeConfigSpec.Builder builder) {
         builder.push("render");
@@ -79,6 +83,16 @@ public class RenderConfig {
 
         builder.comment("Enable translucent while render block entity or not. Enable this option will result in ADDITIONAL PERFORMANCE OVERHEAD.");
         BLOCK_ENTITY_TRANSLUCENT = builder.define("EnableBlockEntityTranslucent", false);
+
+        // 1.12.2 only
+        builder.comment("Magnify only the view through a scope (rendered by a second world pass) instead of zooming the whole screen. Off under OptiFine shaders.");
+        SCOPE_PICTURE_IN_PICTURE = builder.define("ScopePictureInPicture", true);
+
+        builder.comment("Resolution of the view through a scope, relative to the screen. Lower values are faster.");
+        SCOPE_VIEW_RESOLUTION = builder.defineInRange("ScopeViewResolution", 1.0, 0.25, 1.0);
+
+        builder.comment("Fisheye (barrel) distortion of the view through a scope: how much farther out the lens edge looks. 0 turns it off.");
+        SCOPE_FISHEYE = builder.defineInRange("ScopeFisheye", 0.25, 0.0, 1.0);
 
         builder.pop();
     }

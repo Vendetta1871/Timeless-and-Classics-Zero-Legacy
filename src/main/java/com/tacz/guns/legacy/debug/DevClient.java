@@ -193,6 +193,8 @@ public final class DevClient {
                                 net.minecraft.entity.monster.EntityZombie pig = new net.minecraft.entity.monster.EntityZombie(player.world);
                                 pig.setPosition(player.posX, player.posY, player.posZ + 8);
                                 pig.setNoAI(true);
+                                // a helmet keeps it from burning in daylight (the flames would cover the view)
+                                pig.setItemStackToSlot(net.minecraft.inventory.EntityEquipmentSlot.HEAD, new ItemStack(net.minecraft.init.Items.LEATHER_HELMET));
                                 player.world.spawnEntity(pig);
                                 target = pig;
                             }
@@ -220,6 +222,8 @@ public final class DevClient {
                 if (++ticks == 40) {
                     screenshot(mc, "first_person");
                     if (DevTools.PACK_DIR == null) {
+                        // hold the aim key: with hold-to-aim (the default) a released key cancels aiming next tick
+                        net.minecraft.client.settings.KeyBinding.setKeyBindState(com.tacz.guns.client.input.AimKey.AIM_KEY.getKeyCode(), true);
                         IClientPlayerGunOperator.fromLocalPlayer(mc.player).aim(true);
                     }
                 } else if (ticks == 70) {
@@ -247,6 +251,7 @@ public final class DevClient {
                 } else if (ticks == 89) {
                     if (DevTools.PACK_DIR == null) {
                         GunMod.LOGGER.info("[dev] target health after: {} dead={}", target == null ? null : target.getHealth(), target != null && target.isDead);
+                        net.minecraft.client.settings.KeyBinding.setKeyBindState(com.tacz.guns.client.input.AimKey.AIM_KEY.getKeyCode(), false);
                         IClientPlayerGunOperator.fromLocalPlayer(mc.player).aim(false);
                     }
                 } else if (ticks == 100 && DevTools.PACK_DIR == null) {
