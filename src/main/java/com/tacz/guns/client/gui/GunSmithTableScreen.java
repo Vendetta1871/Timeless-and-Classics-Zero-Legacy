@@ -181,7 +181,7 @@ public class GunSmithTableScreen extends AbstractContainerScreen<GunSmithTableMe
     private boolean isNameMatch(GunSmithTableRecipe recipe) {
         if (filterList != null && StringUtils.isNotBlank(filterList.getSearchText())) {
             String searchText = filterList.getSearchText().toLowerCase();
-            ITextString name = recipe.getResult().getResult().getDisplayName();
+            String name = recipe.getResult().getResult().getDisplayName();
             return TextFormatting.getTextWithoutFormattingCodes(name).toLowerCase().contains(searchText);
         }
         return true;

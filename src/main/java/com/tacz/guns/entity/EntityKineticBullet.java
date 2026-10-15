@@ -3,6 +3,7 @@ package com.tacz.guns.entity;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Lists;
 import com.tacz.guns.GunMod;
+import com.tacz.guns.client.particle.AmmoParticleSpawner;
 import com.tacz.guns.api.DefaultAssets;
 import com.tacz.guns.api.GunProperties;
 import com.tacz.guns.api.GunProperty;

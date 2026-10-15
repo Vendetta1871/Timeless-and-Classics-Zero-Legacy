@@ -55,7 +55,7 @@ public class AmmoParticleSpawner {
                 result.setMaxAge(particle.getLifeTime());
             }
         } else {
-            Random random = bullet.getRNG();
+            Random random = bullet.world.rand;
             Entity owner = bullet.getOwner();
             for (int i = 0; i < count; ++i) {
                 createParticle(bullet, particle, random, delta, particleSpeed, owner, particleEngine, particleOptions);

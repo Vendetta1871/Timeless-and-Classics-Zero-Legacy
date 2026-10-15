@@ -18,6 +18,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.item.ItemStack;
 import com.tacz.guns.legacy.util.Components;
+import com.tacz.guns.legacy.util.MutableComponent;
 
 public final class GunPropertyDiagrams {
     public static int getHidePropertyButtonYOffset() {
@@ -65,7 +66,7 @@ public final class GunPropertyDiagrams {
             int[] yOffset = new int[]{y + 5};
 
             // 射击模式
-            ITextComponent fireModeText = Components.translatable("gui.tacz.gun_refit.property_diagrams.fire_mode");
+            MutableComponent fireModeText = Components.translatable("gui.tacz.gun_refit.property_diagrams.fire_mode");
             if (fireMode == FireMode.AUTO) {
                 fireModeText.append(Components.translatable("gui.tacz.gun_refit.property_diagrams.auto"));
             } else if (fireMode == FireMode.SEMI) {
