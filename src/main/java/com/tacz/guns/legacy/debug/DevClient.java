@@ -161,9 +161,12 @@ public final class DevClient {
                         stage = 1;
                         return;
                     }
-                    WorldSettings settings = new WorldSettings(0L, GameType.CREATIVE, false, false, WorldType.FLAT);
+                    // TACZ_AUTOTEST_WORLD=default: generated terrain (a separate save) instead of the flat world
+                    boolean terrain = "default".equals(System.getenv("TACZ_AUTOTEST_WORLD"));
+                    WorldSettings settings = new WorldSettings(0L, GameType.CREATIVE, false, false, terrain ? WorldType.DEFAULT : WorldType.FLAT);
                     settings.enableCommands();
-                    mc.launchIntegratedServer("tacz_autotest", "tacz_autotest", settings);
+                    String save = terrain ? "tacz_autotest_terrain" : "tacz_autotest";
+                    mc.launchIntegratedServer(save, save, settings);
                     stage = 1;
                 }
             }

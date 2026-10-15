@@ -31,7 +31,9 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GLContext;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Field;
@@ -48,6 +50,10 @@ import java.nio.IntBuffer;
  * at angle {@code a} from the view direction appears at about {@code zoom * a} from the lens centre, with a slight
  * fisheye distortion towards the lens edge.
  * <p>
+ * Only the part of the magnified view that the lens can show is rendered: a square around the view direction, as large
+ * as the lens on screen (measured in the previous frame), at the screen's pixel density. Its FOV and frustum are
+ * narrow, so the pass draws few chunks and few pixels.
+ * <p>
  * Off (upstream behaviour) when disabled in the config, when framebuffers are unavailable and under OptiFine
  * shaders.
  */
@@ -59,6 +65,15 @@ public final class ScopeView {
     private static final int RINGS = 24;
     private static final float MAX_RING = 1.5F;
     private static final int SEGMENTS = 48;
+    /**
+     * Extra room around the lens in the scope view, for the lens growing between frames.
+     */
+    private static final float VIEW_MARGIN = 1.1F;
+    /**
+     * The largest scope view, in screen half heights from the view direction.
+     */
+    private static final float MAX_VIEW_EXTENT = 2;
+    private static final int FRAMEBUFFER_STEP = 64;
 
     private static final FloatBuffer MATRIX = BufferUtils.createFloatBuffer(16);
     private static final IntBuffer VIEWPORT = BufferUtils.createIntBuffer(16);
@@ -72,6 +87,28 @@ public final class ScopeView {
     private static boolean rendering;
     private static boolean ready;
     private static float zoom = 1;
+    /**
+     * The lens radius on screen in the last two frames it was drawn, in screen half heights.
+     */
+    private static float lastLensRadius = 0.5F;
+    private static float lensRadiusBefore = 0.5F;
+    /**
+     * The scope view of this frame: its half size in screen half heights and its side in pixels.
+     */
+    private static float viewExtent = 1;
+    private static int viewSize = 1;
+    /**
+     * Whether the framebuffer holds a scope view (rendered in this frame or an earlier one).
+     */
+    private static boolean hasView;
+    /**
+     * An occlusion query counts the lens pixels drawn: while the lens is not seen (turned away, hidden by the gun
+     * or off screen, as in reload animations), no new view is rendered and the lens keeps the last one.
+     */
+    private static int lensQuery = -1;
+    private static boolean lensQueryPending;
+    private static boolean lensDrawn;
+    private static boolean lensSeen = true;
     private static float worldFov = 70;
     private static boolean shadersChecked;
     @Nullable
@@ -103,10 +140,11 @@ public final class ScopeView {
     }
 
     /**
-     * The FOV of the scope view: the world FOV (of the previous frame) magnified by the scope's zoom.
+     * The FOV of the scope view: the part of the world FOV (of the previous frame) the lens shows, magnified by the
+     * scope's zoom.
      */
     public static float getFov() {
-        return (float) MathUtil.magnificationToFov(zoom, worldFov);
+        return (float) MathUtil.magnificationToFov(zoom / viewExtent, worldFov);
     }
 
     public static void recordWorldFov(float fov) {
@@ -119,6 +157,7 @@ public final class ScopeView {
     public static void reset() {
         active = false;
         ready = false;
+        hasView = false;
     }
 
     /**
@@ -134,23 +173,33 @@ public final class ScopeView {
         if (scopeZoom <= 1.01F) {
             return;
         }
+        if (!updateLensSeen() && hasView && zoom == scopeZoom) {
+            ready = true;
+            return;
+        }
         zoom = scopeZoom;
         // the frame's target may be the vanilla framebuffer or, with OptiFine's fast render, the window itself
         // (creating a framebuffer binds the window, so ask first)
         int previousFramebuffer = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
         VIEWPORT.clear();
         GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT);
+        // the lens's size in the last frame, growing as fast as it grew then (while aiming in), with room for the
+        // fisheye, which samples up to (1 + fisheye) lens radii out
+        float predictedRadius = lastLensRadius * MathHelper.clamp(lastLensRadius / lensRadiusBefore, 1, 1.5F);
+        float fisheye = RenderConfig.SCOPE_FISHEYE.get().floatValue();
+        viewExtent = MathHelper.clamp(predictedRadius * (1 + fisheye) * VIEW_MARGIN, 0.05F, MAX_VIEW_EXTENT);
         double scale = RenderConfig.SCOPE_VIEW_RESOLUTION.get();
-        int width = Math.max(1, (int) (mc.displayWidth * scale));
-        int height = Math.max(1, (int) (mc.displayHeight * scale));
+        viewSize = MathHelper.clamp(MathHelper.ceil(viewExtent * mc.displayHeight * scale), 16, Minecraft.getGLMaximumTextureSize());
+        // the view is rendered into the corner of a square framebuffer that only grows (up to the largest view)
+        int largestSize = roundUp(MathHelper.ceil(MAX_VIEW_EXTENT * mc.displayHeight * scale));
         if (framebuffer == null) {
-            framebuffer = new Framebuffer(width, height, true);
+            framebuffer = new Framebuffer(roundUp(viewSize), roundUp(viewSize), true);
             // guns with scopes held by others use the stencil buffer; Forge re-creates the framebuffer to add one,
             // which must not happen in the middle of the pass
             framebuffer.enableStencil();
             framebuffer.setFramebufferFilter(GL11.GL_LINEAR);
-        } else if (framebuffer.framebufferWidth != width || framebuffer.framebufferHeight != height) {
-            framebuffer.createBindFramebuffer(width, height);
+        } else if (framebuffer.framebufferWidth < viewSize || framebuffer.framebufferWidth > largestSize) {
+            framebuffer.createBindFramebuffer(roundUp(viewSize), roundUp(viewSize));
             framebuffer.setFramebufferFilter(GL11.GL_LINEAR);
         }
 
@@ -164,17 +213,19 @@ public final class ScopeView {
         // the pass renders the frame as usual, only into the scope framebuffer (renderWorldPass sizes the viewport
         // and the projection from displayWidth/displayHeight), without the hand and with the scope's FOV
         ((MinecraftAccessor) mc).tacz$setFramebuffer(framebuffer);
-        mc.displayWidth = width;
-        mc.displayHeight = height;
+        mc.displayWidth = viewSize;
+        mc.displayHeight = viewSize;
         entityRenderer.tacz$setRenderHand(false);
         framebuffer.bindFramebuffer(true);
-        // the visible chunk list is rebuilt only when the camera moves; if this pass rebuilds it, it is built with
-        // the narrow frustum, so the main pass (below, in finally) is forced to rebuild it with the wide one. When the
-        // camera stands still this pass reuses the main pass's list, which is a superset of the scope frustum.
+        // the visible chunk list is rebuilt only when the camera moves or chunks change; the main pass's list would
+        // draw every chunk on screen, so it is rebuilt with the scope's narrow frustum (and again with the wide one
+        // by the main pass, below in finally)
+        renderGlobal.tacz$setDisplayListEntitiesDirty(true);
         rendering = true;
         try {
             worldPass.run();
             ready = true;
+            hasView = true;
         } catch (RuntimeException e) {
             GunMod.LOGGER.error("Scope view rendering failed", e);
         } finally {
@@ -192,6 +243,22 @@ public final class ScopeView {
             GlStateManager.enableAlpha();
             GlStateManager.alphaFunc(GL11.GL_GREATER, 0.5F);
         }
+    }
+
+    /**
+     * Whether the lens was seen in the last frame it was drawn (the query result may come a frame or two late).
+     */
+    private static boolean updateLensSeen() {
+        if (!lensDrawn) {
+            lensSeen = false;
+        } else if (lensQueryPending && GL15.glGetQueryObjecti(lensQuery, GL15.GL_QUERY_RESULT_AVAILABLE) != GL11.GL_FALSE) {
+            lensSeen = GL15.glGetQueryObjecti(lensQuery, GL15.GL_QUERY_RESULT) > 0;
+            lensQueryPending = false;
+        } else if (!lensQueryPending) {
+            lensSeen = true;
+        }
+        lensDrawn = false;
+        return lensSeen;
     }
 
     /**
@@ -300,7 +367,11 @@ public final class ScopeView {
         if (lensRadius <= 0) {
             lensRadius = 0.5F;
         }
+        lensRadiusBefore = lastLensRadius;
+        lastLensRadius = lensRadius;
         float fisheye = RenderConfig.SCOPE_FISHEYE.get().floatValue();
+        // the view covers viewExtent screen half heights around the view direction, in the corner of the texture
+        float textureScale = (float) viewSize / framebuffer.framebufferTextureWidth;
         // the outermost ring reaches every screen corner
         float screenRadius = MathHelper.sqrt((1 + Math.abs(centerX)) * (1 + Math.abs(centerX)) * aspect * aspect
                 + (1 + Math.abs(centerY)) * (1 + Math.abs(centerY)));
@@ -340,13 +411,25 @@ public final class ScopeView {
             for (int segment = 0; segment < SEGMENTS; segment++) {
                 float angle0 = segment * ((float) Math.PI * 2F) / SEGMENTS;
                 float angle1 = (segment + 1) * ((float) Math.PI * 2F) / SEGMENTS;
-                lensVertex(builder, inner, angle0, centerX, centerY, aspect, lensRadius, fisheye);
-                lensVertex(builder, outer, angle0, centerX, centerY, aspect, lensRadius, fisheye);
-                lensVertex(builder, outer, angle1, centerX, centerY, aspect, lensRadius, fisheye);
-                lensVertex(builder, inner, angle1, centerX, centerY, aspect, lensRadius, fisheye);
+                lensVertex(builder, inner, angle0, centerX, centerY, aspect, lensRadius, fisheye, textureScale);
+                lensVertex(builder, outer, angle0, centerX, centerY, aspect, lensRadius, fisheye, textureScale);
+                lensVertex(builder, outer, angle1, centerX, centerY, aspect, lensRadius, fisheye, textureScale);
+                lensVertex(builder, inner, angle1, centerX, centerY, aspect, lensRadius, fisheye, textureScale);
             }
         }
+        lensDrawn = true;
+        boolean query = !lensQueryPending && GLContext.getCapabilities().OpenGL15;
+        if (query) {
+            if (lensQuery < 0) {
+                lensQuery = GL15.glGenQueries();
+            }
+            GL15.glBeginQuery(GL15.GL_SAMPLES_PASSED, lensQuery);
+        }
         tessellator.draw();
+        if (query) {
+            GL15.glEndQuery(GL15.GL_SAMPLES_PASSED);
+            lensQueryPending = true;
+        }
 
         framebuffer.unbindFramebufferTexture();
         GlStateManager.enableTexture2D();
@@ -377,14 +460,18 @@ public final class ScopeView {
      * farther out (barrel distortion), growing with the square of the distance up to {@link #MAX_RING} lens radii.
      */
     private static void lensVertex(BufferBuilder builder, float radius, float angle, float centerX, float centerY,
-                                   float aspect, float lensRadius, float fisheye) {
+                                   float aspect, float lensRadius, float fisheye, float textureScale) {
         float dx = MathHelper.cos(angle) * radius;
         float dy = MathHelper.sin(angle) * radius;
         float edge = Math.min(radius / lensRadius, MAX_RING);
-        float sample = 1 + fisheye * edge * edge;
+        float sample = (1 + fisheye * edge * edge) / viewExtent;
         builder.pos(centerX + dx / aspect, centerY + dy, 0)
-                .tex(0.5 + 0.5 * dx * sample / aspect, 0.5 + 0.5 * dy * sample)
+                .tex((0.5 + 0.5 * dx * sample) * textureScale, (0.5 + 0.5 * dy * sample) * textureScale)
                 .endVertex();
+    }
+
+    private static int roundUp(int size) {
+        return (size + FRAMEBUFFER_STEP - 1) / FRAMEBUFFER_STEP * FRAMEBUFFER_STEP;
     }
 
     private static void readMatrices() {

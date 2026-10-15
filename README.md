@@ -49,8 +49,8 @@ What cannot be done on 1.12.2 the same way as on 1.20.1:
 
 Done differently from the original:
 
-- Optical scopes magnify only the image inside the lens (picture-in-picture: the world is rendered by a second pass
-  with a magnified FOV), not the whole screen. The lens shows the magnified image with the reticle from the hip too,
+- Optical scopes magnify only the image inside the lens (picture-in-picture: the part of the world the lens shows is
+  rendered by a second, small pass with a magnified FOV), not the whole screen. The lens shows the magnified image with the reticle from the hip too,
   instead of a black circle, with a slight fisheye effect towards the lens edge. Settings are in
   `config/tacz-client.cfg` (the `render` section): `ScopePictureInPicture` (turning it off restores the original
   behaviour), `ScopeViewResolution` (resolution of the image in the lens), `ScopeFisheye` (distortion strength,
@@ -81,7 +81,8 @@ Testing with OptiFine: OptiFine only works in an obfuscated environment, so its 
 
 The autotest (`TACZ_AUTOTEST=1`; it also works with `runObfClient`, and `TACZ_AUTOTEST_SERVER=host:port` connects to
 a server) creates a flat world, gives an AK47 (`TACZ_AUTOTEST_GUN`), aims, shoots at a zombie, reloads and saves
-screenshots to `run/screenshots` (`run/obfuscated/screenshots`). `TACZ_AUTOTEST_SCOPE=<attachment>` mounts a scope.
+screenshots to `run/screenshots` (`run/obfuscated/screenshots`). `TACZ_AUTOTEST_SCOPE=<attachment>` mounts a scope,
+`TACZ_AUTOTEST_WORLD=default` uses generated terrain instead of the flat world.
 `TACZ_AUTOTEST_WARMUP=<ticks>` waits first and logs the FPS.
 
 The built jar is in `build/libs/`. Runtime dependency: [MixinBooter](https://github.com/CleanroomMC/MixinBooter).
