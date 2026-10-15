@@ -108,7 +108,8 @@ public final class TooltipComponentHandler {
         List<String> lines = event.getLines();
         int index = -1;
         for (int i = 1; i < lines.size(); i++) {
-            if (lines.get(i).startsWith(MARKER)) {
+            // vanilla puts a gray formatting code in front of every line below the title
+            if (lines.get(i).contains(MARKER)) {
                 index = i;
                 break;
             }
