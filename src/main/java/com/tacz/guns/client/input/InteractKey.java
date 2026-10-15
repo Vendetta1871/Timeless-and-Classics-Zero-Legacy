@@ -19,6 +19,7 @@ import com.tacz.guns.GunMod;
 import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.input.Keyboard;
 import com.tacz.guns.legacy.util.KeyInputs;
+import com.tacz.guns.legacy.util.MinecraftAccess;
 
 import static com.tacz.guns.util.InputExtraCheck.isInGame;
 
@@ -55,16 +56,16 @@ public class InteractKey {
             if (!IGun.mainHandHoldGun(player)) {
                 return false;
             }
-            RayTraceResult hitResult = mc.hitResult;
+            RayTraceResult hitResult = mc.objectMouseOver;
             if (hitResult == null) {
                 return false;
             }
-            if (hitResult instanceof RayTraceResult blockHitResult) {
-                interactBlock(blockHitResult, player, mc);
+            if (hitResult.typeOfHit == RayTraceResult.Type.BLOCK) {
+                interactBlock(hitResult, player, mc);
                 return true;
             }
-            if (hitResult instanceof RayTraceResult entityHitResult) {
-                interactEntity(entityHitResult, mc);
+            if (hitResult.typeOfHit == RayTraceResult.Type.ENTITY) {
+                interactEntity(hitResult, mc);
                 return true;
             }
         }
@@ -80,16 +81,16 @@ public class InteractKey {
         if (!IGun.mainHandHoldGun(player)) {
             return;
         }
-        RayTraceResult hitResult = mc.hitResult;
+        RayTraceResult hitResult = mc.objectMouseOver;
         if (hitResult == null) {
             return;
         }
-        if (hitResult instanceof RayTraceResult blockHitResult) {
-            interactBlock(blockHitResult, player, mc);
+        if (hitResult.typeOfHit == RayTraceResult.Type.BLOCK) {
+            interactBlock(hitResult, player, mc);
             return;
         }
-        if (hitResult instanceof RayTraceResult entityHitResult) {
-            interactEntity(entityHitResult, mc);
+        if (hitResult.typeOfHit == RayTraceResult.Type.ENTITY) {
+            interactEntity(hitResult, mc);
         }
     }
 
@@ -97,14 +98,14 @@ public class InteractKey {
         BlockPos blockPos = blockHitResult.getBlockPos();
         IBlockState block = player.world.getBlockState(blockPos);
         if (InteractKeyConfigRead.canInteractBlock(block)) {
-            mc.startUseItem();
+            MinecraftAccess.startUseItem(mc);
         }
     }
 
     private static void interactEntity(RayTraceResult entityHitResult, Minecraft mc) {
-        Entity entity = entityHitResult.getEntity();
+        Entity entity = entityHitResult.entityHit;
         if (InteractKeyConfigRead.canInteractEntity(entity)) {
-            mc.startUseItem();
+            MinecraftAccess.startUseItem(mc);
         }
     }
 }

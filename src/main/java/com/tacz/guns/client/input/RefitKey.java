@@ -40,7 +40,7 @@ public class RefitKey {
                     if (iGun != null && iGun.hasAttachmentLock(player.getHeldItemMainhand())) {
                         return;
                     }
-                    Minecraft.getMinecraft().setScreen(new GunRefitScreen());
+                    Minecraft.getMinecraft().displayGuiScreen(new GunRefitScreen());
                 }
             } else if (Minecraft.getMinecraft().currentScreen instanceof GunRefitScreen refitScreen) {
                 refitScreen.onClose();

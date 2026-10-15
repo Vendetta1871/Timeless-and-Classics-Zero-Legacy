@@ -1,10 +1,12 @@
 package com.tacz.guns.legacy.particle;
 
+import com.tacz.guns.client.particle.BulletHoleParticle;
 import com.tacz.guns.legacy.network.FriendlyByteBuf;
 import com.tacz.guns.legacy.network.NetworkEvent;
 import com.tacz.guns.legacy.network.PacketDistributor;
 import com.tacz.guns.network.NetworkHandler;
 import com.tacz.guns.particles.BulletHoleOption;
+import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.fml.relauncher.Side;
@@ -61,7 +63,11 @@ public class BulletHoleMessage {
 
     @SideOnly(Side.CLIENT)
     private static void spawn(BulletHoleMessage message) {
-        // TODO(port): needs BulletHoleParticle (client/particle): add new BulletHoleParticle.Provider().createParticle(..)
-        //  to Minecraft#effectRenderer at message.x/y/z
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft.world == null) {
+            return;
+        }
+        minecraft.effectRenderer.addEffect(new BulletHoleParticle.Provider().createParticle(message.option, minecraft.world,
+                message.x, message.y, message.z, 0, 0, 0));
     }
 }
