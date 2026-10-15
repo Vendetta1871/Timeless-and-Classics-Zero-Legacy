@@ -2,8 +2,7 @@ package com.tacz.guns.client.event;
 
 import com.tacz.guns.GunMod;
 import com.tacz.guns.api.item.IGun;
-// TODO(port): needs InteractKey
-//import com.tacz.guns.client.input.InteractKey;
+import com.tacz.guns.client.input.InteractKey;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.util.EnumHand;
@@ -24,10 +23,9 @@ public class ClientPreventGunClick {
             return;
         }
         // 当交互键按下时，允许交互
-        // TODO(port): needs InteractKey
-//        if (InteractKey.INTERACT_KEY.isDown()) {
-//            return;
-//        }
+        if (InteractKey.INTERACT_KEY.isKeyDown()) {
+            return;
+        }
         // 只要主手有枪，那么禁止交互
         ItemStack itemInHand = player.getHeldItem(EnumHand.MAIN_HAND);
         if (itemInHand.getItem() instanceof IGun) {

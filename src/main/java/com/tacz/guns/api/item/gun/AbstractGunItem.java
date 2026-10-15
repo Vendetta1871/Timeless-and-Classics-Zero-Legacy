@@ -385,7 +385,7 @@ public abstract class AbstractGunItem extends Item implements IGun, IAnimationIt
     /**
      * 获取在 Tooltip 中渲染的图片
      */
-    // TODO(port): 1.12.2 has no TooltipComponent / Item#getTooltipImage; GunTooltip is a plain class here and needs a tooltip event hook
+    // 1.12.2 has no TooltipComponent / Item#getTooltipImage: GunTooltip is a plain data class, the tooltip is drawn by legacy.util.TooltipComponentHandler
     @Nonnull
     public Optional<GunTooltip> getTooltipImage(ItemStack stack) {
         if (stack.getItem() instanceof IGun iGun) {

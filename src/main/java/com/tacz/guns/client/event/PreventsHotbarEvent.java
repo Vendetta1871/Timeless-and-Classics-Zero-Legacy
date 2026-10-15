@@ -1,9 +1,7 @@
 package com.tacz.guns.client.event;
 
-// TODO(port): needs GunRefitScreen
-//import com.tacz.guns.client.gui.GunRefitScreen;
-// TODO(port): needs GunSmithTableScreen
-//import com.tacz.guns.client.gui.GunSmithTableScreen;
+import com.tacz.guns.client.gui.GunRefitScreen;
+import com.tacz.guns.client.gui.GunSmithTableScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraftforge.fml.relauncher.Side;
@@ -18,15 +16,13 @@ public class PreventsHotbarEvent {
         // todo 需要测试行为
         GuiScreen screen = Minecraft.getMinecraft().currentScreen;
         // 枪械合成台界面关闭背景
-        // TODO(port): needs GunSmithTableScreen
-//        if (screen instanceof GunSmithTableScreen) {
-//            event.setCanceled(true);
-//            return;
-//        }
+        if (screen instanceof GunSmithTableScreen) {
+            event.setCanceled(true);
+            return;
+        }
         // 枪械改装界面关闭背景
-        // TODO(port): needs GunRefitScreen
-//        if (screen instanceof GunRefitScreen) {
-//            event.setCanceled(true);
-//        }
+        if (screen instanceof GunRefitScreen) {
+            event.setCanceled(true);
+        }
     }
 }
