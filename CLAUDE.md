@@ -112,6 +112,8 @@ Ported code keeps upstream's 1.20 API shape through these shims; prefer them ove
 | `RecipeManager`, `RecipeType`; `level.getRecipeManager()` → `RecipeManager.of(level)` | `legacy.crafting` |
 | `ForgeConfigSpec` | `legacy.config` |
 | `GsonHelper`, `Util`, `ClipContext`, `FMLPaths`, `Mth` extras (`LegacyMath`), fastutil `Pair`, `Component.*` (`Components`), particle names (`LegacyParticles`), Java 9 `Optional`/`Objects` helpers (`Optionals`), item handler capability (`ItemHandlers`) | `legacy.util` |
+| `Screen`, `AbstractContainerScreen`, `Button`, `ImageButton`, `EditBox`, `ForgeSlider`, `Renderable`, `GuiEventListener` (widgets are not in `buttonList`; the screen dispatches input to them) | `legacy.util.gui` |
+| `IGuiOverlay` (drawn from `client.init.ClientSetupEvent#onRenderGameOverlay`), `ClientTooltipComponent` + `TooltipComponentHandler` (tooltip images over blank tooltip lines), `MutableComponent`, `FontUtil` (`Font#width/split`), `KeyInputs` (`InputEvent.Key/MouseButton` payload: `KeyInputs.matches/isPress`), `MinecraftAccess` (`startUseItem`) | `legacy.util` |
 
 Gson 2.8 cannot build `EnumMap` fields: TACZ's Gson instances register `EnumMapTypeAdapterFactory`.
 
