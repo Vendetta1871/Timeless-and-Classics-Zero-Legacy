@@ -44,7 +44,7 @@ public class RecipeManager extends SimplePreparableReloadListener<Map<ResourceLo
      * {@code level.getRecipeManager()}: the server's recipes on the logical server, the synced ones on the client.
      */
     public static RecipeManager of(World level) {
-        if (!level.isRemote && CommonAssetsManager.getInstance() != null && CommonAssetsManager.getInstance().recipeManager != null) {
+        if ((!level.isRemote || net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance() != null) && CommonAssetsManager.getInstance() != null && CommonAssetsManager.getInstance().recipeManager != null) {
             return CommonAssetsManager.getInstance().recipeManager;
         }
         return CommonNetworkCache.INSTANCE.recipeManager;
