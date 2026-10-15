@@ -5,6 +5,7 @@ import com.tacz.guns.compat.optifine.OptifineCompat;
 import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.RenderSystem;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
@@ -54,22 +55,27 @@ public final class RenderHelper {
 
     public static void enableItemEntityStencilTest() {
         RenderSystem.assertOnRenderThread();
-        if (OptifineCompat.isOptifineInstalled()) {
-            // 以下代码用于应对 使用 optifine 的场景
-            int depthTextureId = GL30.glGetFramebufferAttachmentParameteri(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
-            int stencilTextureId = GL30.glGetFramebufferAttachmentParameteri(GL30.GL_FRAMEBUFFER, GL30.GL_STENCIL_ATTACHMENT, GL30.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE);
-            if (depthTextureId != GL11.GL_NONE && stencilTextureId == GL11.GL_NONE) {
-                GlStateManager.bindTexture(depthTextureId);
-                int dataType = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL30.GL_TEXTURE_DEPTH_TYPE);
-                if (dataType == GL30.GL_UNSIGNED_NORMALIZED) {
-                    int width = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
-                    int height = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
-                    GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_DEPTH24_STENCIL8, width, height, 0, GL30.GL_DEPTH_STENCIL, GL30.GL_UNSIGNED_INT_24_8, (java.nio.ByteBuffer) null);
-                    GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT, GL11.GL_TEXTURE_2D, depthTextureId, 0);
-                }
-            }
-        } else {
-            Minecraft.getMinecraft().getFramebuffer().enableStencil();
+        // 1.12.2: without shaders OptiFine keeps the vanilla framebuffer, which Forge can give stencil bits. Forge's
+        // enableStencil() re-creates the framebuffer on every call (it would wipe the frame), so only once.
+        // TODO(port): OptiFine shaders (stage 2); upstream's depth-texture branch for OptiFine/Oculus, kept below
+//        if (OptifineCompat.isOptifineInstalled()) {
+//            // 以下代码用于应对 使用 optifine 的场景
+//            int depthTextureId = GL30.glGetFramebufferAttachmentParameteri(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
+//            int stencilTextureId = GL30.glGetFramebufferAttachmentParameteri(GL30.GL_FRAMEBUFFER, GL30.GL_STENCIL_ATTACHMENT, GL30.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE);
+//            if (depthTextureId != GL11.GL_NONE && stencilTextureId == GL11.GL_NONE) {
+//                GlStateManager.bindTexture(depthTextureId);
+//                int dataType = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL30.GL_TEXTURE_DEPTH_TYPE);
+//                if (dataType == GL30.GL_UNSIGNED_NORMALIZED) {
+//                    int width = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
+//                    int height = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+//                    GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_DEPTH24_STENCIL8, width, height, 0, GL30.GL_DEPTH_STENCIL, GL30.GL_UNSIGNED_INT_24_8, (java.nio.ByteBuffer) null);
+//                    GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT, GL11.GL_TEXTURE_2D, depthTextureId, 0);
+//                }
+//            }
+//        }
+        Framebuffer framebuffer = Minecraft.getMinecraft().getFramebuffer();
+        if (!framebuffer.isStencilEnabled()) {
+            framebuffer.enableStencil();
         }
         GL11.glEnable(GL11.GL_STENCIL_TEST);
     }

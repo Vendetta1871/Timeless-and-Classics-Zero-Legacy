@@ -257,6 +257,9 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
             GlStateManager.disableAlpha();
             boolean lighting = GL11.glIsEnabled(GL11.GL_LIGHTING);
             GlStateManager.disableLighting();
+            // the fan only marks the stencil: it must not be culled (winding depends on the pose) nor depth tested
+            GlStateManager.disableCull();
+            GlStateManager.disableDepth();
             // 准备渲染圆形模板层
             RenderSystem.stencilOp(GL11.GL_KEEP, GL11.GL_KEEP, GL11.GL_INVERT);
             RenderSystem.colorMask(false, false, false, false);
@@ -287,6 +290,8 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
             }
             GlStateManager.enableTexture2D();
             GlStateManager.enableAlpha();
+            GlStateManager.enableCull();
+            GlStateManager.enableDepth();
             if (lighting) {
                 GlStateManager.enableLighting();
             }

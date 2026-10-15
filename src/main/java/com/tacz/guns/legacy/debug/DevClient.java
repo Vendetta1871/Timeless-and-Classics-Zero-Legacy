@@ -263,7 +263,12 @@ public final class DevClient {
         if ("none".equals(gun)) {
             return ItemStack.EMPTY;
         }
-        return GunItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, gun == null ? "ak47" : gun)).setAmmoCount(30).build();
+        GunItemBuilder builder = GunItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, gun == null ? "ak47" : gun)).setAmmoCount(30);
+        String scope = System.getenv("TACZ_AUTOTEST_SCOPE");
+        if (scope != null) {
+            builder.putAttachment(com.tacz.guns.api.item.attachment.AttachmentType.SCOPE, new ResourceLocation(GunMod.MOD_ID, scope));
+        }
+        return builder.build();
     }
 
     @SubscribeEvent
