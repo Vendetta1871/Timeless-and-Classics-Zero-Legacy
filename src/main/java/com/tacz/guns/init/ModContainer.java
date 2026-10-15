@@ -2,6 +2,7 @@ package com.tacz.guns.init;
 
 import com.tacz.guns.GunMod;
 import com.tacz.guns.block.entity.GunSmithTableBlockEntity;
+import com.tacz.guns.client.init.ModContainerScreen;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -31,7 +32,9 @@ public class ModContainer {
         @Nullable
         @Override
         public Object getClientGuiElement(int ID, EntityPlayer player, World world, int x, int y, int z) {
-            // TODO(port): client screens (batch 3)
+            if (ID == GUN_SMITH_TABLE_MENU) {
+                return ModContainerScreen.createGunSmithTableScreen(player, world, x, y, z);
+            }
             return null;
         }
     };

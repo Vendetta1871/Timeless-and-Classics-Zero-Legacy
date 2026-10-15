@@ -88,7 +88,7 @@ public class AttachmentItem extends Item implements AttachmentItemDataAccessor {
         }
     }
 
-    // TODO(port): 1.12.2 has no TooltipComponent / Item#getTooltipImage; AttachmentItemTooltip is a plain class here and needs a tooltip event hook
+    // 1.12.2 has no TooltipComponent / Item#getTooltipImage: AttachmentItemTooltip is a plain data class, the tooltip is drawn by legacy.util.TooltipComponentHandler
     public Optional<AttachmentItemTooltip> getTooltipImage(ItemStack stack) {
         return Optional.of(new AttachmentItemTooltip(this.getAttachmentId(stack), this.getType(stack), stack));
     }

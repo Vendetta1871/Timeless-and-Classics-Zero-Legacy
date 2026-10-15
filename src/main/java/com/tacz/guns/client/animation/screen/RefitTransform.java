@@ -2,8 +2,7 @@ package com.tacz.guns.client.animation.screen;
 
 import com.tacz.guns.GunMod;
 import com.tacz.guns.api.item.attachment.AttachmentType;
-// TODO(port): needs GunRefitScreen
-//import com.tacz.guns.client.gui.GunRefitScreen;
+import com.tacz.guns.client.gui.GunRefitScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -66,9 +65,7 @@ public class RefitTransform {
         if (refitScreenOpeningTimestamp == -1) {
             refitScreenOpeningTimestamp = System.currentTimeMillis();
         }
-        // TODO(port): needs GunRefitScreen (restore the condition below, drop the placeholder)
-//        if (Minecraft.getMinecraft().currentScreen instanceof GunRefitScreen) {
-        if (false) {
+        if (Minecraft.getMinecraft().currentScreen instanceof GunRefitScreen) {
             refitScreenOpeningProgress += (System.currentTimeMillis() - refitScreenOpeningTimestamp) / (REFIT_SCREEN_TRANSFORM_TIMES * 1000);
             if (refitScreenOpeningProgress > 1) {
                 refitScreenOpeningProgress = 1;

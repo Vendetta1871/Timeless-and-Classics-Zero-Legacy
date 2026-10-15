@@ -50,7 +50,7 @@ public final class Components {
         }
     }
 
-    public static class Translatable extends TextComponentTranslation {
+    public static class Translatable extends TextComponentTranslation implements MutableComponent {
         Translatable(String key, Object... args) {
             super(key, args);
         }
@@ -74,7 +74,7 @@ public final class Components {
         }
     }
 
-    public static class Literal extends TextComponentString {
+    public static class Literal extends TextComponentString implements MutableComponent {
         Literal(String text) {
             super(text);
         }

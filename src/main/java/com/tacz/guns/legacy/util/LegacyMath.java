@@ -34,4 +34,15 @@ public final class LegacyMath {
     public static double square(double value) {
         return value * value;
     }
+
+    /**
+     * {@code FastColor.ARGB32.lerp(delta, from, to)}: per channel linear interpolation of two ARGB colors.
+     */
+    public static int lerpArgb(float delta, int from, int to) {
+        int a = (int) lerp(delta, from >>> 24, to >>> 24);
+        int r = (int) lerp(delta, (from >> 16) & 0xFF, (to >> 16) & 0xFF);
+        int g = (int) lerp(delta, (from >> 8) & 0xFF, (to >> 8) & 0xFF);
+        int b = (int) lerp(delta, from & 0xFF, to & 0xFF);
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
 }

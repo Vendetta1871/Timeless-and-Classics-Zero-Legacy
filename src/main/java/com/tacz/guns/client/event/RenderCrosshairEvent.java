@@ -10,8 +10,7 @@ import com.tacz.guns.api.client.gameplay.IClientPlayerGunOperator;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
 import com.tacz.guns.api.item.IGun;
-// TODO(port): needs GunRefitScreen
-//import com.tacz.guns.client.gui.GunRefitScreen;
+import com.tacz.guns.client.gui.GunRefitScreen;
 import com.tacz.guns.client.renderer.crosshair.CrosshairType;
 // TODO(port): needs ShoulderSurfingCompat
 //import com.tacz.guns.compat.shouldersurfing.ShoulderSurfingCompat;
@@ -108,8 +107,7 @@ public class RenderCrosshairEvent {
     @SubscribeEvent
     public static void onRenderTick(TickEvent.RenderTickEvent event) {
         // 奇迹的是，RenderGameOverlayEvent.PreLayer 事件中，screen 还未被赋值...
-        // TODO(port): needs GunRefitScreen
-        // isRefitScreen = Minecraft.getMinecraft().currentScreen instanceof GunRefitScreen;
+        isRefitScreen = Minecraft.getMinecraft().currentScreen instanceof GunRefitScreen;
     }
 
     private static void renderCrosshair(GuiGraphics graphics, Window window) {

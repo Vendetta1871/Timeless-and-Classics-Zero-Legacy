@@ -3,6 +3,7 @@ package com.tacz.guns.entity;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Lists;
 import com.tacz.guns.GunMod;
+import com.tacz.guns.client.particle.AmmoParticleSpawner;
 import com.tacz.guns.api.DefaultAssets;
 import com.tacz.guns.api.GunProperties;
 import com.tacz.guns.api.GunProperty;
@@ -270,8 +271,7 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
         this.onBulletTick();
         // 粒子效果
         if (this.world.isRemote) {
-            // TODO(port): needs AmmoParticleSpawner (client/particle)
-//            AmmoParticleSpawner.addParticle(this);
+            AmmoParticleSpawner.addParticle(this);
         }
         // 子弹模型的旋转与抛物线
         double x = this.motionX;

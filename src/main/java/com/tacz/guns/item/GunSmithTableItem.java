@@ -94,7 +94,7 @@ public class GunSmithTableItem extends ItemBlock implements BlockItemDataAccesso
 //        }
 //    }
 
-    // TODO(port): 1.12.2 has no TooltipComponent / Item#getTooltipImage; BlockItemTooltip is a plain class here and needs a tooltip event hook
+    // 1.12.2 has no TooltipComponent / Item#getTooltipImage: BlockItemTooltip is a plain data class, the tooltip is drawn by legacy.util.TooltipComponentHandler
     @NotNull
     public Optional<BlockItemTooltip> getTooltipImage(ItemStack pStack) {
         return Optional.of(new BlockItemTooltip(this.getBlockId(pStack)));

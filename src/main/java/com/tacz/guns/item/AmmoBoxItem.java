@@ -271,7 +271,7 @@ public class AmmoBoxItem extends Item implements AmmoBoxItemDataAccessor {
         }
     }
 
-    // TODO(port): 1.12.2 has no TooltipComponent / Item#getTooltipImage; AmmoBoxTooltip is a plain class here and needs a tooltip event hook
+    // 1.12.2 has no TooltipComponent / Item#getTooltipImage: AmmoBoxTooltip is a plain data class, the tooltip is drawn by legacy.util.TooltipComponentHandler
     public Optional<AmmoBoxTooltip> getTooltipImage(ItemStack stack) {
         if (!(stack.getItem() instanceof IAmmoBox iAmmoBox)) {
             return Optional.empty();

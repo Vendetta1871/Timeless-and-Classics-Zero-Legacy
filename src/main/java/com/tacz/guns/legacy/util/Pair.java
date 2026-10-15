@@ -11,6 +11,14 @@ public interface Pair<L, R> {
 
     R right();
 
+    default L key() {
+        return this.left();
+    }
+
+    default R value() {
+        return this.right();
+    }
+
     default L first() {
         return this.left();
     }

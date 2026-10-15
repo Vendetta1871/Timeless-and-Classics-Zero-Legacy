@@ -3,8 +3,7 @@ package com.tacz.guns.client.event;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.event.common.EntityHurtByGunEvent;
 import com.tacz.guns.api.event.common.EntityKillByGunEvent;
-// TODO(port): needs KillAmountOverlay
-//import com.tacz.guns.client.gui.overlay.KillAmountOverlay;
+import com.tacz.guns.client.gui.overlay.KillAmountOverlay;
 import com.tacz.guns.client.sound.SoundPlayManager;
 import com.tacz.guns.config.client.RenderConfig;
 import com.tacz.guns.entity.TargetMinecart;
@@ -67,8 +66,7 @@ public class ClientHitMark {
         EntityPlayerSP player = Minecraft.getMinecraft().player;
         if (player != null && player.equals(attacker)) {
             RenderCrosshairEvent.markKillTimestamp();
-            // TODO(port): needs KillAmountOverlay
-            // KillAmountOverlay.markTimestamp();
+            KillAmountOverlay.markTimestamp();
             TimelessAPI.getGunDisplay(event.getGunDisplayId(), event.getGunId()).ifPresent(index -> SoundPlayManager.playKillSound(player, index));
             if (event.isHeadShot()) {
                 RenderCrosshairEvent.markHeadShotTimestamp();
