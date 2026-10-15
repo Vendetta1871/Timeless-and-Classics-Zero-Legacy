@@ -37,6 +37,10 @@ extend its tables when you meet a mechanical rewrite more than twice.
 `tools/restore_todos.py <Class> ...` uncomments the code under `// TODO(port): needs <Class>` markers once that class
 exists; review the result and compile.
 
+`tools/check_sides.py` reports common code calling client-only (`@SideOnly(CLIENT)`) static vanilla methods, which
+crash a dedicated server. Run it after porting server-side code; also check a real server start (`./gw runServer`,
+`run/eula.txt` is accepted) and the autotest against it (`TACZ_AUTOTEST_SERVER=localhost:25565`, see README).
+
 `build.gradle` has a temporary `portPending` list of sources excluded from compilation until their dependencies are
 ported. Remove entries as they start compiling; it must end up empty.
 
