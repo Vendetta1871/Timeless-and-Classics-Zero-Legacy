@@ -118,6 +118,10 @@ public final class TooltipComponentHandler {
             return;
         }
         ItemStack stack = event.getStack();
+        if (stack.isEmpty()) {
+            // GuiGraphics#renderTooltip does not announce the stack to GuiUtils: the lines were just built for lastStack
+            stack = lastStack;
+        }
         ClientTooltipComponent component;
         if (stack == lastStack || ItemStack.areItemStacksEqual(stack, lastStack)) {
             component = lastComponent;

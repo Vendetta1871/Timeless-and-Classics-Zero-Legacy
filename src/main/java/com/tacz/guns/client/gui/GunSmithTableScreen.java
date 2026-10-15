@@ -500,7 +500,9 @@ public class GunSmithTableScreen extends AbstractContainerScreen<GunSmithTableMe
         if (!this.filterEnabled && this.selectedRecipe != null) {
             this.renderLeftModel(graphics, this.selectedRecipe);
             this.renderPackInfo(graphics, this.selectedRecipe);
-            graphics.drawString(font, Components.translatable("gui.tacz.gun_smith_table.count", this.selectedRecipe.getResult().getResult().getCount()), leftPos + 254, topPos + 140, 0x555555, false);
+            // 1.12.2: TextComponentTranslation only knows %s, the string uses %d
+            graphics.drawString(font,
+                    Components.literal(net.minecraft.client.resources.I18n.format("gui.tacz.gun_smith_table.count", this.selectedRecipe.getResult().getResult().getCount())), leftPos + 254, topPos + 140, 0x555555, false);
         }
         if (selectedRecipeList != null && !selectedRecipeList.isEmpty()) {
             renderIngredient(graphics);

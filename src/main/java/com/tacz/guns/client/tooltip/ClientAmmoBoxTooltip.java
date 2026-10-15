@@ -7,6 +7,7 @@ import com.tacz.guns.legacy.render.GuiGraphics;
 import com.tacz.guns.legacy.util.ClientTooltipComponent;
 import com.tacz.guns.legacy.util.FontUtil;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
 import com.tacz.guns.legacy.util.Components;
 
@@ -21,7 +22,8 @@ public class ClientAmmoBoxTooltip implements ClientTooltipComponent {
         if (ammoBox.getItem() instanceof IAmmoBox box && box.isCreative(ammoBox)) {
             this.count = Components.literal("∞");
         } else {
-            this.count = Components.translatable("tooltip.tacz.ammo_box.count", tooltip.getCount());
+            // 1.12.2: TextComponentTranslation only knows %s, the string uses %d
+            this.count = Components.literal(I18n.format("tooltip.tacz.ammo_box.count", tooltip.getCount()));
         }
         this.ammoName = Components.literal(this.ammo.getDisplayName());
     }
