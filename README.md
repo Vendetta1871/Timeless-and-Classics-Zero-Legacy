@@ -1,63 +1,68 @@
 # TaCZ Legacy
 
-Неофициальный порт [Timeless and Classics Zero](https://github.com/MCModderAnchor/TACZ) (Forge 1.20.1) на **Minecraft 1.12.2 Forge**.
+An unofficial port of [Timeless and Classics Zero](https://github.com/MCModderAnchor/TACZ) (Forge 1.20.1) to
+**Minecraft 1.12.2 Forge**.
 
-Цель — запускать оригинальные ганпаки TACZ без конвертации: тот же формат `gunpack`, те же bedrock-модели, анимации и Lua-скрипты.
+The goal is to run original TACZ gun packs without conversion: the same `gunpack` format, the same Bedrock models,
+animations and Lua scripts.
 
-> Статус: этап 1 почти готов. Оружие из оригинальных ганпаков работает в одиночной игре и на выделенном
-> сервере: модели и анимации от первого лица, стрельба, урон, перезарядка, прицелы, звуки, HUD, оружейный стол.
-> Проверено с дефолтным паком TACZ и с OptiFine (без шейдеров).
+> Status: stage 1 is nearly done. Guns from the original gun packs work in single player and on a dedicated server:
+> first-person models and animations, shooting, damage, reloading, scopes, sounds, HUD, gunsmith table.
+> Tested with the default TACZ pack and with OptiFine (without shaders).
 
-## План
+## Plan
 
-### Этап 1 — сами оружия
+### Stage 1 — the guns themselves
 
-- Загрузка ганпаков в формате TACZ (папка `tacz/` и zip-архивы), включая дефолтный пак
-- Предметы: оружие, патроны, обвесы, коробки патронов; NBT-данные оружия
-- Стрельба на сервере: режимы огня, пули с попаданием по хитбоксам, урон, отбрасывание, пробитие
-- Перезарядка, проверка магазина, смена режима огня, прицеливание, бег, ближний бой
-- Рендер от первого лица: bedrock-модели оружия и обвесов, руки, анимации (машины состояний на Lua), вспышки, гильзы
-- Прицелы и ADS, отдача и анимации камеры, FOV
-- Звуки из ганпаков
-- Оружейный стол (крафт), HUD (патроны, прицел, хитмаркеры), тултипы
-- Конфиг, команды, сеть
-- Работа с установленным OptiFine **без шейдеров** (без крашей и поломок рендера)
+- Loading gun packs in the TACZ format (the `tacz/` folder and zip archives), including the default pack
+- Items: guns, ammo, attachments, ammo boxes; gun NBT data
+- Server-side shooting: fire modes, bullets with hitbox detection, damage, knockback, penetration
+- Reloading, magazine inspection, fire mode switching, aiming, sprinting, melee
+- First-person rendering: Bedrock models of guns and attachments, arms, animations (Lua state machines), muzzle
+  flashes, shell casings
+- Scopes and ADS, recoil and camera animations, FOV
+- Sounds from gun packs
+- Gunsmith table (crafting), HUD (ammo, crosshair, hit markers), tooltips
+- Config, commands, networking
+- Working alongside OptiFine **without shaders** (no crashes or rendering glitches)
 
-### Этап 2 — анимации третьего лица, совместимость с шейдерами и т.п.
+### Stage 2 — third-person animations, shader compatibility, etc.
 
-- Позы третьего лица (держит/целится)
-- Совместимость с шейдерами OptiFine: прицелы на трафарете, проход теней (вспышки, гильзы)
-- JEI и прочая совместимость, для которой есть версии под 1.12.2
+- Third-person poses (holding/aiming)
+- OptiFine shader compatibility: stencil-based scopes, the shadow pass (muzzle flashes, shell casings)
+- JEI and other integrations that exist for 1.12.2
 
-### Не портируется
+### Not ported
 
-Совместимость с модами, которых нет на 1.12.2: KubeJS, Oculus/Iris, Embeddium, Create, Carry On, Shoulder Surfing Reloaded, Controllable, Player Animator, Accelerated Rendering.
+Compatibility with mods that do not exist on 1.12.2: KubeJS, Oculus/Iris, Embeddium, Create, Carry On,
+Shoulder Surfing Reloaded, Controllable, Player Animator, Accelerated Rendering.
 
-## Отличия от оригинала
+## Differences from the original
 
-То, что на 1.12.2 нельзя сделать так же, как на 1.20.1:
+What cannot be done on 1.12.2 the same way as on 1.20.1:
 
-- Рецепты оружейного стола из ганпаков читаются как есть, но теги 1.20 превращаются в OreDictionary
-  (`forge:ingots/iron` → `ingotIron`). Материалов, которых нет в 1.12.2 (медь, аметист, незерит), без других модов нет,
-  и такие рецепты не скрафтить.
-- Ползание (поза плавания) в 1.12.2 отсутствует: состояние синхронизируется, но поза и хитбокс не меняются.
-- Звуки «относительно слушателя» проигрываются в точке игрока.
+- Gunsmith table recipes from gun packs are read as is, but 1.20 tags are turned into OreDictionary entries
+  (`forge:ingots/iron` → `ingotIron`). Materials that do not exist in 1.12.2 (copper, amethyst, netherite) are
+  unavailable without other mods, so such recipes cannot be crafted.
+- Crawling (the swimming pose) does not exist in 1.12.2: the state is synced, but the pose and hitbox do not change.
+- Sounds "relative to the listener" are played at the player's position.
 
-Сделано иначе, чем в оригинале:
+Done differently from the original:
 
-- Оптические прицелы увеличивают только изображение в линзе (картинка в картинке: мир рендерится вторым проходом
-  с увеличенным FOV), а не весь экран. Линза показывает увеличенную картинку с сеткой и от бедра, а не чёрный круг;
-  по краю линзы лёгкий эффект «рыбьего глаза». Настройки в `config/tacz-client.cfg` (раздел `render`):
-  `ScopePictureInPicture` (выключение возвращает поведение оригинала), `ScopeViewResolution` (разрешение картинки
-  в линзе), `ScopeFisheye` (сила искажения, 0 — без него). Под шейдерами OptiFine прицелы работают как в оригинале.
+- Optical scopes magnify only the image inside the lens (picture-in-picture: the world is rendered by a second pass
+  with a magnified FOV), not the whole screen. The lens shows the magnified image with the reticle from the hip too,
+  instead of a black circle, with a slight fisheye effect towards the lens edge. Settings are in
+  `config/tacz-client.cfg` (the `render` section): `ScopePictureInPicture` (turning it off restores the original
+  behaviour), `ScopeViewResolution` (resolution of the image in the lens), `ScopeFisheye` (distortion strength,
+  0 turns it off). Under OptiFine shaders scopes work as in the original.
 
-## Сборка
+## Building
 
-Gradle (RetroFuturaGradle 2) запускается на JDK 25, исходники компилирует JDK 17 через Jabel в байткод Java 8,
-клиент запускается на JDK 8. Скрипт `./gw` выставляет нужные JDK; путь к JDK 25 задаётся переменной `GRADLE_JDK`
-(по умолчанию `/storage/opt/jdk-25`).
+Gradle (RetroFuturaGradle 2) runs on JDK 25, sources are compiled by JDK 17 through Jabel into Java 8 bytecode, and
+the client runs on JDK 8. The `./gw` script sets up the right JDKs; the path to JDK 25 is set by the `GRADLE_JDK`
+variable (default `/storage/opt/jdk-25`).
 
-Ассеты TACZ не хранятся в репозитории: перед первой сборкой выкачайте закреплённую версию оригинала.
+TACZ assets are not stored in the repository: before the first build, fetch the pinned version of the original.
 
 ```bash
 tools/fetch-upstream.sh
@@ -71,17 +76,19 @@ tools/fetch-upstream.sh
 ./gw runClient
 ```
 
-Проверка с OptiFine: OptiFine работает только в обфусцированном окружении, поэтому его jar кладётся в
-`run/obfuscated/extra-mods/`, а клиент запускается через `./gw runObfClient`.
+Testing with OptiFine: OptiFine only works in an obfuscated environment, so its jar goes into
+`run/obfuscated/extra-mods/` and the client is started with `./gw runObfClient`.
 
-Автотест (`TACZ_AUTOTEST=1`, работает и с `runObfClient`, `TACZ_AUTOTEST_SERVER=host:port` подключает к серверу) создаёт плоский мир, выдаёт AK47 (`TACZ_AUTOTEST_GUN`),
-целится, стреляет по зомби, перезаряжается и сохраняет скриншоты в `run/screenshots`
-(`run/obfuscated/screenshots`). `TACZ_AUTOTEST_WARMUP=<тики>` перед этим ждёт и пишет FPS в лог.
+The autotest (`TACZ_AUTOTEST=1`; it also works with `runObfClient`, and `TACZ_AUTOTEST_SERVER=host:port` connects to
+a server) creates a flat world, gives an AK47 (`TACZ_AUTOTEST_GUN`), aims, shoots at a zombie, reloads and saves
+screenshots to `run/screenshots` (`run/obfuscated/screenshots`). `TACZ_AUTOTEST_SCOPE=<attachment>` mounts a scope.
+`TACZ_AUTOTEST_WARMUP=<ticks>` waits first and logs the FPS.
 
-Готовый jar лежит в `build/libs/`. Зависимость в рантайме: [MixinBooter](https://github.com/CleanroomMC/MixinBooter).
+The built jar is in `build/libs/`. Runtime dependency: [MixinBooter](https://github.com/CleanroomMC/MixinBooter).
 
-## Лицензия
+## License
 
-- Код — [GNU GPL 3.0](LICENSE), как у оригинального TACZ.
-- Ассеты TACZ (в том числе дефолтный ганпак) — [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/), авторы — команда TACZ. Распространяются только без изменений.
-- Сборочные скрипты основаны на [CleanroomMC TemplateDevEnv](https://github.com/CleanroomMC/TemplateDevEnv) (MIT).
+- Code — [GNU GPL 3.0](LICENSE), like the original TACZ.
+- TACZ assets (including the default gun pack) — [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/),
+  by the TACZ team. Redistributed unmodified only.
+- Build scripts are based on [CleanroomMC TemplateDevEnv](https://github.com/CleanroomMC/TemplateDevEnv) (MIT).
