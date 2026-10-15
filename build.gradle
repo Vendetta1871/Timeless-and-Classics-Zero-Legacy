@@ -193,6 +193,8 @@ processResources {
             include 'assets/**'
             // 1.12.2 needs a "normal" variant: src/main/resources has its own blockstates
             exclude 'assets/tacz/blockstates/**'
+            // particle textures use 1.12 vanilla paths in our copies
+            exclude 'assets/tacz/models/block/gun_smith_table.json', 'assets/tacz/models/block/statue.json', 'assets/tacz/models/block/target.json'
             // tag, loot and recipe data that the 1.12.2 shims read from the jar (legacy.tags etc.)
             include 'data/**'
             include 'icon.png', 'logo.png'
