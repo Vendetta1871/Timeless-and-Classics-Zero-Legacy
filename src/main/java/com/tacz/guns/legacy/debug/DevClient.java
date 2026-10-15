@@ -218,11 +218,17 @@ public final class DevClient {
                         GunMod.LOGGER.info("[dev] target health after: {} dead={}", target == null ? null : target.getHealth(), target != null && target.isDead);
                         IClientPlayerGunOperator.fromLocalPlayer(mc.player).aim(false);
                     }
+                } else if (ticks == 100 && DevTools.PACK_DIR == null) {
+                    IClientPlayerGunOperator.fromLocalPlayer(mc.player).reload();
+                    GunMod.LOGGER.info("[dev] reload");
+                } else if (ticks == 120 && DevTools.PACK_DIR == null) {
+                    screenshot(mc, "reloading");
+                } else if (ticks == 130) {
                     mc.gameSettings.thirdPersonView = 2;
-                } else if (ticks == 110) {
+                } else if (ticks == 150) {
                     screenshot(mc, "third_person_front");
                     mc.gameSettings.thirdPersonView = 0;
-                } else if (ticks == 120 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
+                } else if (ticks == 160 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
                     mc.shutdown();
                 }
             }
@@ -253,6 +259,6 @@ public final class DevClient {
 
     private static void screenshot(Minecraft mc, String name) {
         ScreenShotHelper.saveScreenshot(mc.gameDir, "tacz_" + name + ".png", mc.displayWidth, mc.displayHeight, mc.getFramebuffer());
-        GunMod.LOGGER.info("[dev] screenshot {}", name);
+        GunMod.LOGGER.info("[dev] screenshot {} (fps {})", name, Minecraft.getDebugFPS());
     }
 }
