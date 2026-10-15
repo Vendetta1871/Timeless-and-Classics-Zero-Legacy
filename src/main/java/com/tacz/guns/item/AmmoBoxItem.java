@@ -242,6 +242,7 @@ public class AmmoBoxItem extends Item implements AmmoBoxItemDataAccessor {
     }
 
     @Override
+    @SideOnly(Side.CLIENT)
     public boolean hasEffect(ItemStack stack) {
         if (isAllTypeCreative(stack) || isCreative(stack)) {
             return true;
@@ -253,6 +254,7 @@ public class AmmoBoxItem extends Item implements AmmoBoxItemDataAccessor {
      * 1.12.2: {@code getBarColor}
      */
     @Override
+    @SideOnly(Side.CLIENT)
     public int getRGBDurabilityForDisplay(ItemStack stack) {
         return MathHelper.hsvToRGB(1 / 3f, 1.0F, 1.0F);
     }

@@ -23,16 +23,18 @@ public final class GsonHelper {
         return JsonUtils.isString(json, memberName);
     }
 
+    // 1.12.2: the JsonElement overloads of JsonUtils.isString/isNumber are client-only
     public static boolean isStringValue(JsonElement json) {
-        return JsonUtils.isString(json);
+        return json.isJsonPrimitive() && ((JsonPrimitive) json).isString();
     }
 
     public static boolean isNumberValue(JsonElement json) {
-        return JsonUtils.isNumber(json);
+        return json.isJsonPrimitive() && ((JsonPrimitive) json).isNumber();
     }
 
     public static boolean isBooleanValue(JsonObject json, String memberName) {
-        return JsonUtils.isBoolean(json, memberName);
+        // 1.12.2: JsonUtils.isBoolean is client-only
+        return json.has(memberName) && isBooleanValue(json.get(memberName));
     }
 
     public static boolean isBooleanValue(JsonElement json) {

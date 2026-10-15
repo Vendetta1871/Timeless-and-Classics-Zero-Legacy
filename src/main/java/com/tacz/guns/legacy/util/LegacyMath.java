@@ -45,4 +45,11 @@ public final class LegacyMath {
         int b = (int) lerp(delta, from & 0xFF, to & 0xFF);
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
+
+    /**
+     * {@code Mth.frac(double)}; 1.12.2's {@code MathHelper.frac} is client-only.
+     */
+    public static double frac(double value) {
+        return value - Math.floor(value);
+    }
 }

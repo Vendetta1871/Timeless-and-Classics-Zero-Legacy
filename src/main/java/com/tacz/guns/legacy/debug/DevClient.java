@@ -153,6 +153,14 @@ public final class DevClient {
             case 0 -> {
                 if (mc.currentScreen instanceof GuiMainMenu) {
                     mc.gameSettings.pauseOnLostFocus = false;
+                    // TACZ_AUTOTEST_SERVER=host:port joins a (dev) server instead; the player must be op there
+                    String server = System.getenv("TACZ_AUTOTEST_SERVER");
+                    if (server != null) {
+                        mc.displayGuiScreen(new net.minecraft.client.multiplayer.GuiConnecting(mc.currentScreen, mc,
+                                new net.minecraft.client.multiplayer.ServerData("tacz_autotest", server, false)));
+                        stage = 1;
+                        return;
+                    }
                     WorldSettings settings = new WorldSettings(0L, GameType.CREATIVE, false, false, WorldType.FLAT);
                     settings.enableCommands();
                     mc.launchIntegratedServer("tacz_autotest", "tacz_autotest", settings);
@@ -162,6 +170,15 @@ public final class DevClient {
             case 1 -> {
                 if (mc.player != null && mc.world != null && mc.currentScreen == null && ++ticks > 60) {
                     IntegratedServer server = mc.getIntegratedServer();
+                    if (server == null && DevTools.PACK_DIR == null) {
+                        // remote server: the same setup through commands
+                        String gun = System.getenv("TACZ_AUTOTEST_GUN");
+                        mc.player.sendChatMessage("/gamemode 1");
+                        mc.player.sendChatMessage("/time set 6000");
+                        mc.player.sendChatMessage("/tp @p ~ ~ ~ 0 0");
+                        mc.player.sendChatMessage("/give @p tacz:modern_kinetic_gun 1 0 {GunId:\"tacz:" + (gun == null ? "ak47" : gun) + "\",GunCurrentAmmoCount:30}");
+                        mc.player.sendChatMessage("/summon zombie ~ ~ ~8 {NoAI:1b}");
+                    }
                     if (server != null) {
                         server.addScheduledTask(() -> {
                             EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(mc.player.getUniqueID());
@@ -187,6 +204,11 @@ public final class DevClient {
                 }
             }
             case 2 -> {
+                if (mc.player == null) {
+                    // disconnected (e.g. the server stopped)
+                    mc.shutdown();
+                    return;
+                }
                 // TACZ_AUTOTEST_WARMUP: ticks to idle first (chunks, shader/mixin warm-up), logging the frame rate
                 int warmup = Integer.getInteger("tacz.autotest.warmup", envInt("TACZ_AUTOTEST_WARMUP", 0));
                 if (warmupTicks < warmup) {

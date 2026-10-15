@@ -91,9 +91,9 @@ public final class BlockRayTrace {
             double d9 = signX == 0 ? Double.MAX_VALUE : (double) signX / deltaX;
             double d10 = signY == 0 ? Double.MAX_VALUE : (double) signY / deltaY;
             double d11 = signZ == 0 ? Double.MAX_VALUE : (double) signZ / deltaZ;
-            double d12 = d9 * (signX > 0 ? 1.0D - MathHelper.frac(endX) : MathHelper.frac(endX));
-            double d13 = d10 * (signY > 0 ? 1.0D - MathHelper.frac(endY) : MathHelper.frac(endY));
-            double d14 = d11 * (signZ > 0 ? 1.0D - MathHelper.frac(endZ) : MathHelper.frac(endZ));
+            double d12 = d9 * (signX > 0 ? 1.0D - LegacyMath.frac(endX) : LegacyMath.frac(endX));
+            double d13 = d10 * (signY > 0 ? 1.0D - LegacyMath.frac(endY) : LegacyMath.frac(endY));
+            double d14 = d11 * (signZ > 0 ? 1.0D - LegacyMath.frac(endZ) : LegacyMath.frac(endZ));
 
             while (d12 <= 1.0D || d13 <= 1.0D || d14 <= 1.0D) {
                 if (d12 < d13) {
