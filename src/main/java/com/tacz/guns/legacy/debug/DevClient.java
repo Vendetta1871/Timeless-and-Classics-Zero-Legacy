@@ -62,6 +62,7 @@ public final class DevClient {
     private static boolean loadFailed;
     private static int stage;
     private static int ticks;
+    private static int warmupTicks;
     private static boolean shootingShotPending;
     private static net.minecraft.entity.EntityLiving target;
 
@@ -186,6 +187,14 @@ public final class DevClient {
                 }
             }
             case 2 -> {
+                // TACZ_AUTOTEST_WARMUP: ticks to idle first (chunks, shader/mixin warm-up), logging the frame rate
+                int warmup = Integer.getInteger("tacz.autotest.warmup", envInt("TACZ_AUTOTEST_WARMUP", 0));
+                if (warmupTicks < warmup) {
+                    if (++warmupTicks % 40 == 0) {
+                        GunMod.LOGGER.info("[dev] warmup fps {}", Minecraft.getDebugFPS());
+                    }
+                    return;
+                }
                 if (++ticks == 40) {
                     screenshot(mc, "first_person");
                     if (DevTools.PACK_DIR == null) {
@@ -241,11 +250,19 @@ public final class DevClient {
      * The real gun item ({@code TACZ_AUTOTEST_GUN}, default {@code ak47}), or the debug model when
      * {@code TACZ_DEBUG_PACK} points at an unpacked gun pack.
      */
+    private static int envInt(String name, int fallback) {
+        String value = System.getenv(name);
+        return value == null ? fallback : Integer.parseInt(value);
+    }
+
     private static ItemStack testItem() {
         if (DevTools.PACK_DIR != null) {
             return new ItemStack(DevTools.debugGun);
         }
         String gun = System.getenv("TACZ_AUTOTEST_GUN");
+        if ("none".equals(gun)) {
+            return ItemStack.EMPTY;
+        }
         return GunItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, gun == null ? "ak47" : gun)).setAmmoCount(30).build();
     }
 

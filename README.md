@@ -61,6 +61,13 @@ tools/fetch-upstream.sh
 ./gw runClient
 ```
 
+Проверка с OptiFine: OptiFine работает только в обфусцированном окружении, поэтому его jar кладётся в
+`run/obfuscated/extra-mods/`, а клиент запускается через `./gw runObfClient`.
+
+Автотест (`TACZ_AUTOTEST=1`, работает и с `runObfClient`) создаёт плоский мир, выдаёт AK47 (`TACZ_AUTOTEST_GUN`),
+целится, стреляет по зомби, перезаряжается и сохраняет скриншоты в `run/screenshots`
+(`run/obfuscated/screenshots`). `TACZ_AUTOTEST_WARMUP=<тики>` перед этим ждёт и пишет FPS в лог.
+
 Готовый jar лежит в `build/libs/`. Зависимость в рантайме: [MixinBooter](https://github.com/CleanroomMC/MixinBooter).
 
 ## Лицензия

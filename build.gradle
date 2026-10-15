@@ -412,3 +412,17 @@ idea.project.settings {
 
 
 apply from: 'gradle/scripts/extra.gradle'
+
+// Dev: jars in run/obfuscated/extra-mods (e.g. OptiFine, which only works obfuscated) are added to the obfuscated
+// client's mods folder after RetroFuturaGradle prepares it.
+tasks.named('runObfClient', JavaExec).configure {
+    doFirst {
+        def extraMods = file('run/obfuscated/extra-mods')
+        if (extraMods.isDirectory()) {
+            project.copy {
+                from(extraMods) { include '*.jar' }
+                into file('run/obfuscated/mods')
+            }
+        }
+    }
+}
