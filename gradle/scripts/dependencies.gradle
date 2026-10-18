@@ -36,6 +36,11 @@ repositories {
             includeGroup 'com.github.FiguraMC.luaj'
         }
     }
+    // JEI (1.12.2: mezz.jei 4.x; the HadEnoughItems fork keeps the same API package)
+    maven {
+        name 'Progwml6 Maven'
+        url 'https://dvs1.progwml6.com/files/maven'
+    }
     mavenCentral()
     mavenLocal() // Must be last for caching to work
 }
@@ -91,8 +96,9 @@ dependencies {
     // If you wish to exclude transitive dependencies in the described dependencies
     // Use a closure as such:
     // implementation ('com.google.code.gson:gson:2.8.6') {
-    //     transitive = false
-    // }
+    // JEI integration (compile only; the mod works without it, HadEnoughItems keeps the same API package)
+    compileOnly rfg.deobf('mezz.jei:jei_1.12.2:4.16.1.302')
+    runtimeOnly rfg.deobf('mezz.jei:jei_1.12.2:4.16.1.302')
 }
 
 // Need reobfJar to use uber jars, so dependencies that are shaded in are present

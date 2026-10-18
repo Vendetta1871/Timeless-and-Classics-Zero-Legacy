@@ -1,0 +1,30 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "GCG",
+    "G G",
+    "IBI"
+  ],
+  "key": {
+    "G": {
+      "type": "forge:ore_dict",
+      "ore": "blockGlass"
+    },
+    "C": {
+      "item": "minecraft:redstone_torch"
+    },
+    "I": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "B": {
+      "item": "minecraft:chest"
+    }
+  },
+  "result": {
+    "item": "tacz:workbench_c",
+    "nbt": {
+      "BlockId": "tacz:attachment_workbench"
+    }
+  }
+}
