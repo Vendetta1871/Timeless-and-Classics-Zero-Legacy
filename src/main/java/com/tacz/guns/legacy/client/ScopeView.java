@@ -113,6 +113,9 @@ public final class ScopeView {
     private static boolean shadersChecked;
     @Nullable
     private static Field shaderPackLoaded;
+    private static boolean renderLibChecked;
+    @Nullable
+    private static Field renderLibFrame;
 
     private ScopeView() {
     }
@@ -242,6 +245,11 @@ public final class ScopeView {
             GlStateManager.enableDepth();
             GlStateManager.enableAlpha();
             GlStateManager.alphaFunc(GL11.GL_GREATER, 0.5F);
+            // Nothirium (its chunk culling runs on RenderLib's frame id, which is per rendered frame, not per world
+            // pass): the scope pass already consumed this frame id, so the main pass must get a fresh one or its
+            // chunk graph walk would skip every chunk recorded by the scope pass's narrow frustum (only the player's
+            // own chunk would render)
+            bumpRenderLibFrame();
         }
     }
 
@@ -488,6 +496,30 @@ public final class ScopeView {
         MODELVIEW.transform(vector);
         PROJECTION.transform(vector);
         return vector;
+    }
+
+    /**
+     * RenderLib (Nothirium's dependency) counts rendered frames in a static field; Nothirium's chunk culling dedupes
+     * its graph walk by that id ({@code RenderChunk#lastTimeRecorded}). The scope view pass consumed the current id,
+     * so the main pass needs the next one. Does nothing when RenderLib is not installed.
+     */
+    private static void bumpRenderLibFrame() {
+        if (!renderLibChecked) {
+            renderLibChecked = true;
+            try {
+                renderLibFrame = Class.forName("meldexun.renderlib.util.RenderUtil").getDeclaredField("frame");
+                renderLibFrame.setAccessible(true);
+            } catch (ReflectiveOperationException | LinkageError e) {
+                renderLibFrame = null;
+            }
+        }
+        if (renderLibFrame != null) {
+            try {
+                renderLibFrame.setInt(null, renderLibFrame.getInt(null) + 1);
+            } catch (IllegalAccessException e) {
+                renderLibFrame = null;
+            }
+        }
     }
 
     private static boolean isShaderPackLoaded() {
