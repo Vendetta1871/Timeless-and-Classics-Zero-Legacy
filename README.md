@@ -59,6 +59,15 @@ Done differently from the original:
   behaviour), `ScopeViewResolution` (resolution of the image in the lens), `ScopeFisheye` (distortion strength,
   0 turns it off), `ScopeMirror` (turning it off makes the lens see-through from the hip again), `ScopeMirrorFov`
   (how much of the world behind the player the lens mirrors). Under OptiFine shaders scopes work as in the original.
+- Per-shot damage is rebalanced to follow the real ballistics of each cartridge: the base damage is derived from the
+  Gosselain number (temporary wound cavity volume, proportional to muzzle energy x caliber) compressed by the power
+  law `D = 8 * (V / V(5.56x45))^0.8`, so big-bore rounds stop being exceptions and small high-speed ones are worth
+  their penetration instead of their joules. The distance falloff and the fire-mode damage offsets scale with the
+  same ratio; the .50 BMG guns and the minigun are capped by hand (DPM), explosive launchers keep their damage.
+  This is not a pack edit: the overrides are applied to the gun data at load time and synced to clients, so the
+  (CC BY-NC-ND) default pack is never redistributed in a modified state. Everything lives in
+  `config/tacz-rebalance.cfg` (`enabled = false`, or removing a gun's entry, restores the pack values); set by the
+  server, applied on `/tacz reload`. Implementation: `com.tacz.guns.legacy.balance.DamageRebalance`.
 
 ## Building
 
