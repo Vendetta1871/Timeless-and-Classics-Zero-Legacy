@@ -29,3 +29,4 @@ run
 
 # agent worktrees and local Claude Code state
 .claude/
+jdk-21/

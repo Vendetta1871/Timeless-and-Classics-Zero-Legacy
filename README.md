@@ -50,11 +50,15 @@ What cannot be done on 1.12.2 the same way as on 1.20.1:
 Done differently from the original:
 
 - Optical scopes magnify only the image inside the lens (picture-in-picture: the part of the world the lens shows is
-  rendered by a second, small pass with a magnified FOV), not the whole screen. The lens shows the magnified image with the reticle from the hip too,
-  instead of a black circle, with a slight fisheye effect towards the lens edge. Settings are in
+  rendered by a second, small pass with a magnified FOV), not the whole screen. From the hip the lens does not show
+  the world through itself: it mirrors what is behind the player - dark, near-opaque, tinted and wide-angled, like a
+  coated convex lens - with no reticle seen behind the glass, the reflection and the reticle fading in as you aim in;
+  while aiming the lens shows the magnified image with the reticle, with a slight
+  fisheye effect towards the lens edge. Settings are in
   `config/tacz-client.cfg` (the `render` section): `ScopePictureInPicture` (turning it off restores the original
   behaviour), `ScopeViewResolution` (resolution of the image in the lens), `ScopeFisheye` (distortion strength,
-  0 turns it off). Under OptiFine shaders scopes work as in the original.
+  0 turns it off), `ScopeMirror` (turning it off makes the lens see-through from the hip again), `ScopeMirrorFov`
+  (how much of the world behind the player the lens mirrors). Under OptiFine shaders scopes work as in the original.
 
 ## Building
 

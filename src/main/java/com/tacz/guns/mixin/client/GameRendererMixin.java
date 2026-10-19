@@ -99,12 +99,13 @@ public abstract class GameRendererMixin {
     }
 
     /**
-     * 1.12.2 only: the scope view pass uses the scope's FOV; the world FOV (after the FOV event) is what it magnifies.
+     * 1.12.2 only: the scope view pass uses the scope's FOV, the mirror pass its own wide FOV; the world FOV (after
+     * the FOV event) is what the scope view magnifies.
      */
     @Inject(method = "getFOVModifier(FZ)F", at = @At("HEAD"), cancellable = true)
     public void scopeViewFov(float pPartialTicks, boolean pUseFOVSetting, CallbackInfoReturnable<Float> cir) {
         if (pUseFOVSetting && ScopeView.isRendering()) {
-            cir.setReturnValue(ScopeView.getFov());
+            cir.setReturnValue(ScopeView.isRenderingMirror() ? ScopeView.getMirrorFov() : ScopeView.getFov());
         }
     }
 

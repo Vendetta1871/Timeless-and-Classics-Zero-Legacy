@@ -26,6 +26,8 @@ public class RenderConfig {
     public static ForgeConfigSpec.BooleanValue SCOPE_PICTURE_IN_PICTURE;
     public static ForgeConfigSpec.DoubleValue SCOPE_VIEW_RESOLUTION;
     public static ForgeConfigSpec.DoubleValue SCOPE_FISHEYE;
+    public static ForgeConfigSpec.BooleanValue SCOPE_MIRROR;
+    public static ForgeConfigSpec.DoubleValue SCOPE_MIRROR_FOV;
 
     public static void init(ForgeConfigSpec.Builder builder) {
         builder.push("render");
@@ -93,6 +95,12 @@ public class RenderConfig {
 
         builder.comment("Fisheye (barrel) distortion of the view through a scope: how much farther out the lens edge looks. 0 turns it off.");
         SCOPE_FISHEYE = builder.defineInRange("ScopeFisheye", 0.25, 0.0, 1.0);
+
+        builder.comment("Make a scope's lens mirror what is behind the player when not aiming through it, instead of leaving it see-through from the hip. Off restores the see-through lens.");
+        SCOPE_MIRROR = builder.define("ScopeMirror", true);
+
+        builder.comment("Field of view of the reflection in a scope's lens, in degrees: how much of what is behind the player the lens mirrors.");
+        SCOPE_MIRROR_FOV = builder.defineInRange("ScopeMirrorFov", 80.0, 60.0, 178.0);
 
         builder.pop();
     }

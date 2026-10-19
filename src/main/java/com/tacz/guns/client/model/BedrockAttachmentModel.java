@@ -232,6 +232,14 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
 
     private void renderTempPart(PoseStack poseStack, ItemCameraTransforms.TransformType transformType, RenderType renderType,
                                 int light, int overlay, @Nonnull List<BedrockPart> path) {
+        renderTempPart(poseStack, transformType, renderType, light, overlay, 1.0F, path);
+    }
+
+    /**
+     * 1.12.2: as above, drawing the part at a given vertex alpha (only seen through a blending render type).
+     */
+    private void renderTempPart(PoseStack poseStack, ItemCameraTransforms.TransformType transformType, RenderType renderType,
+                                int light, int overlay, float alpha, @Nonnull List<BedrockPart> path) {
         poseStack.pushPose();
         for (int i = 0; i < path.size() - 1; ++i) {
             path.get(i).translateAndRotateAndScale(poseStack);
@@ -240,12 +248,30 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
         part.visible = true;
         MultiBufferSource.BufferSource bufferSource = RenderBuffers.bufferSource();
         VertexConsumer vertexConsumer = bufferSource.getBuffer(renderType);
-        part.render(poseStack, transformType, vertexConsumer, light, overlay);
+        part.render(poseStack, transformType, vertexConsumer, light, overlay, 1.0F, 1.0F, 1.0F, alpha);
         if (!OculusCompat.endBatch(bufferSource)) {
             bufferSource.endBatch(renderType);
         }
         part.visible = false;
         poseStack.popPose();
+    }
+
+    /**
+     * 1.12.2: the scope's division (reticle) at the given visibility: 1 aiming through the scope, 0 while the lens
+     * mirrors what is behind the player (from the hip), see {@link ScopeView#getMirrorAmount()}. Partial visibility
+     * needs blending, so a cutout render type is swapped for its translucent variant of the same texture (still
+     * culled, as a cutout is).
+     */
+    private void renderDivisionPart(PoseStack matrixStack, ItemCameraTransforms.TransformType transformType, RenderType renderType,
+                                    int light, int overlay, float visibility, @Nonnull List<BedrockPart> path) {
+        if (visibility >= 0.98F) {
+            renderTempPart(matrixStack, transformType, renderType, light, overlay, path);
+        } else if (renderType.isTranslucent() || renderType.getTexture() == null) {
+            renderTempPart(matrixStack, transformType, renderType, light, overlay, visibility, path);
+        } else {
+            renderTempPart(matrixStack, transformType, RenderType.entityTranslucentCull(renderType.getTexture()),
+                    light, overlay, visibility, path);
+        }
     }
 
     private void renderOcularStencil(PoseStack matrixStack, ItemCameraTransforms.TransformType transformType, RenderType renderType, int light, int overlay, boolean isScope) {
@@ -346,12 +372,13 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
                     // 渲染目镜黑色遮罩
                     RenderSystem.stencilFunc(GL11.GL_EQUAL, i + 1, 0xFF);
                     renderTempPart(matrixStack, transformType, renderType, light, overlay, ocularNodePaths.get(i));
-                    // 1.12.2: the picture-in-picture view through the scope
-                    if (ScopeView.isReady()) {
+                    // 1.12.2: the picture-in-picture view through the scope, and from the hip the lens's reflection
+                    if (ScopeView.isReady() || ScopeView.isMirrorReady()) {
                         RenderSystem.stencilFunc(GL11.GL_EQUAL, ~(i + 1) & 0xFF, 0xFF);
                         Vector3f ocularCenter = getBedrockPartCenter(matrixStack, ocularNodePaths.get(i));
                         renderTempPart(matrixStack, transformType, ScopeView.lensOutline(), ocularNodePaths.get(i));
                         ScopeView.drawLens(ocularCenter.x(), ocularCenter.y(), ocularCenter.z());
+                        ScopeView.drawMirror(ocularCenter.x(), ocularCenter.y(), ocularCenter.z());
                     }
                     // 渲染划分
                     // 1.12.2: the division plane sits deep inside the tube, so the gun's own depth would clip it;
@@ -360,11 +387,15 @@ public class BedrockAttachmentModel extends BedrockAnimatedModel {
                     RenderSystem.stencilFunc(GL11.GL_EQUAL, b, 0xFF);
                     GlStateManager.disableDepth();
                     if (ScopeView.isActive()) {
-                        // 1.12.2: keep the division over the lens when the eye is off the scope's axis (from the hip)
-                        matrixStack.pushPose();
-                        ScopeView.alignDivision(matrixStack.last().pose(), getBedrockPartPose(matrixStack, ocularNodePaths.get(i)));
-                        renderTempPart(matrixStack, transformType, renderType, light, overlay, divisionNodePaths.get(i));
-                        matrixStack.popPose();
+                        // 1.12.2: keep the division over the lens when the eye is off the scope's axis (from the hip),
+                        // but fade it out while the lens mirrors (from the hip the reticle behind the glass is not seen)
+                        float visibility = 1.0F - ScopeView.getMirrorAmount();
+                        if (visibility > 0.02F) {
+                            matrixStack.pushPose();
+                            ScopeView.alignDivision(matrixStack.last().pose(), getBedrockPartPose(matrixStack, ocularNodePaths.get(i)));
+                            renderDivisionPart(matrixStack, transformType, renderType, light, overlay, visibility, divisionNodePaths.get(i));
+                            matrixStack.popPose();
+                        }
                     } else {
                         renderTempPart(matrixStack, transformType, renderType, light, overlay, divisionNodePaths.get(i));
                     }

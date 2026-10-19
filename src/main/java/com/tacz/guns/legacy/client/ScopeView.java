@@ -3,6 +3,7 @@ package com.tacz.guns.legacy.client;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.api.DefaultAssets;
 import com.tacz.guns.api.TimelessAPI;
+import com.tacz.guns.api.client.gameplay.IClientPlayerGunOperator;
 import com.tacz.guns.api.client.other.KeepingItemRenderer;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.api.item.attachment.AttachmentType;
@@ -15,12 +16,14 @@ import com.tacz.guns.mixin.client.RenderGlobalAccessor;
 import com.tacz.guns.util.math.MathUtil;
 import it.unimi.dsi.fastutil.floats.FloatArrayList;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.shader.Framebuffer;
+import net.minecraft.entity.Entity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
@@ -31,6 +34,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GLContext;
@@ -46,9 +50,15 @@ import java.nio.IntBuffer;
  * Upstream magnifies a scope by zooming the whole world (the world FOV) while aiming and leaves the lens see-through,
  * black when not aiming. Here the world keeps its FOV. Before the main world pass, the view through the scope is
  * rendered by a second world pass with the magnified FOV into {@link #framebuffer}, and the scope's lens shows that
- * image ({@link #drawLens}), aimed or not. The image is drawn screen-aligned at the screen's own scale, so an object
+ * image ({@link #drawLens}) while aiming. The image is drawn screen-aligned at the screen's own scale, so an object
  * at angle {@code a} from the view direction appears at about {@code zoom * a} from the lens centre, with a slight
  * fisheye distortion towards the lens edge.
+ * <p>
+ * From the hip the eye is not behind the lens, and a real lens does not show the world through itself then: it
+ * reflects. So when not aiming, a further world pass turned to look back along the view direction renders into
+ * {@link #mirrorFramebuffer}, and {@link #drawMirror} blends that image over the lens: dark, tinted and mirrored
+ * left to right, wide-angled like a coated convex lens, stronger towards the lens edge (where the view grazes it),
+ * fading out as the player aims in.
  * <p>
  * Only the part of the magnified view that the lens can show is rendered: a square around the view direction, as large
  * as the lens on screen (measured in the previous frame), at the screen's pixel density. Its FOV and frustum are
@@ -74,6 +84,13 @@ public final class ScopeView {
      */
     private static final float MAX_VIEW_EXTENT = 2;
     private static final int FRAMEBUFFER_STEP = 64;
+    /**
+     * The mirror view: its texture covers the lens plus this margin, for the lens growing between frames, at this
+     * fraction of the screen's pixel density. The mirror runs a whole extra world pass, and its reflection is dark
+     * and soft, so a low fraction keeps that pass cheap (0.35 draws about half the pixels of 0.5).
+     */
+    private static final float MIRROR_MARGIN = 1.1F;
+    private static final double MIRROR_RESOLUTION = 0.35;
 
     private static final FloatBuffer MATRIX = BufferUtils.createFloatBuffer(16);
     private static final IntBuffer VIEWPORT = BufferUtils.createIntBuffer(16);
@@ -83,9 +100,13 @@ public final class ScopeView {
 
     @Nullable
     private static Framebuffer framebuffer;
+    @Nullable
+    private static Framebuffer mirrorFramebuffer;
     private static boolean active;
     private static boolean rendering;
+    private static boolean renderingMirror;
     private static boolean ready;
+    private static boolean mirrorReady;
     private static float zoom = 1;
     /**
      * The lens radius on screen in the last two frames it was drawn, in screen half heights.
@@ -101,6 +122,25 @@ public final class ScopeView {
      * Whether the framebuffer holds a scope view (rendered in this frame or an earlier one).
      */
     private static boolean hasView;
+    /**
+     * The mirror view of this frame: whether its framebuffer holds an image, its side in pixels, and how opaque the
+     * reflection is (1 from the hip, 0 aiming through the scope).
+     */
+    private static boolean hasMirrorView;
+    private static int mirrorViewSize = 1;
+    private static float mirrorAmount;
+    /**
+     * Whether the lens's size on screen was already measured this frame (by {@link #drawLens} or {@link #drawMirror}).
+     */
+    private static boolean lensMeasured;
+    /**
+     * The lens measured for the current frame: its centre in normalized device coordinates, its radius in screen
+     * half heights, and the projection's aspect ratio.
+     */
+    private static float lensCenterX;
+    private static float lensCenterY;
+    private static float lensRadius;
+    private static float lensAspect = 1;
     /**
      * An occlusion query counts the lens pixels drawn: while the lens is not seen (turned away, hidden by the gun
      * or off screen, as in reload animations), no new view is rendered and the lens keeps the last one.
@@ -121,18 +161,27 @@ public final class ScopeView {
     }
 
     /**
-     * Whether a scope in first person is handled here this frame: its lens stays clear from the hip and its division
-     * follows the eye ({@link #alignDivision}). The lens shows the scope view only when {@link #isReady()}.
+     * Whether a scope in first person is handled here this frame: its lens does not go black from the hip and its
+     * division follows the eye ({@link #alignDivision}). The lens shows the scope view only when {@link #isReady()},
+     * and reflects what is behind the player while {@link #getMirrorAmount()} is above zero.
      */
     public static boolean isActive() {
         return active;
     }
 
     /**
-     * Whether the world pass for the scope view is running (the FOV is the scope's, the hand is not drawn).
+     * Whether a world pass is running for the scope view or for the lens mirror (the FOV is that pass's, the hand is
+     * not drawn). While the mirror renders, the camera looks back along the view direction.
      */
     public static boolean isRendering() {
         return rendering;
+    }
+
+    /**
+     * Whether the running world pass is the mirror's rather than the scope view's.
+     */
+    public static boolean isRenderingMirror() {
+        return renderingMirror;
     }
 
     /**
@@ -143,11 +192,32 @@ public final class ScopeView {
     }
 
     /**
+     * Whether the mirror holds an image to reflect in the lens this frame.
+     */
+    public static boolean isMirrorReady() {
+        return mirrorReady;
+    }
+
+    /**
+     * How opaque the lens reflection is this frame: 0 aiming through the scope, 1 from the hip.
+     */
+    public static float getMirrorAmount() {
+        return mirrorAmount;
+    }
+
+    /**
      * The FOV of the scope view: the part of the world FOV (of the previous frame) the lens shows, magnified by the
      * scope's zoom.
      */
     public static float getFov() {
         return (float) MathUtil.magnificationToFov(zoom / viewExtent, worldFov);
+    }
+
+    /**
+     * The FOV of the mirror pass: a wide angle, so the lens mirrors a lot of what is behind the player.
+     */
+    public static float getMirrorFov() {
+        return RenderConfig.SCOPE_MIRROR_FOV.get().floatValue();
     }
 
     public static void recordWorldFov(float fov) {
@@ -161,6 +231,9 @@ public final class ScopeView {
         active = false;
         ready = false;
         hasView = false;
+        mirrorReady = false;
+        hasMirrorView = false;
+        mirrorAmount = 0;
     }
 
     /**
@@ -169,18 +242,39 @@ public final class ScopeView {
      */
     public static void renderBeforeWorld(Runnable worldPass) {
         ready = false;
+        mirrorReady = false;
+        lensMeasured = false;
         Minecraft mc = Minecraft.getMinecraft();
         float scopeZoom = activeZoom(mc);
         active = scopeZoom > 0;
-        // a scope without magnification needs no view of its own, its lens just stays clear
-        if (scopeZoom <= 1.01F) {
+        if (!active) {
             return;
         }
-        if (!updateLensSeen() && hasView && zoom == scopeZoom) {
-            ready = true;
-            return;
+        mirrorAmount = RenderConfig.SCOPE_MIRROR.get() ? MathHelper.clamp(1 - aimingProgress(mc), 0, 1) : 0;
+        boolean lensSeen = updateLensSeen();
+        // a scope without magnification needs no view of its own: from the hip its lens reflects, and aiming through
+        // it the world itself is already at the right scale; while the lens is mostly a mirror its view is not seen
+        if (scopeZoom > 1.01F && mirrorAmount < 0.95F) {
+            if (!lensSeen && hasView && zoom == scopeZoom) {
+                ready = true;
+            } else {
+                zoom = scopeZoom;
+                renderViewPass(worldPass, mc);
+            }
         }
-        zoom = scopeZoom;
+        if (mirrorAmount > 0.03F) {
+            if (!lensSeen && hasMirrorView) {
+                mirrorReady = true;
+            } else {
+                renderMirrorPass(worldPass, mc);
+            }
+        }
+    }
+
+    /**
+     * Renders the view through the scope, ahead of the main world pass, into {@link #framebuffer}.
+     */
+    private static void renderViewPass(Runnable worldPass, Minecraft mc) {
         // the frame's target may be the vanilla framebuffer or, with OptiFine's fast render, the window itself
         // (creating a framebuffer binds the window, so ask first)
         int previousFramebuffer = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
@@ -205,34 +299,97 @@ public final class ScopeView {
             framebuffer.createBindFramebuffer(roundUp(viewSize), roundUp(viewSize));
             framebuffer.setFramebufferFilter(GL11.GL_LINEAR);
         }
+        if (runLensPass(worldPass, mc, framebuffer, viewSize, previousFramebuffer, false)) {
+            ready = true;
+            hasView = true;
+        }
+    }
 
+    /**
+     * Renders what the lens reflects, ahead of the main world pass, into {@link #mirrorFramebuffer}: the world seen
+     * from the eye turned around, to look back along the view direction.
+     */
+    private static void renderMirrorPass(Runnable worldPass, Minecraft mc) {
+        int previousFramebuffer = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+        VIEWPORT.clear();
+        GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT);
+        // the reflection is soft and dark, a fixed fraction of the screen's pixel density is enough even while the
+        // lens grows as the player aims in and the reflection fades
+        double scale = RenderConfig.SCOPE_VIEW_RESOLUTION.get();
+        mirrorViewSize = MathHelper.clamp(roundUp(MathHelper.ceil(MIRROR_RESOLUTION * MIRROR_MARGIN * mc.displayHeight * scale)),
+                64, Minecraft.getGLMaximumTextureSize());
+        if (mirrorFramebuffer == null) {
+            mirrorFramebuffer = new Framebuffer(mirrorViewSize, mirrorViewSize, true);
+            mirrorFramebuffer.enableStencil();
+            configureMirrorTexture(mirrorFramebuffer);
+        } else if (mirrorFramebuffer.framebufferWidth != mirrorViewSize) {
+            mirrorFramebuffer.createBindFramebuffer(mirrorViewSize, mirrorViewSize);
+            configureMirrorTexture(mirrorFramebuffer);
+        }
+        if (runLensPass(worldPass, mc, mirrorFramebuffer, mirrorViewSize, previousFramebuffer, true)) {
+            mirrorReady = true;
+            hasMirrorView = true;
+        }
+    }
+
+    /**
+     * Runs {@code worldPass} (the frame's world pass) as the scope view or the mirror: into {@code target}, at
+     * {@code renderSize} pixels square, without the hand, and with that pass's FOV (the mirror turns the camera
+     * around before the pass and back after it). Restores everything the main world pass expects.
+     */
+    private static boolean runLensPass(Runnable worldPass, Minecraft mc, Framebuffer target, int renderSize,
+                                       int previousFramebuffer, boolean mirror) {
         int displayWidth = mc.displayWidth;
         int displayHeight = mc.displayHeight;
         Framebuffer mainFramebuffer = mc.getFramebuffer();
         EntityRendererAccessor entityRenderer = (EntityRendererAccessor) mc.entityRenderer;
         boolean renderHand = entityRenderer.tacz$getRenderHand();
         RenderGlobalAccessor renderGlobal = (RenderGlobalAccessor) mc.renderGlobal;
+        Entity viewEntity = mirror ? mc.getRenderViewEntity() : null;
+        float yaw = 0;
+        float pitch = 0;
+        float prevYaw = 0;
+        float prevPitch = 0;
 
-        // the pass renders the frame as usual, only into the scope framebuffer (renderWorldPass sizes the viewport
-        // and the projection from displayWidth/displayHeight), without the hand and with the scope's FOV
-        ((MinecraftAccessor) mc).tacz$setFramebuffer(framebuffer);
-        mc.displayWidth = viewSize;
-        mc.displayHeight = viewSize;
+        // the pass renders the frame as usual, only into the scope's framebuffer (renderWorldPass sizes the viewport
+        // and the projection from displayWidth/displayHeight), without the hand and with the pass's FOV
+        ((MinecraftAccessor) mc).tacz$setFramebuffer(target);
+        mc.displayWidth = renderSize;
+        mc.displayHeight = renderSize;
         entityRenderer.tacz$setRenderHand(false);
-        framebuffer.bindFramebuffer(true);
+        if (viewEntity != null) {
+            // a lens facing the player reflects the world behind them: look back along the view direction
+            yaw = viewEntity.rotationYaw;
+            pitch = viewEntity.rotationPitch;
+            prevYaw = viewEntity.prevRotationYaw;
+            prevPitch = viewEntity.prevRotationPitch;
+            viewEntity.rotationYaw = yaw + 180F;
+            viewEntity.rotationPitch = -pitch;
+            viewEntity.prevRotationYaw = viewEntity.rotationYaw;
+            viewEntity.prevRotationPitch = viewEntity.rotationPitch;
+        }
+        target.bindFramebuffer(true);
         // the visible chunk list is rebuilt only when the camera moves or chunks change; the main pass's list would
-        // draw every chunk on screen, so it is rebuilt with the scope's narrow frustum (and again with the wide one
-        // by the main pass, below in finally)
+        // draw every chunk on screen, so it is rebuilt with this pass's frustum (and again with the main one, below
+        // in finally)
         renderGlobal.tacz$setDisplayListEntitiesDirty(true);
         rendering = true;
+        renderingMirror = mirror;
+        boolean rendered = false;
         try {
             worldPass.run();
-            ready = true;
-            hasView = true;
+            rendered = true;
         } catch (RuntimeException e) {
-            GunMod.LOGGER.error("Scope view rendering failed", e);
+            GunMod.LOGGER.error(mirror ? "Scope mirror rendering failed" : "Scope view rendering failed", e);
         } finally {
+            renderingMirror = false;
             rendering = false;
+            if (viewEntity != null) {
+                viewEntity.rotationYaw = yaw;
+                viewEntity.rotationPitch = pitch;
+                viewEntity.prevRotationYaw = prevYaw;
+                viewEntity.prevRotationPitch = prevPitch;
+            }
             // force the main pass to rebuild the visible chunk list with its own (wide) frustum
             renderGlobal.tacz$setDisplayListEntitiesDirty(true);
             entityRenderer.tacz$setRenderHand(renderHand);
@@ -246,11 +403,23 @@ public final class ScopeView {
             GlStateManager.enableAlpha();
             GlStateManager.alphaFunc(GL11.GL_GREATER, 0.5F);
             // Nothirium (its chunk culling runs on RenderLib's frame id, which is per rendered frame, not per world
-            // pass): the scope pass already consumed this frame id, so the main pass must get a fresh one or its
-            // chunk graph walk would skip every chunk recorded by the scope pass's narrow frustum (only the player's
-            // own chunk would render)
+            // pass): this pass already consumed this frame id, so the main pass must get a fresh one or its chunk
+            // graph walk would skip every chunk recorded by this pass's frustum (only the player's own chunk would
+            // render)
             bumpRenderLibFrame();
         }
+        return rendered;
+    }
+
+    /**
+     * The aim state of the local player, 0 from the hip and 1 aiming through the scope.
+     */
+    private static float aimingProgress(Minecraft mc) {
+        EntityPlayerSP player = mc.player;
+        if (player == null) {
+            return 0;
+        }
+        return IClientPlayerGunOperator.fromLocalPlayer(player).getClientAimingProgress(mc.getRenderPartialTicks());
     }
 
     /**
@@ -350,39 +519,15 @@ public final class ScopeView {
      * {@code (x, y, z)}, given relative to the current GL modelview matrix.
      */
     public static void drawLens(float x, float y, float z) {
-        if (!ready || framebuffer == null) {
+        if (!ready || framebuffer == null || !measureLens(x, y, z)) {
             return;
         }
-        readMatrices();
-        Vector4f center = project(x, y, z);
-        if (center.w <= 0) {
-            return;
-        }
-        float centerX = MathHelper.clamp(center.x / center.w, -2, 2);
-        float centerY = MathHelper.clamp(center.y / center.w, -2, 2);
-        // distances are measured in units of the screen's half height: x is scaled by the aspect ratio
-        float aspect = Math.abs(PROJECTION.m00()) > 1.0E-6F ? Math.abs(PROJECTION.m11() / PROJECTION.m00()) : 1;
-        float lensRadius = 0;
-        FloatArrayList positions = LENS_OUTLINE.positions;
-        for (int i = 0; i + 2 < positions.size(); i += 3) {
-            Vector4f vertex = project(positions.getFloat(i), positions.getFloat(i + 1), positions.getFloat(i + 2));
-            if (vertex.w > 0) {
-                float dx = (vertex.x / vertex.w - centerX) * aspect;
-                float dy = vertex.y / vertex.w - centerY;
-                lensRadius = Math.max(lensRadius, MathHelper.sqrt(dx * dx + dy * dy));
-            }
-        }
-        if (lensRadius <= 0) {
-            lensRadius = 0.5F;
-        }
-        lensRadiusBefore = lastLensRadius;
-        lastLensRadius = lensRadius;
         float fisheye = RenderConfig.SCOPE_FISHEYE.get().floatValue();
         // the view covers viewExtent screen half heights around the view direction, in the corner of the texture
         float textureScale = (float) viewSize / framebuffer.framebufferTextureWidth;
         // the outermost ring reaches every screen corner
-        float screenRadius = MathHelper.sqrt((1 + Math.abs(centerX)) * (1 + Math.abs(centerX)) * aspect * aspect
-                + (1 + Math.abs(centerY)) * (1 + Math.abs(centerY)));
+        float screenRadius = MathHelper.sqrt((1 + Math.abs(lensCenterX)) * (1 + Math.abs(lensCenterX)) * lensAspect * lensAspect
+                + (1 + Math.abs(lensCenterY)) * (1 + Math.abs(lensCenterY)));
 
         GlStateManager.matrixMode(GL11.GL_PROJECTION);
         GlStateManager.pushMatrix();
@@ -419,25 +564,15 @@ public final class ScopeView {
             for (int segment = 0; segment < SEGMENTS; segment++) {
                 float angle0 = segment * ((float) Math.PI * 2F) / SEGMENTS;
                 float angle1 = (segment + 1) * ((float) Math.PI * 2F) / SEGMENTS;
-                lensVertex(builder, inner, angle0, centerX, centerY, aspect, lensRadius, fisheye, textureScale);
-                lensVertex(builder, outer, angle0, centerX, centerY, aspect, lensRadius, fisheye, textureScale);
-                lensVertex(builder, outer, angle1, centerX, centerY, aspect, lensRadius, fisheye, textureScale);
-                lensVertex(builder, inner, angle1, centerX, centerY, aspect, lensRadius, fisheye, textureScale);
+                lensVertex(builder, inner, angle0, fisheye, textureScale);
+                lensVertex(builder, outer, angle0, fisheye, textureScale);
+                lensVertex(builder, outer, angle1, fisheye, textureScale);
+                lensVertex(builder, inner, angle1, fisheye, textureScale);
             }
         }
-        lensDrawn = true;
-        boolean query = !lensQueryPending && GLContext.getCapabilities().OpenGL15;
-        if (query) {
-            if (lensQuery < 0) {
-                lensQuery = GL15.glGenQueries();
-            }
-            GL15.glBeginQuery(GL15.GL_SAMPLES_PASSED, lensQuery);
-        }
+        boolean query = beginLensQuery();
         tessellator.draw();
-        if (query) {
-            GL15.glEndQuery(GL15.GL_SAMPLES_PASSED);
-            lensQueryPending = true;
-        }
+        endLensQuery(query);
 
         framebuffer.unbindFramebufferTexture();
         GlStateManager.enableTexture2D();
@@ -463,17 +598,211 @@ public final class ScopeView {
     }
 
     /**
+     * Draws the reflection over the lens (the caller limits it with the stencil): what the lens mirrors, the world
+     * behind the player, blended nearly opaquely over whatever the lens shows (the division fades out together with
+     * the mirror, so a mirrored lens shows no reticle, see {@code BedrockAttachmentModel}). Dark and slightly cool
+     * tinted like a coated lens, mirrored left to right, and wide-angled like a convex one; the reflection grows
+     * towards the lens edge, where the view grazes it, and the whole image fades out as the player aims in
+     * ({@link #getMirrorAmount()}).
+     */
+    public static void drawMirror(float x, float y, float z) {
+        if (!mirrorReady || mirrorFramebuffer == null || mirrorAmount <= 0.03F || !measureLens(x, y, z)) {
+            return;
+        }
+        float halfFov = (float) Math.toRadians(RenderConfig.SCOPE_MIRROR_FOV.get() * 0.5);
+        float tanHalfFov = Math.max((float) Math.tan(halfFov), 1.0E-3F);
+        float textureScale = (float) mirrorViewSize / mirrorFramebuffer.framebufferTextureWidth;
+        float screenRadius = MathHelper.sqrt((1 + Math.abs(lensCenterX)) * (1 + Math.abs(lensCenterX)) * lensAspect * lensAspect
+                + (1 + Math.abs(lensCenterY)) * (1 + Math.abs(lensCenterY)));
+
+        GlStateManager.matrixMode(GL11.GL_PROJECTION);
+        GlStateManager.pushMatrix();
+        GlStateManager.loadIdentity();
+        GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+        GlStateManager.pushMatrix();
+        GlStateManager.loadIdentity();
+        boolean lighting = GL11.glIsEnabled(GL11.GL_LIGHTING);
+        boolean fog = GL11.glIsEnabled(GL11.GL_FOG);
+        GlStateManager.setActiveTexture(OpenGlHelper.lightmapTexUnit);
+        boolean lightmap = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+        GlStateManager.disableTexture2D();
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+        GlStateManager.disableLighting();
+        GlStateManager.disableFog();
+        GlStateManager.disableDepth();
+        GlStateManager.depthMask(false);
+        GlStateManager.disableAlpha();
+        GlStateManager.disableCull();
+        GlStateManager.enableTexture2D();
+        // Blend by a constant alpha (the per-ring reflection strength) instead of the fragment's own alpha:
+        // the mirror framebuffer's alpha channel is the world's and unreliable, and forcing it via texture
+        // environment (GL_COMBINE) desynchronizes GlStateManager/OptiFine cached env and blacks the world on
+        // window resize. RGB still comes MODULATEd from the texture times the per-ring tint below.
+        GL14.glBlendEquation(GL14.GL_FUNC_ADD);
+        GlStateManager.enableBlend();
+        GlStateManager.blendFunc(GlStateManager.SourceFactor.CONSTANT_ALPHA, GlStateManager.DestFactor.ONE_MINUS_CONSTANT_ALPHA);
+        mirrorFramebuffer.bindFramebufferTexture();
+
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder builder = tessellator.getBuffer();
+        // Mark the lens as drawn so the mirror keeps refreshing its view, but do not wrap the blended ring
+        // mesh in an occlusion query: a query over blended draws, with the window's framebuffer re-created by a
+        // resize (maximizing), leaves the screen black on some drivers — drawLens's query wraps a single opaque
+        // draw and does not hit that
+        lensDrawn = true;
+        // one tint per ring: the lens is a dark, near-opposite mirror of an unlit coated glass; the rim (the
+        // grazing view) is the darkest and fully hides what is behind the lens, its centre catches a little more
+        // light and shows only a hint of it
+        for (int ring = 0; ring <= RINGS; ring++) {
+            float inner = ring * MAX_RING / RINGS * lensRadius;
+            float outer = ring < RINGS ? (ring + 1) * MAX_RING / RINGS * lensRadius : Math.max(screenRadius, MAX_RING * lensRadius);
+            if (ring == RINGS && outer <= inner) {
+                break;
+            }
+            float t = MathHelper.clamp((inner + outer) * 0.5F / lensRadius, 0, 1);
+            float shade = 0.42F - 0.14F * t;
+            GlStateManager.color(shade * 0.92F, shade, shade * 1.05F, 1);
+            GL14.glBlendColor(0, 0, 0, mirrorAmount * (0.88F + 0.12F * t));
+            builder.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
+            for (int segment = 0; segment < SEGMENTS; segment++) {
+                float angle0 = segment * ((float) Math.PI * 2F) / SEGMENTS;
+                float angle1 = (segment + 1) * ((float) Math.PI * 2F) / SEGMENTS;
+                mirrorVertex(builder, inner, angle0, halfFov, tanHalfFov, textureScale);
+                mirrorVertex(builder, outer, angle0, halfFov, tanHalfFov, textureScale);
+                mirrorVertex(builder, outer, angle1, halfFov, tanHalfFov, textureScale);
+                mirrorVertex(builder, inner, angle1, halfFov, tanHalfFov, textureScale);
+            }
+            tessellator.draw();
+        }
+
+        mirrorFramebuffer.unbindFramebufferTexture();
+        GL14.glBlendColor(0, 0, 0, 0);
+        GlStateManager.disableBlend();
+        GlStateManager.color(1, 1, 1, 1);
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableCull();
+        GlStateManager.enableAlpha();
+        GlStateManager.depthMask(true);
+        GlStateManager.enableDepth();
+        if (fog) {
+            GlStateManager.enableFog();
+        }
+        if (lighting) {
+            GlStateManager.enableLighting();
+        }
+        if (lightmap) {
+            GlStateManager.setActiveTexture(OpenGlHelper.lightmapTexUnit);
+            GlStateManager.enableTexture2D();
+            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+        }
+        GlStateManager.matrixMode(GL11.GL_PROJECTION);
+        GlStateManager.popMatrix();
+        GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+        GlStateManager.popMatrix();
+    }
+
+    /**
+     * Measures the lens on screen (its centre and radius, from the outline the caller rendered into
+     * {@link #lensOutline()}, and the projection's aspect), for {@link #drawLens} and {@link #drawMirror}. Whether
+     * the lens is in front of the eye at all; the radius is tracked once per frame for the next frame's view sizes.
+     */
+    private static boolean measureLens(float x, float y, float z) {
+        readMatrices();
+        Vector4f center = project(x, y, z);
+        if (center.w <= 0) {
+            return false;
+        }
+        lensCenterX = MathHelper.clamp(center.x / center.w, -2, 2);
+        lensCenterY = MathHelper.clamp(center.y / center.w, -2, 2);
+        // distances are measured in units of the screen's half height: x is scaled by the aspect ratio
+        lensAspect = Math.abs(PROJECTION.m00()) > 1.0E-6F ? Math.abs(PROJECTION.m11() / PROJECTION.m00()) : 1;
+        float radius = 0;
+        FloatArrayList positions = LENS_OUTLINE.positions;
+        for (int i = 0; i + 2 < positions.size(); i += 3) {
+            Vector4f vertex = project(positions.getFloat(i), positions.getFloat(i + 1), positions.getFloat(i + 2));
+            if (vertex.w > 0) {
+                float dx = (vertex.x / vertex.w - lensCenterX) * lensAspect;
+                float dy = vertex.y / vertex.w - lensCenterY;
+                radius = Math.max(radius, MathHelper.sqrt(dx * dx + dy * dy));
+            }
+        }
+        if (radius <= 0) {
+            radius = 0.5F;
+        }
+        lensRadius = radius;
+        if (!lensMeasured) {
+            lensMeasured = true;
+            lensRadiusBefore = lastLensRadius;
+            lastLensRadius = radius;
+        }
+        return true;
+    }
+
+    /**
+     * The mirror's texture: soft, and the fragment's alpha comes from the tint it is drawn with (a world
+     * framebuffer's own alpha holds nothing useful), so the reflection can blend over the lens.
+     */
+    /**
+     * The mirror's texture: soft. Its alpha is the framebuffer's own (the world writes near-one alpha), which
+     * the default MODULATE environment multiplies with the tint {@link #drawMirror} sets, so the reflection can
+     * blend over the lens without any texture environment changes (raw glTexEnvi here desynchronizes
+     * GlStateManager's/OptiFine's cached texture env and leaves the world black after a window resize).
+     */
+    private static void configureMirrorTexture(Framebuffer target) {
+        target.setFramebufferFilter(GL11.GL_LINEAR);
+    }
+
+    /**
+     * A vertex of the mirror's mesh at {@code radius} (in screen half heights) and {@code angle} around the lens
+     * centre. The lens shows the mirror's whole field of view, compressed towards its edge like a convex lens does
+     * (the angle behind grows with the radius, the texture being a perspective view of it); u is flipped, a mirror
+     * does not show what is behind the player as turning around would; past the lens edge the image is clamped.
+     */
+    private static void mirrorVertex(BufferBuilder builder, float radius, float angle, float halfFov, float tanHalfFov,
+                                     float textureScale) {
+        float r = Math.min(radius / lensRadius, MIRROR_MARGIN);
+        float radial = (float) Math.tan(halfFov * r / MIRROR_MARGIN) / tanHalfFov;
+        float dx = MathHelper.cos(angle);
+        float dy = MathHelper.sin(angle);
+        builder.pos(lensCenterX + dx * radius / lensAspect, lensCenterY + dy * radius, 0)
+                .tex((0.5F - 0.5F * dx * radial) * textureScale, (0.5F + 0.5F * dy * radial) * textureScale)
+                .endVertex();
+    }
+
+    /**
+     * The occlusion query over the lens pixels about to be drawn by {@link #drawLens} (only an opaque single
+     * draw may be wrapped — see {@link #drawMirror} for why); {@link #updateLensSeen()} reads it next frame.
+     */
+    private static boolean beginLensQuery() {
+        lensDrawn = true;
+        boolean query = !lensQueryPending && GLContext.getCapabilities().OpenGL15;
+        if (query) {
+            if (lensQuery < 0) {
+                lensQuery = GL15.glGenQueries();
+            }
+            GL15.glBeginQuery(GL15.GL_SAMPLES_PASSED, lensQuery);
+        }
+        return query;
+    }
+
+    private static void endLensQuery(boolean query) {
+        if (query) {
+            GL15.glEndQuery(GL15.GL_SAMPLES_PASSED);
+            lensQueryPending = true;
+        }
+    }
+
+    /**
      * A vertex at {@code radius} (in screen half heights) and {@code angle} around the lens centre, in normalized
      * device coordinates. The image centre sits on the lens centre; towards the lens edge the image is sampled
      * farther out (barrel distortion), growing with the square of the distance up to {@link #MAX_RING} lens radii.
      */
-    private static void lensVertex(BufferBuilder builder, float radius, float angle, float centerX, float centerY,
-                                   float aspect, float lensRadius, float fisheye, float textureScale) {
+    private static void lensVertex(BufferBuilder builder, float radius, float angle, float fisheye, float textureScale) {
         float dx = MathHelper.cos(angle) * radius;
         float dy = MathHelper.sin(angle) * radius;
         float edge = Math.min(radius / lensRadius, MAX_RING);
         float sample = (1 + fisheye * edge * edge) / viewExtent;
-        builder.pos(centerX + dx / aspect, centerY + dy, 0)
+        builder.pos(lensCenterX + dx / lensAspect, lensCenterY + dy, 0)
                 .tex((0.5 + 0.5 * dx * sample) * textureScale, (0.5 + 0.5 * dy * sample) * textureScale)
                 .endVertex();
     }
