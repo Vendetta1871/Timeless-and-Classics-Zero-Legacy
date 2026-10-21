@@ -73,7 +73,7 @@ Done differently from the original:
 
 Gradle (RetroFuturaGradle 2) runs on JDK 25, sources are compiled by JDK 17 through Jabel into Java 8 bytecode, and
 the client runs on JDK 8. The `./gw` script sets up the right JDKs; the path to JDK 25 is set by the `GRADLE_JDK`
-variable (default `/storage/opt/jdk-25`).
+variable (default `/storage/.local/share/PrismLauncher/java/jdk-25`).
 
 TACZ assets are not stored in the repository: before the first build, fetch the pinned version of the original.
 

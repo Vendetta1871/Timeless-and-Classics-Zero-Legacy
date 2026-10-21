@@ -3,7 +3,7 @@
 # pinned in ~/.gradle/gradle.properties. Sources are still compiled by the JDK 17 toolchain (Jabel).
 # Java ignores HTTP(S)_PROXY, so an environment proxy is forwarded to the JVMs as system properties.
 cd "$(dirname "$0")" || exit 1
-GRADLE_JDK=${GRADLE_JDK:-/storage/opt/jdk-25}
+GRADLE_JDK=${GRADLE_JDK:-/storage/.local/share/PrismLauncher/java/jdk-25}
 export JAVA_HOME="$GRADLE_JDK"
 if [ -n "$HTTPS_PROXY" ]; then
     P=${HTTPS_PROXY#*://}; P=${P%/}; PH=${P%:*}; PP=${P##*:}
