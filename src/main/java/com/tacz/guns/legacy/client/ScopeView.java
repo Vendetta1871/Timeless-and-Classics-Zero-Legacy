@@ -58,7 +58,8 @@ import java.nio.IntBuffer;
  * reflects. So when not aiming, a further world pass turned to look back along the view direction renders into
  * {@link #mirrorFramebuffer}, and {@link #drawMirror} blends that image over the lens: dark, tinted and mirrored
  * left to right, wide-angled like a coated convex lens, stronger towards the lens edge (where the view grazes it),
- * fading out as the player aims in.
+ * fading out as the player aims in. While aiming in or out the lens shows both, but only one of the two passes runs
+ * per frame: they take turns, the other image is the last frame's.
  * <p>
  * Only the part of the magnified view that the lens can show is rendered: a square around the view direction, as large
  * as the lens on screen (measured in the previous frame), at the screen's pixel density. Its FOV and frustum are
@@ -129,6 +130,13 @@ public final class ScopeView {
     private static boolean hasMirrorView;
     private static int mirrorViewSize = 1;
     private static float mirrorAmount;
+    /**
+     * The frame counter of {@link #renderBeforeWorld}, and the frames the scope view and the mirror were last rendered
+     * in (when they take turns, the image of the other pass is shown only if it is from the last frame).
+     */
+    private static long frame;
+    private static long viewFrame = -2;
+    private static long mirrorFrame = -2;
     /**
      * Whether the lens's size on screen was already measured this frame (by {@link #drawLens} or {@link #drawMirror}).
      */
@@ -244,6 +252,7 @@ public final class ScopeView {
         ready = false;
         mirrorReady = false;
         lensMeasured = false;
+        frame++;
         Minecraft mc = Minecraft.getMinecraft();
         float scopeZoom = activeZoom(mc);
         active = scopeZoom > 0;
@@ -254,27 +263,43 @@ public final class ScopeView {
         boolean lensSeen = updateLensSeen();
         // a scope without magnification needs no view of its own: from the hip its lens reflects, and aiming through
         // it the world itself is already at the right scale; while the lens is mostly a mirror its view is not seen
-        if (scopeZoom > 1.01F && mirrorAmount < 0.95F) {
-            if (!lensSeen && hasView && zoom == scopeZoom) {
-                ready = true;
-            } else {
+        boolean needsView = scopeZoom > 1.01F && mirrorAmount < 0.95F;
+        boolean needsMirror = mirrorAmount > 0.03F;
+        boolean viewCached = hasView && zoom == scopeZoom;
+        // while the lens is not seen, it keeps the images it has
+        boolean renderView = needsView && (lensSeen || !viewCached);
+        boolean renderMirror = needsMirror && (lensSeen || !hasMirrorView);
+        if (renderView && renderMirror) {
+            // aiming in or out: one extra world pass per frame, the one rendered longer ago, and the other image is
+            // the last frame's (an older one would show another place, so it is left out)
+            if (viewFrame != mirrorFrame ? viewFrame < mirrorFrame : mirrorAmount < 0.5F) {
                 zoom = scopeZoom;
-                renderViewPass(worldPass, mc);
-            }
-        }
-        if (mirrorAmount > 0.03F) {
-            if (!lensSeen && hasMirrorView) {
-                mirrorReady = true;
+                renderViewPass(worldPass, mc, true);
+                mirrorReady = hasMirrorView && frame - mirrorFrame <= 1;
             } else {
                 renderMirrorPass(worldPass, mc);
+                ready = viewCached && frame - viewFrame <= 1;
             }
+            return;
+        }
+        if (renderView) {
+            zoom = scopeZoom;
+            renderViewPass(worldPass, mc, false);
+        } else if (needsView) {
+            ready = true;
+        }
+        if (renderMirror) {
+            renderMirrorPass(worldPass, mc);
+        } else if (needsMirror) {
+            mirrorReady = true;
         }
     }
 
     /**
-     * Renders the view through the scope, ahead of the main world pass, into {@link #framebuffer}.
+     * Renders the view through the scope, ahead of the main world pass, into {@link #framebuffer}; {@code twoFrames}
+     * when the view must also do for the next frame (the passes take turns).
      */
-    private static void renderViewPass(Runnable worldPass, Minecraft mc) {
+    private static void renderViewPass(Runnable worldPass, Minecraft mc, boolean twoFrames) {
         // the frame's target may be the vanilla framebuffer or, with OptiFine's fast render, the window itself
         // (creating a framebuffer binds the window, so ask first)
         int previousFramebuffer = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
@@ -282,7 +307,8 @@ public final class ScopeView {
         GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT);
         // the lens's size in the last frame, growing as fast as it grew then (while aiming in), with room for the
         // fisheye, which samples up to (1 + fisheye) lens radii out
-        float predictedRadius = lastLensRadius * MathHelper.clamp(lastLensRadius / lensRadiusBefore, 1, 1.5F);
+        float growth = MathHelper.clamp(lastLensRadius / lensRadiusBefore, 1, 1.5F);
+        float predictedRadius = lastLensRadius * (twoFrames ? growth * growth : growth);
         float fisheye = RenderConfig.SCOPE_FISHEYE.get().floatValue();
         viewExtent = MathHelper.clamp(predictedRadius * (1 + fisheye) * VIEW_MARGIN, 0.05F, MAX_VIEW_EXTENT);
         double scale = RenderConfig.SCOPE_VIEW_RESOLUTION.get();
@@ -302,6 +328,7 @@ public final class ScopeView {
         if (runLensPass(worldPass, mc, framebuffer, viewSize, previousFramebuffer, false)) {
             ready = true;
             hasView = true;
+            viewFrame = frame;
         }
     }
 
@@ -321,14 +348,15 @@ public final class ScopeView {
         if (mirrorFramebuffer == null) {
             mirrorFramebuffer = new Framebuffer(mirrorViewSize, mirrorViewSize, true);
             mirrorFramebuffer.enableStencil();
-            configureMirrorTexture(mirrorFramebuffer);
+            mirrorFramebuffer.setFramebufferFilter(GL11.GL_LINEAR);
         } else if (mirrorFramebuffer.framebufferWidth != mirrorViewSize) {
             mirrorFramebuffer.createBindFramebuffer(mirrorViewSize, mirrorViewSize);
-            configureMirrorTexture(mirrorFramebuffer);
+            mirrorFramebuffer.setFramebufferFilter(GL11.GL_LINEAR);
         }
         if (runLensPass(worldPass, mc, mirrorFramebuffer, mirrorViewSize, previousFramebuffer, true)) {
             mirrorReady = true;
             hasMirrorView = true;
+            mirrorFrame = frame;
         }
     }
 
@@ -633,23 +661,18 @@ public final class ScopeView {
         GlStateManager.depthMask(false);
         GlStateManager.disableAlpha();
         GlStateManager.disableCull();
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder builder = tessellator.getBuffer();
+        queryLensArea(tessellator);
+
         GlStateManager.enableTexture2D();
-        // Blend by a constant alpha (the per-ring reflection strength) instead of the fragment's own alpha:
-        // the mirror framebuffer's alpha channel is the world's and unreliable, and forcing it via texture
-        // environment (GL_COMBINE) desynchronizes GlStateManager/OptiFine cached env and blacks the world on
-        // window resize. RGB still comes MODULATEd from the texture times the per-ring tint below.
+        // blended by a constant alpha (the reflection's strength per ring): the alpha the world pass left in the
+        // framebuffer is not a coverage
         GL14.glBlendEquation(GL14.GL_FUNC_ADD);
         GlStateManager.enableBlend();
         GlStateManager.blendFunc(GlStateManager.SourceFactor.CONSTANT_ALPHA, GlStateManager.DestFactor.ONE_MINUS_CONSTANT_ALPHA);
         mirrorFramebuffer.bindFramebufferTexture();
 
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder builder = tessellator.getBuffer();
-        // Mark the lens as drawn so the mirror keeps refreshing its view, but do not wrap the blended ring
-        // mesh in an occlusion query: a query over blended draws, with the window's framebuffer re-created by a
-        // resize (maximizing), leaves the screen black on some drivers — drawLens's query wraps a single opaque
-        // draw and does not hit that
-        lensDrawn = true;
         // one tint per ring: the lens is a dark, near-opposite mirror of an unlit coated glass; the rim (the
         // grazing view) is the darkest and fully hides what is behind the lens, its centre catches a little more
         // light and shows only a hint of it
@@ -739,20 +762,6 @@ public final class ScopeView {
     }
 
     /**
-     * The mirror's texture: soft, and the fragment's alpha comes from the tint it is drawn with (a world
-     * framebuffer's own alpha holds nothing useful), so the reflection can blend over the lens.
-     */
-    /**
-     * The mirror's texture: soft. Its alpha is the framebuffer's own (the world writes near-one alpha), which
-     * the default MODULATE environment multiplies with the tint {@link #drawMirror} sets, so the reflection can
-     * blend over the lens without any texture environment changes (raw glTexEnvi here desynchronizes
-     * GlStateManager's/OptiFine's cached texture env and leaves the world black after a window resize).
-     */
-    private static void configureMirrorTexture(Framebuffer target) {
-        target.setFramebufferFilter(GL11.GL_LINEAR);
-    }
-
-    /**
      * A vertex of the mirror's mesh at {@code radius} (in screen half heights) and {@code angle} around the lens
      * centre. The lens shows the mirror's whole field of view, compressed towards its edge like a convex lens does
      * (the angle behind grows with the radius, the texture being a perspective view of it); u is flipped, a mirror
@@ -770,8 +779,8 @@ public final class ScopeView {
     }
 
     /**
-     * The occlusion query over the lens pixels about to be drawn by {@link #drawLens} (only an opaque single
-     * draw may be wrapped — see {@link #drawMirror} for why); {@link #updateLensSeen()} reads it next frame.
+     * The occlusion query over the lens pixels about to be drawn by {@link #drawLens}, or by
+     * {@link #queryLensArea}; {@link #updateLensSeen()} reads it next frame. It wraps a single draw without blending.
      */
     private static boolean beginLensQuery() {
         lensDrawn = true;
@@ -790,6 +799,33 @@ public final class ScopeView {
             GL15.glEndQuery(GL15.GL_SAMPLES_PASSED);
             lensQueryPending = true;
         }
+    }
+
+    /**
+     * For a lens without the scope view this frame (from the hip, only the mirror): counts its pixels with a square
+     * around the measured lens, drawn without colour (the caller's stencil limits it to the lens), in normalized
+     * device coordinates. The mirror's own blended rings are not counted.
+     */
+    private static void queryLensArea(Tessellator tessellator) {
+        if (lensQueryPending) {
+            // drawLens queried this frame, or a result is still to come
+            lensDrawn = true;
+            return;
+        }
+        GlStateManager.disableTexture2D();
+        GlStateManager.disableBlend();
+        GlStateManager.colorMask(false, false, false, false);
+        float halfWidth = lensRadius / lensAspect;
+        BufferBuilder builder = tessellator.getBuffer();
+        builder.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION);
+        builder.pos(lensCenterX - halfWidth, lensCenterY - lensRadius, 0).endVertex();
+        builder.pos(lensCenterX + halfWidth, lensCenterY - lensRadius, 0).endVertex();
+        builder.pos(lensCenterX + halfWidth, lensCenterY + lensRadius, 0).endVertex();
+        builder.pos(lensCenterX - halfWidth, lensCenterY + lensRadius, 0).endVertex();
+        boolean query = beginLensQuery();
+        tessellator.draw();
+        endLensQuery(query);
+        GlStateManager.colorMask(true, true, true, true);
     }
 
     /**
