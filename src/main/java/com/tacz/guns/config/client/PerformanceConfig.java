@@ -31,7 +31,7 @@ public class PerformanceConfig {
         SCOPE_FISHEYE = builder.defineInRange("ScopeFisheye", 0.25, 0.0, 1.0);
 
         builder.comment("Field of view of the reflection in a scope's lens, in degrees: how much of what is behind the player the lens mirrors.");
-        SCOPE_MIRROR_FOV = builder.defineInRange("ScopeMirrorFov", 80.0, 60.0, 178.0);
+        SCOPE_MIRROR_FOV = builder.defineInRange("ScopeMirrorFov", 60.0, 40.0, 178.0);
 
         builder.pop();
     }

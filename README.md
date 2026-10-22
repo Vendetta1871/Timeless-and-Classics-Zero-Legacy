@@ -56,7 +56,8 @@ Done differently from the original:
 
 - Optical scopes magnify only the image inside the lens (picture-in-picture: the part of the world the lens shows is
   rendered by a second, small pass with a magnified FOV), not the whole screen. From the hip the lens does not show
-  the world through itself: it mirrors what is behind the player - dark, near-opaque, tinted and wide-angled, like a
+  the world through itself: it mirrors what is behind the player - a faint, dark reflection, like the one in a dark
+  window or a switched-off monitor, tinted and wide-angled, like a
   coated convex lens - with no reticle seen behind the glass, the reflection and the reticle fading in as you aim in;
   while aiming the lens shows the magnified image with the reticle, with a slight
   fisheye effect towards the lens edge. Settings are in

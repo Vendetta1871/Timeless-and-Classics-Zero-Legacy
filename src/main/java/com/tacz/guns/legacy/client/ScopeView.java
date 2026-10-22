@@ -88,10 +88,10 @@ public final class ScopeView {
     /**
      * The mirror view: its texture covers the lens plus this margin, for the lens growing between frames, at this
      * fraction of the screen's pixel density. The mirror runs a whole extra world pass, and its reflection is dark
-     * and soft, so a low fraction keeps that pass cheap (0.35 draws about half the pixels of 0.5).
+     * and soft, so a low fraction keeps that pass cheap (0.175 draws about half the pixels of 0.35).
      */
     private static final float MIRROR_MARGIN = 1.1F;
-    private static final double MIRROR_RESOLUTION = 0.35;
+    private static final double MIRROR_RESOLUTION = 0.175;
 
     private static final FloatBuffer MATRIX = BufferUtils.createFloatBuffer(16);
     private static final IntBuffer VIEWPORT = BufferUtils.createIntBuffer(16);
@@ -674,9 +674,9 @@ public final class ScopeView {
         GlStateManager.blendFunc(GlStateManager.SourceFactor.CONSTANT_ALPHA, GlStateManager.DestFactor.ONE_MINUS_CONSTANT_ALPHA);
         mirrorFramebuffer.bindFramebufferTexture();
 
-        // one tint per ring: the lens is a dark, near-opposite mirror of an unlit coated glass; the rim (the
-        // grazing view) is the darkest and fully hides what is behind the lens, its centre catches a little more
-        // light and shows only a hint of it
+        // one tint per ring: the lens reflects like a dead monitor or a dark window at dusk - an unlit coated glass
+        // that barely shows what is behind it; the rim (the grazing view) is the darkest and fully hides the
+        // reflection, its centre shows a faint trace of it
         for (int ring = 0; ring <= RINGS; ring++) {
             float inner = ring * MAX_RING / RINGS * lensRadius;
             float outer = ring < RINGS ? (ring + 1) * MAX_RING / RINGS * lensRadius : Math.max(screenRadius, MAX_RING * lensRadius);
@@ -684,7 +684,7 @@ public final class ScopeView {
                 break;
             }
             float t = MathHelper.clamp((inner + outer) * 0.5F / lensRadius, 0, 1);
-            float shade = 0.42F - 0.14F * t;
+            float shade = 0.15F - 0.05F * t;
             GlStateManager.color(shade * 0.92F, shade, shade * 1.05F, 1);
             GL14.glBlendColor(0, 0, 0, mirrorAmount * (0.88F + 0.12F * t));
             builder.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
