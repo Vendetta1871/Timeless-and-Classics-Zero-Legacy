@@ -47,9 +47,10 @@ What cannot be done on 1.12.2 the same way as on 1.20.1:
 - Crawling (the swimming pose) does not exist in 1.12.2: the state is synced, but the pose and hitbox do not change.
   With [AquaAcrobatics](https://www.curseforge.com/minecraft/mc-mods/aqua-acrobatics) installed and its
   `Enable Toggle Crawling` option on, the crawl key drives its forced crawling, so the player really gets the crawl
-  pose and hitbox. AquaAcrobatics only toggles, so `HoldToCrawl` has no effect while it is installed; when both
-  mods' crawl keys share the same physical key, AquaAcrobatics handles the press and TACZ mirrors the state for
-  the gun animations.
+  pose and hitbox, the first-person gun drops and rolls aside the way the 1.20.1 swimming arm carries it (aiming
+  brings the scope back up), and the gun animations follow the pose. AquaAcrobatics only toggles, so
+  `HoldToCrawl` has no effect while it is installed; when both mods' crawl keys share the same physical key,
+  AquaAcrobatics handles the press and TACZ mirrors the state.
 - Sounds "relative to the listener" are played at the player's position.
 
 Done differently from the original:

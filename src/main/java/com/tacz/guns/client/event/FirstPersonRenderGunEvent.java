@@ -128,6 +128,8 @@ public class FirstPersonRenderGunEvent {
         applyFirstPersonPositioningTransform(poseStack, model, gunItemStack, aimingProgress, refitScreenOpeningProgress);
         // 应用动画约束变换
         applyAnimationConstraintTransform(poseStack, model, aimingProgress * (1 - refitScreenOpeningProgress));
+        // 1.12.2 + AquaAcrobatics: the crawl pose drops and rolls the gun, the way the 1.13+ swimming arm does
+        com.tacz.guns.legacy.client.CrawlGunPose.apply(poseStack, player, aimingProgress);
     }
 
     private static void applyGunMovements(BedrockGunModel model, float aimingProgress, float partialTicks) {
