@@ -28,7 +28,10 @@ import org.apache.logging.log4j.Logger;
  * the default gun pack and the deferred registers are set up here. Upstream's mod-bus listeners
  * ({@code CommonRegistry}, {@code ClientSetupEvent}) and the server reload events become the lifecycle handlers below.
  */
-@Mod(modid = GunMod.MOD_ID, name = Tags.MOD_NAME, version = Tags.VERSION)
+@Mod(modid = GunMod.MOD_ID, name = Tags.MOD_NAME, version = Tags.VERSION,
+        // 1.12.2: the Config button of the Mods screen reads the factory from the annotation, not from mcmod.info
+        // (FMLModContainer#getGuiClassName); the mcmod.info guiFactory field is parsed but never used by FML
+        guiFactory = "com.tacz.guns.legacy.client.TaczGuiFactory")
 public class GunMod {
     public static final String MOD_ID = "tacz";
     public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
