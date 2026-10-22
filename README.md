@@ -44,12 +44,11 @@ What cannot be done on 1.12.2 the same way as on 1.20.1:
 - Gunsmith table recipes from gun packs are read as is, but 1.20 tags are turned into OreDictionary entries
   (`forge:ingots/iron` → `ingotIron`). Materials that do not exist in 1.12.2 (copper, amethyst, netherite) are
   unavailable without other mods, so such recipes cannot be crafted.
-- Crawling (the swimming pose) does not exist in 1.12.2: the state is synced, but the pose and hitbox do not change.
-  With [AquaAcrobatics](https://www.curseforge.com/minecraft/mc-mods/aqua-acrobatics) installed and its
-  `Enable Toggle Crawling` option on, the crawl key drives its forced crawling, so the player really gets the crawl
-  pose and hitbox. AquaAcrobatics only toggles, so `HoldToCrawl` has no effect while it is installed; when both
-  mods' crawl keys share the same physical key, AquaAcrobatics handles the press and TACZ mirrors the state for
-  the gun animations.
+- Crawling (the swimming pose) does not exist in 1.12.2, so this port has no crawl key of its own (upstream's C
+  key, `HoldToCrawl`): the state would be synced, but the pose and hitbox could not change. With
+  [AquaAcrobatics](https://www.curseforge.com/minecraft/mc-mods/aqua-acrobatics) installed and its
+  `Enable Toggle Crawling` option on, its own crawl key makes the player really crawl, and TACZ mirrors that pose
+  into the gun state, so the gun animations and the per-weapon crawl rules follow the lying player.
 - Sounds "relative to the listener" are played at the player's position.
 
 Done differently from the original:

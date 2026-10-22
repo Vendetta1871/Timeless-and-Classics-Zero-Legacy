@@ -38,6 +38,23 @@ public final class TaczConfigs {
             CLIENT_SPEC = ClientConfig.init();
             CLIENT_SPEC.load(new File(configDir, "tacz-client.cfg"));
             dropMovedScopeSettings();
+            dropRemovedKeys();
+        }
+    }
+
+    /**
+     * The TACZ crawl key was dropped in favor of AquaAcrobatics' own crawl keybind; remove the stale
+     * {@code HoldToCrawl} entry so it does not show up in the config GUI.
+     */
+    private static void dropRemovedKeys() {
+        Configuration configuration = CLIENT_SPEC.getConfiguration();
+        if (configuration == null || !configuration.hasCategory("key")) {
+            return;
+        }
+        ConfigCategory key = configuration.getCategory("key");
+        if (key.containsKey("HoldToCrawl")) {
+            key.remove("HoldToCrawl");
+            CLIENT_SPEC.save();
         }
     }
 

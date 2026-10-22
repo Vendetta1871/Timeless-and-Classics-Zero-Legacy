@@ -4,7 +4,6 @@ import com.tacz.guns.legacy.config.ForgeConfigSpec;
 
 public class KeyConfig {
     public static ForgeConfigSpec.BooleanValue HOLD_TO_AIM;
-    public static ForgeConfigSpec.BooleanValue HOLD_TO_CRAWL;
     public static ForgeConfigSpec.BooleanValue AUTO_RELOAD;
     // 1.12.2 only
     public static ForgeConfigSpec.BooleanValue RMB_INTERACT_WITH_OBJECTS;
@@ -14,9 +13,6 @@ public class KeyConfig {
 
         builder.comment("True if you want to hold the right mouse button to aim");
         HOLD_TO_AIM = builder.define("HoldToAim", true);
-
-        builder.comment("True if you want to hold the crawl button to crawl");
-        HOLD_TO_CRAWL = builder.define("HoldToCrawl", true);
 
         builder.comment("Try to reload automatically when the gun is empty");
         AUTO_RELOAD = builder.define("AutoReload", false);
