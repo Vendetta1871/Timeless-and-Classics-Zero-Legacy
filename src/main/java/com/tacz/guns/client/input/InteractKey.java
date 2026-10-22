@@ -94,6 +94,26 @@ public class InteractKey {
         }
     }
 
+    /**
+     * 1.12.2: whether the crosshair is on a block or entity this key would interact with.
+     * {@code KeyConfig.RMB_INTERACT_WITH_OBJECTS} lets the right mouse button interact with such a target
+     * instead of aiming (upstream always aims with it and interacts only through this key).
+     */
+    public static boolean isTargetInteractable(Minecraft mc) {
+        RayTraceResult hitResult = mc.objectMouseOver;
+        if (hitResult == null) {
+            return false;
+        }
+        if (hitResult.typeOfHit == RayTraceResult.Type.BLOCK) {
+            EntityPlayerSP player = mc.player;
+            return player != null && InteractKeyConfigRead.canInteractBlock(player.world.getBlockState(hitResult.getBlockPos()));
+        }
+        if (hitResult.typeOfHit == RayTraceResult.Type.ENTITY) {
+            return InteractKeyConfigRead.canInteractEntity(hitResult.entityHit);
+        }
+        return false;
+    }
+
     private static void interactBlock(RayTraceResult blockHitResult, EntityPlayerSP player, Minecraft mc) {
         BlockPos blockPos = blockHitResult.getBlockPos();
         IBlockState block = player.world.getBlockState(blockPos);

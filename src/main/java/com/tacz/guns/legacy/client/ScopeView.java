@@ -8,7 +8,7 @@ import com.tacz.guns.api.client.other.KeepingItemRenderer;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.api.item.attachment.AttachmentType;
 import com.tacz.guns.client.resource.index.ClientAttachmentIndex;
-import com.tacz.guns.config.client.RenderConfig;
+import com.tacz.guns.config.client.PerformanceConfig;
 import com.tacz.guns.legacy.render.VertexConsumer;
 import com.tacz.guns.mixin.client.EntityRendererAccessor;
 import com.tacz.guns.mixin.client.MinecraftAccessor;
@@ -65,8 +65,8 @@ import java.nio.IntBuffer;
  * as the lens on screen (measured in the previous frame), at the screen's pixel density. Its FOV and frustum are
  * narrow, so the pass draws few chunks and few pixels.
  * <p>
- * Off (upstream behaviour) when disabled in the config, when framebuffers are unavailable and under OptiFine
- * shaders.
+ * Off (upstream behaviour: the whole screen zooms while aiming) when {@code ScopeZoomMode} is
+ * {@code FULL_SCREEN_ZOOM}, when framebuffers are unavailable and under OptiFine shaders.
  */
 @SideOnly(Side.CLIENT)
 public final class ScopeView {
@@ -225,7 +225,7 @@ public final class ScopeView {
      * The FOV of the mirror pass: a wide angle, so the lens mirrors a lot of what is behind the player.
      */
     public static float getMirrorFov() {
-        return RenderConfig.SCOPE_MIRROR_FOV.get().floatValue();
+        return PerformanceConfig.SCOPE_MIRROR_FOV.get().floatValue();
     }
 
     public static void recordWorldFov(float fov) {
@@ -259,7 +259,7 @@ public final class ScopeView {
         if (!active) {
             return;
         }
-        mirrorAmount = RenderConfig.SCOPE_MIRROR.get() ? MathHelper.clamp(1 - aimingProgress(mc), 0, 1) : 0;
+        mirrorAmount = PerformanceConfig.SCOPE_MIRROR.get() ? MathHelper.clamp(1 - aimingProgress(mc), 0, 1) : 0;
         boolean lensSeen = updateLensSeen();
         // a scope without magnification needs no view of its own: from the hip its lens reflects, and aiming through
         // it the world itself is already at the right scale; while the lens is mostly a mirror its view is not seen
@@ -309,9 +309,9 @@ public final class ScopeView {
         // fisheye, which samples up to (1 + fisheye) lens radii out
         float growth = MathHelper.clamp(lastLensRadius / lensRadiusBefore, 1, 1.5F);
         float predictedRadius = lastLensRadius * (twoFrames ? growth * growth : growth);
-        float fisheye = RenderConfig.SCOPE_FISHEYE.get().floatValue();
+        float fisheye = PerformanceConfig.SCOPE_FISHEYE.get().floatValue();
         viewExtent = MathHelper.clamp(predictedRadius * (1 + fisheye) * VIEW_MARGIN, 0.05F, MAX_VIEW_EXTENT);
-        double scale = RenderConfig.SCOPE_VIEW_RESOLUTION.get();
+        double scale = PerformanceConfig.SCOPE_VIEW_RESOLUTION.get();
         viewSize = MathHelper.clamp(MathHelper.ceil(viewExtent * mc.displayHeight * scale), 16, Minecraft.getGLMaximumTextureSize());
         // the view is rendered into the corner of a square framebuffer that only grows (up to the largest view)
         int largestSize = roundUp(MathHelper.ceil(MAX_VIEW_EXTENT * mc.displayHeight * scale));
@@ -342,7 +342,7 @@ public final class ScopeView {
         GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT);
         // the reflection is soft and dark, a fixed fraction of the screen's pixel density is enough even while the
         // lens grows as the player aims in and the reflection fades
-        double scale = RenderConfig.SCOPE_VIEW_RESOLUTION.get();
+        double scale = PerformanceConfig.SCOPE_VIEW_RESOLUTION.get();
         mirrorViewSize = MathHelper.clamp(roundUp(MathHelper.ceil(MIRROR_RESOLUTION * MIRROR_MARGIN * mc.displayHeight * scale)),
                 64, Minecraft.getGLMaximumTextureSize());
         if (mirrorFramebuffer == null) {
@@ -470,7 +470,8 @@ public final class ScopeView {
      * The zoom of the scope on the gun in first person, or 0 when there is none to handle.
      */
     private static float activeZoom(Minecraft mc) {
-        if (!RenderConfig.SCOPE_PICTURE_IN_PICTURE.get() || !OpenGlHelper.isFramebufferEnabled() || isShaderPackLoaded()) {
+        if (PerformanceConfig.SCOPE_ZOOM_MODE.get() != PerformanceConfig.ScopeZoomMode.PICTURE_IN_PICTURE
+                || !OpenGlHelper.isFramebufferEnabled() || isShaderPackLoaded()) {
             return 0;
         }
         if (mc.player == null || mc.getRenderViewEntity() != mc.player || mc.gameSettings.thirdPersonView != 0
@@ -550,7 +551,7 @@ public final class ScopeView {
         if (!ready || framebuffer == null || !measureLens(x, y, z)) {
             return;
         }
-        float fisheye = RenderConfig.SCOPE_FISHEYE.get().floatValue();
+        float fisheye = PerformanceConfig.SCOPE_FISHEYE.get().floatValue();
         // the view covers viewExtent screen half heights around the view direction, in the corner of the texture
         float textureScale = (float) viewSize / framebuffer.framebufferTextureWidth;
         // the outermost ring reaches every screen corner
@@ -637,7 +638,7 @@ public final class ScopeView {
         if (!mirrorReady || mirrorFramebuffer == null || mirrorAmount <= 0.03F || !measureLens(x, y, z)) {
             return;
         }
-        float halfFov = (float) Math.toRadians(RenderConfig.SCOPE_MIRROR_FOV.get() * 0.5);
+        float halfFov = (float) Math.toRadians(PerformanceConfig.SCOPE_MIRROR_FOV.get() * 0.5);
         float tanHalfFov = Math.max((float) Math.tan(halfFov), 1.0E-3F);
         float textureScale = (float) mirrorViewSize / mirrorFramebuffer.framebufferTextureWidth;
         float screenRadius = MathHelper.sqrt((1 + Math.abs(lensCenterX)) * (1 + Math.abs(lensCenterX)) * lensAspect * lensAspect

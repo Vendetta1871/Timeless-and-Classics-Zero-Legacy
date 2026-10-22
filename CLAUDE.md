@@ -114,7 +114,7 @@ Ported code keeps upstream's 1.20 API shape through these shims; prefer them ove
 | `DeferredRegister`, `RegistryObject` (items, blocks, sounds, entities, potions, enchantments) | `legacy.registry` |
 | `TagKey`, `BlockTags` (`state.is(tag)` → `tag.contains(state.getBlock())`, entity tags take the entity) | `legacy.tags` |
 | `RecipeManager`, `RecipeType`; `level.getRecipeManager()` → `RecipeManager.of(level)` | `legacy.crafting` |
-| `ForgeConfigSpec` | `legacy.config` |
+| `ForgeConfigSpec` | `legacy.config`; the in-game config GUI (Mods button, Alt+T) is `legacy.client.TaczGuiFactory` / `TaczConfigHub` / `TaczConfigGui`, applying edits through `ConfigChangedEvent` → `TaczConfigs.reload()/save()` |
 | `GsonHelper`, `Util`, `ClipContext`, `FMLPaths`, `Mth` extras (`LegacyMath`), fastutil `Pair`, `Component.*` (`Components`), particle names (`LegacyParticles`), Java 9 `Optional`/`Objects` helpers (`Optionals`), item handler capability (`ItemHandlers`) | `legacy.util` |
 | `Screen`, `AbstractContainerScreen`, `Button`, `ImageButton`, `EditBox`, `ForgeSlider`, `Renderable`, `GuiEventListener` (widgets are not in `buttonList`; the screen dispatches input to them) | `legacy.util.gui` |
 | `IGuiOverlay` (drawn from `client.init.ClientSetupEvent#onRenderGameOverlay`), `ClientTooltipComponent` + `TooltipComponentHandler` (tooltip images over blank tooltip lines), `MutableComponent`, `FontUtil` (`Font#width/split`), `KeyInputs` (`InputEvent.Key/MouseButton` payload: `KeyInputs.matches/isPress`), `MinecraftAccess` (`startUseItem`) | `legacy.util` |

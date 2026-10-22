@@ -1,6 +1,7 @@
 package com.tacz.guns.client.input;
 
 import com.tacz.guns.GunMod;
+import com.tacz.guns.legacy.client.TaczConfigHub;
 import com.tacz.guns.legacy.util.KeyInputs;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -34,10 +35,9 @@ public class ConfigKey {
             if (player == null || player.isSpectator()) {
                 return;
             }
-            // TODO(port): the config screen is built with Cloth Config (compat/cloth/MenuIntegration,
-            //  client/gui/compat/ClothConfigScreen), which does not exist on 1.12.2: nothing to open here.
-            //  Upstream: if Cloth Config is missing, send a chat message with a download link, otherwise
-            //  Minecraft.getInstance().setScreen(MenuIntegration.getConfigScreen(null)).
+            // 1.12.2: upstream opens the Cloth Config screen (compat/cloth/MenuIntegration), which does not exist
+            // here; open the Forge config GUI instead - the same one as the Config button of the Mods screen
+            Minecraft.getMinecraft().displayGuiScreen(new TaczConfigHub(Minecraft.getMinecraft().currentScreen));
         }
     }
 }

@@ -8,6 +8,7 @@ public class ClientConfig {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
         KeyConfig.init(builder);
         RenderConfig.init(builder);
+        PerformanceConfig.init(builder);
         ResourceConfig.init(builder);
         SoundConfig.init(builder);
         ZoomConfig.init(builder);

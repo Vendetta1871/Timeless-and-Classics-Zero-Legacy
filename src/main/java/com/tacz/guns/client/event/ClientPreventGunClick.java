@@ -3,6 +3,7 @@ package com.tacz.guns.client.event;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.client.input.InteractKey;
+import com.tacz.guns.config.client.KeyConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.util.EnumHand;
@@ -24,6 +25,11 @@ public class ClientPreventGunClick {
         }
         // 当交互键按下时，允许交互
         if (InteractKey.INTERACT_KEY.isKeyDown()) {
+            return;
+        }
+        // 1.12.2: the right mouse button can be left to interact with the world while holding a gun
+        if (event.isUseItem() && KeyConfig.RMB_INTERACT_WITH_OBJECTS.get()
+                && InteractKey.isTargetInteractable(Minecraft.getMinecraft())) {
             return;
         }
         // 只要主手有枪，那么禁止交互

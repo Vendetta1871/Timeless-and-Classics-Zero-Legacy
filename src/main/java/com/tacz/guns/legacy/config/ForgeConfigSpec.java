@@ -68,6 +68,26 @@ public class ForgeConfigSpec {
         }
     }
 
+    /**
+     * Re-reads every value from its {@link Property}, after the properties were changed in place (a config GUI,
+     * {@code ConfigValue.set}). Does not touch the file; call {@link #save()} afterwards.
+     */
+    public synchronized void reload() {
+        if (this.configuration != null) {
+            for (ConfigValue<?> value : this.values) {
+                value.read();
+            }
+        }
+    }
+
+    /**
+     * The Forge {@link Configuration} this spec was bound to by {@link #load(File)}, or null. A config GUI can edit
+     * its properties; call {@link #reload()} afterwards.
+     */
+    public Configuration getConfiguration() {
+        return this.configuration;
+    }
+
     public static class Builder {
         private final List<ConfigValue<?>> values = new ArrayList<>();
         private final List<String> path = new ArrayList<>();
@@ -231,21 +251,57 @@ public class ForgeConfigSpec {
 
         // ---- binding to Forge's Configuration ----
 
-        @SuppressWarnings("unchecked")
         void bind(Configuration configuration) {
             Object def = this.defaultValue;
             if (def instanceof Boolean) {
                 this.property = configuration.get(this.category, this.name, (Boolean) def, this.comment);
-                this.value = (T) Boolean.valueOf(this.property.getBoolean((Boolean) def));
             } else if (def instanceof Integer) {
-                int min = this.min().intValue();
-                int max = this.max().intValue();
-                this.property = configuration.get(this.category, this.name, (Integer) def, this.comment, min, max);
-                this.value = (T) Integer.valueOf(Math.max(min, Math.min(max, this.property.getInt((Integer) def))));
+                this.property = configuration.get(this.category, this.name, (Integer) def, this.comment,
+                        this.min().intValue(), this.max().intValue());
             } else if (def instanceof Long) {
                 long min = this.min().longValue();
                 long max = this.max().longValue();
                 this.property = configuration.get(this.category, this.name, Long.toString((Long) def), this.rangeComment(min, max));
+            } else if (def instanceof Double) {
+                this.property = configuration.get(this.category, this.name, (Double) def, this.comment,
+                        this.min().doubleValue(), this.max().doubleValue());
+            } else if (def instanceof Enum) {
+                Enum<?>[] constants = ((Enum<?>) def).getDeclaringClass().getEnumConstants();
+                String[] names = new String[constants.length];
+                for (int i = 0; i < constants.length; i++) {
+                    names[i] = constants[i].name();
+                }
+                this.property = configuration.get(this.category, this.name, ((Enum<?>) def).name(), this.comment, names);
+            } else if (def instanceof String) {
+                this.property = configuration.get(this.category, this.name, (String) def, this.comment);
+            } else if (def instanceof List) {
+                List<?> defList = (List<?>) def;
+                String[] defaults = new String[defList.size()];
+                for (int i = 0; i < defaults.length; i++) {
+                    defaults[i] = encodeElement(defList.get(i));
+                }
+                this.property = configuration.get(this.category, this.name, defaults, this.comment);
+            } else {
+                throw new IllegalArgumentException("Unsupported config value type: " + (def == null ? null : def.getClass()));
+            }
+            this.read();
+        }
+
+        /**
+         * Reads the current value of the bound {@link Property} into {@link #value}.
+         */
+        @SuppressWarnings("unchecked")
+        void read() {
+            Object def = this.defaultValue;
+            if (def instanceof Boolean) {
+                this.value = (T) Boolean.valueOf(this.property.getBoolean((Boolean) def));
+            } else if (def instanceof Integer) {
+                int min = this.min().intValue();
+                int max = this.max().intValue();
+                this.value = (T) Integer.valueOf(Math.max(min, Math.min(max, this.property.getInt((Integer) def))));
+            } else if (def instanceof Long) {
+                long min = this.min().longValue();
+                long max = this.max().longValue();
                 long parsed;
                 try {
                     parsed = Long.parseLong(this.property.getString().trim());
@@ -256,15 +312,9 @@ public class ForgeConfigSpec {
             } else if (def instanceof Double) {
                 double min = this.min().doubleValue();
                 double max = this.max().doubleValue();
-                this.property = configuration.get(this.category, this.name, (Double) def, this.comment, min, max);
                 this.value = (T) Double.valueOf(Math.max(min, Math.min(max, this.property.getDouble((Double) def))));
             } else if (def instanceof Enum) {
                 Enum<?>[] constants = ((Enum<?>) def).getDeclaringClass().getEnumConstants();
-                String[] names = new String[constants.length];
-                for (int i = 0; i < constants.length; i++) {
-                    names[i] = constants[i].name();
-                }
-                this.property = configuration.get(this.category, this.name, ((Enum<?>) def).name(), this.comment, names);
                 Object parsed = def;
                 String raw = this.property.getString().trim().toUpperCase(Locale.ROOT);
                 for (Enum<?> constant : constants) {
@@ -275,15 +325,8 @@ public class ForgeConfigSpec {
                 }
                 this.value = (T) parsed;
             } else if (def instanceof String) {
-                this.property = configuration.get(this.category, this.name, (String) def, this.comment);
                 this.value = (T) this.property.getString();
             } else if (def instanceof List) {
-                List<?> defList = (List<?>) def;
-                String[] defaults = new String[defList.size()];
-                for (int i = 0; i < defaults.length; i++) {
-                    defaults[i] = encodeElement(defList.get(i));
-                }
-                this.property = configuration.get(this.category, this.name, defaults, this.comment);
                 List<Object> raw = new ArrayList<>();
                 for (String element : this.property.getStringList()) {
                     raw.add(decodeElement(element));

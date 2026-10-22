@@ -41,6 +41,10 @@ public class AimKey {
                 return;
             }
             if (IGun.mainHandHoldGun(player)) {
+                // 1.12.2: the right mouse button can be left to interact with the target under the crosshair
+                if (KeyInputs.isMousePress() && interactInsteadOfAim()) {
+                    return;
+                }
                 boolean action = true;
                 if (!KeyConfig.HOLD_TO_AIM.get()) {
                     action = !operator.isAim();
@@ -53,6 +57,14 @@ public class AimKey {
                 }
             }
         }
+    }
+
+    /**
+     * 1.12.2: whether the aim button should be left to vanilla interaction with the block or entity under the
+     * crosshair instead of starting to aim ({@code KeyConfig.RMB_INTERACT_WITH_OBJECTS}).
+     */
+    private static boolean interactInsteadOfAim() {
+        return KeyConfig.RMB_INTERACT_WITH_OBJECTS.get() && InteractKey.isTargetInteractable(Minecraft.getMinecraft());
     }
 
     /**
@@ -84,6 +96,10 @@ public class AimKey {
                 if (!press) {
                     return;
                 }
+                // 1.12.2: do not start aiming while the right mouse button is left for interacting
+                if (interactInsteadOfAim()) {
+                    return;
+                }
             }
             if (IGun.mainHandHoldGun(player)) {
                 IClientPlayerGunOperator.fromLocalPlayer(player).aim(press);
@@ -103,6 +119,10 @@ public class AimKey {
             return false;
         }
         if (!IGun.mainHandHoldGun(player)) {
+            return false;
+        }
+        // 1.12.2: the aim button can be left to interact with the target under the crosshair
+        if (isPress && interactInsteadOfAim()) {
             return false;
         }
         boolean action = true;

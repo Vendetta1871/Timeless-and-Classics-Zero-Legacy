@@ -55,10 +55,16 @@ Done differently from the original:
   coated convex lens - with no reticle seen behind the glass, the reflection and the reticle fading in as you aim in;
   while aiming the lens shows the magnified image with the reticle, with a slight
   fisheye effect towards the lens edge. Settings are in
-  `config/tacz-client.cfg` (the `render` section): `ScopePictureInPicture` (turning it off restores the original
-  behaviour), `ScopeViewResolution` (resolution of the image in the lens), `ScopeFisheye` (distortion strength,
-  0 turns it off), `ScopeMirror` (turning it off makes the lens see-through from the hip again), `ScopeMirrorFov`
+  `config/tacz-client.cfg` (the `performance` section): `ScopeZoomMode` (`PICTURE_IN_PICTURE`, or `FULL_SCREEN_ZOOM`
+  to restore the original whole-screen zoom - the cheapest option), `ScopeMirror` (turning it off makes the lens
+  see-through from the hip again and skips the reflection's world pass), `ScopeViewResolution` (resolution of the
+  image in the lens), `ScopeFisheye` (distortion strength, 0 turns it off), `ScopeMirrorFov`
   (how much of the world behind the player the lens mirrors). Under OptiFine shaders scopes work as in the original.
+- In-game config GUI: the Config button of the Mods screen (and Alt+T, the open-config key) opens the three config
+  files - client, common and server - with every setting editable in place, applied without a restart (the
+  `performance` section holds the scope options above, and the `key` section has `RmbInteractWithObjects`, which
+  leaves the right mouse button to interact with chests, villagers and the like while holding a gun, instead of
+  aiming). Implementation: `com.tacz.guns.legacy.client.TaczGuiFactory` / `TaczConfigHub` / `TaczConfigGui`.
 - Per-shot damage is rebalanced to follow the real ballistics of each cartridge: the base damage is derived from the
   Gosselain number (temporary wound cavity volume, proportional to muzzle energy x caliber) compressed by the power
   law `D = 8 * (V / V(5.56x45))^0.8`, so big-bore rounds stop being exceptions and small high-speed ones are worth

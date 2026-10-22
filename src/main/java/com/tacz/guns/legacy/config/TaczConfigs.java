@@ -3,6 +3,8 @@ package com.tacz.guns.legacy.config;
 import com.tacz.guns.config.ClientConfig;
 import com.tacz.guns.config.CommonConfig;
 import com.tacz.guns.config.ServerConfig;
+import net.minecraftforge.common.config.ConfigCategory;
+import net.minecraftforge.common.config.Configuration;
 
 import java.io.File;
 
@@ -35,6 +37,29 @@ public final class TaczConfigs {
         if (client) {
             CLIENT_SPEC = ClientConfig.init();
             CLIENT_SPEC.load(new File(configDir, "tacz-client.cfg"));
+            dropMovedScopeSettings();
+        }
+    }
+
+    /**
+     * The 1.12-only scope settings moved from the client config's {@code render} category to {@code performance};
+     * drop the stale entries so they do not show up in the config GUI.
+     */
+    private static void dropMovedScopeSettings() {
+        Configuration configuration = CLIENT_SPEC.getConfiguration();
+        if (configuration == null || !configuration.hasCategory("render")) {
+            return;
+        }
+        ConfigCategory render = configuration.getCategory("render");
+        boolean changed = false;
+        for (String key : new String[]{"ScopePictureInPicture", "ScopeViewResolution", "ScopeFisheye", "ScopeMirror", "ScopeMirrorFov"}) {
+            if (render.containsKey(key)) {
+                render.remove(key);
+                changed = true;
+            }
+        }
+        if (changed) {
+            CLIENT_SPEC.save();
         }
     }
 
@@ -47,6 +72,22 @@ public final class TaczConfigs {
         }
         if (CLIENT_SPEC != null) {
             CLIENT_SPEC.save();
+        }
+    }
+
+    /**
+     * Re-reads every value from the loaded files' properties (after a config GUI edited them);
+     * {@link #save()} writes them back.
+     */
+    public static void reload() {
+        if (COMMON_SPEC != null) {
+            COMMON_SPEC.reload();
+        }
+        if (SERVER_SPEC != null) {
+            SERVER_SPEC.reload();
+        }
+        if (CLIENT_SPEC != null) {
+            CLIENT_SPEC.reload();
         }
     }
 }
