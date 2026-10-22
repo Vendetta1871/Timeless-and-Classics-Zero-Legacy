@@ -5,6 +5,7 @@ import com.tacz.guns.api.item.IAttachment;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.block.AbstractGunSmithTableBlock;
 import com.tacz.guns.client.input.InteractKey;
+import com.tacz.guns.config.client.KeyConfig;
 import com.tacz.guns.config.client.RenderConfig;
 import com.tacz.guns.config.util.InteractKeyConfigRead;
 import net.minecraft.util.text.TextFormatting;
@@ -58,7 +59,7 @@ public class InteractKeyTextOverlay implements IGuiOverlay {
             boolean hasGunSmithTableFilterItem = hasGunSmithTableFilterItem(block, player);
             boolean willFilterByHand = RenderConfig.AUTO_SELECT_GUN_SMITH_TABLE_FILTER.get() && hasGunSmithTableFilterItem;
             if (mainHandHoldGun) {
-                renderText(graphics, width, height, mc.fontRenderer, InteractKey.INTERACT_KEY.getDisplayName(), willFilterByHand);
+                renderText(graphics, width, height, mc.fontRenderer, interactKeyName(mc), willFilterByHand);
             } else if (hasGunSmithTableFilterItem) {
                 renderText(graphics, width, height, mc.fontRenderer, mc.gameSettings.keyBindUseItem.getDisplayName(), willFilterByHand);
             }
@@ -71,8 +72,19 @@ public class InteractKeyTextOverlay implements IGuiOverlay {
         }
         Entity entity = entityHitResult.entityHit;
         if (InteractKeyConfigRead.canInteractEntity(entity)) {
-            renderText(graphics, width, height, mc.fontRenderer, InteractKey.INTERACT_KEY.getDisplayName(), false);
+            renderText(graphics, width, height, mc.fontRenderer, interactKeyName(mc), false);
         }
+    }
+
+    /**
+     * While holding a gun with {@code KeyConfig.RMB_INTERACT_WITH_OBJECTS} on, the right mouse button interacts
+     * with the target under the crosshair instead of aiming, so the hint must name that button rather than the
+     * separate interact key.
+     */
+    private static String interactKeyName(Minecraft mc) {
+        return KeyConfig.RMB_INTERACT_WITH_OBJECTS.get()
+                ? mc.gameSettings.keyBindUseItem.getDisplayName()
+                : InteractKey.INTERACT_KEY.getDisplayName();
     }
 
     private static boolean hasGunSmithTableFilterItem(IBlockState block, EntityPlayerSP player) {
