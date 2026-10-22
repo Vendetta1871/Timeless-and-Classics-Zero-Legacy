@@ -99,6 +99,11 @@ dependencies {
     // JEI integration (compile only; the mod works without it, HadEnoughItems keeps the same API package)
     compileOnly rfg.deobf('mezz.jei:jei_1.12.2:4.16.1.302')
     runtimeOnly rfg.deobf('mezz.jei:jei_1.12.2:4.16.1.302')
+    // AquaAcrobatics integration (compile only; the mod works without it). Its forced crawling drives the real
+    // crawl pose from the TACZ crawl key (see com.tacz.guns.legacy.compat.AquaAcrobaticsCompat).
+    // File 5225456 = 1.15.4, the last 1.12.2 build; the file the mod README suggests (3619657) predates that API
+    compileOnly rfg.deobf('curse.maven:aquaacrobatics-321792:5225456')
+    runtimeOnly rfg.deobf('curse.maven:aquaacrobatics-321792:5225456')
 }
 
 // Need reobfJar to use uber jars, so dependencies that are shaded in are present
