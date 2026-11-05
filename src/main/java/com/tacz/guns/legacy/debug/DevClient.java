@@ -180,7 +180,11 @@ public final class DevClient {
                         mc.player.sendChatMessage("/time set 6000");
                         mc.player.sendChatMessage("/tp @p ~ ~ ~ 0 0");
                         mc.player.sendChatMessage("/give @p tacz:modern_kinetic_gun 1 0 {GunId:\"tacz:" + (gun == null ? "ak47" : gun) + "\",GunCurrentAmmoCount:30}");
-                        mc.player.sendChatMessage("/summon zombie ~ ~ ~8 {NoAI:1b}");
+                        if (targetKind().equals("zombie")) {
+                            mc.player.sendChatMessage("/summon zombie ~ ~ ~8 {NoAI:1b}");
+                        } else if (targetKind().equals("enderman")) {
+                            mc.player.sendChatMessage("/summon enderman ~ ~ ~8 {NoAI:1b}");
+                        }
                     }
                     if (server != null) {
                         server.addScheduledTask(() -> {
@@ -188,18 +192,34 @@ public final class DevClient {
                             if (player != null) {
                                 player.inventory.setInventorySlotContents(0, testItem());
                                 player.inventory.currentItem = 0;
-                                player.connection.setPlayerLocation(player.posX, player.posY, player.posZ, 0F, 0F);
+                                // TACZ_AUTOTEST_LOOK=yaw,pitch: where to face (the default straight ahead may be
+                                // blocked by terrain; the scope screenshots want an open view)
+                                float yaw = 0F, pitch = 0F;
+                                String look = System.getenv("TACZ_AUTOTEST_LOOK");
+                                if (look != null) {
+                                    String[] parts = look.split(",");
+                                    yaw = Float.parseFloat(parts[0].trim());
+                                    pitch = Float.parseFloat(parts[1].trim());
+                                }
+                                player.connection.setPlayerLocation(player.posX, player.posY, player.posZ, yaw, pitch);
                             }
                             server.getWorld(0).setWorldTime(6000);
-                            if (player != null && DevTools.PACK_DIR == null) {
-                                // a zombie target 8 blocks ahead (the player looks south, yaw 0); body height covers the eye line
-                                net.minecraft.entity.monster.EntityZombie pig = new net.minecraft.entity.monster.EntityZombie(player.world);
-                                pig.setPosition(player.posX, player.posY, player.posZ + 8);
-                                pig.setNoAI(true);
-                                // a helmet keeps it from burning in daylight (the flames would cover the view)
-                                pig.setItemStackToSlot(net.minecraft.inventory.EntityEquipmentSlot.HEAD, new ItemStack(net.minecraft.init.Items.LEATHER_HELMET));
-                                player.world.spawnEntity(pig);
-                                target = pig;
+                            if (player != null && DevTools.PACK_DIR == null && !targetKind().equals("none")) {
+                                // a target 8 blocks ahead (the player looks south, yaw 0); body height covers the eye line
+                                net.minecraft.entity.monster.EntityMob mob;
+                                if (targetKind().equals("enderman")) {
+                                    // 1.12.2 vanilla endermen ignore indirect damage sources; bullets must still damage them
+                                    mob = new net.minecraft.entity.monster.EntityEnderman(player.world);
+                                } else {
+                                    net.minecraft.entity.monster.EntityZombie zombie = new net.minecraft.entity.monster.EntityZombie(player.world);
+                                    // a helmet keeps it from burning in daylight (the flames would cover the view)
+                                    zombie.setItemStackToSlot(net.minecraft.inventory.EntityEquipmentSlot.HEAD, new ItemStack(net.minecraft.init.Items.LEATHER_HELMET));
+                                    mob = zombie;
+                                }
+                                mob.setPosition(player.posX, player.posY, player.posZ + 8);
+                                mob.setNoAI(true);
+                                player.world.spawnEntity(mob);
+                                target = mob;
                             }
                         });
                     }
@@ -280,6 +300,14 @@ public final class DevClient {
      * The real gun item ({@code TACZ_AUTOTEST_GUN}, default {@code ak47}), or the debug model when
      * {@code TACZ_DEBUG_PACK} points at an unpacked gun pack.
      */
+    /**
+     * The autotest target: {@code zombie} (default), {@code enderman} (vanilla 1.12.2 ignores indirect damage
+     * sources, bullets must still damage it) or {@code none} (an unobstructed view, for scope screenshots).
+     */
+    private static String targetKind() {
+        return System.getenv().getOrDefault("TACZ_AUTOTEST_TARGET", "zombie");
+    }
+
     private static int envInt(String name, int fallback) {
         String value = System.getenv(name);
         return value == null ? fallback : Integer.parseInt(value);

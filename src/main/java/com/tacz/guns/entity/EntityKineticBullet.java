@@ -626,7 +626,9 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
         var directCause = PRETEND_MELEE_DAMAGE_ON.contains(hitPart) ? this.getOwner() : this;
         // 给末影人造成伤害
         if (USE_MAGIC_DAMAGE_ON.contains(hitPart)) {
-            source1 = source2 = DamageSource.causeIndirectMagicDamage(this, getOwner());
+            // 1.12.2: vanilla's causeIndirectMagicDamage is an EntityDamageSourceIndirect, which endermen ignore
+            // outright; ModDamageTypes' direct equivalent damages them, as upstream's indirectMagic does on 1.20.1
+            source1 = source2 = ModDamageTypes.Sources.indirectMagic(this, getOwner());
         } else if (USE_VOID_DAMAGE_ON.contains(hitPart)) {
             source1 = ModDamageTypes.Sources.bulletVoid(directCause, this.getOwner(), false);
             source2 = ModDamageTypes.Sources.bulletVoid(directCause, this.getOwner(), true);
