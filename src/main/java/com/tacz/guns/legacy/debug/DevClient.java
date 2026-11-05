@@ -251,6 +251,8 @@ public final class DevClient {
                     }
                 } else if (ticks == 70) {
                     if (DevTools.PACK_DIR == null) {
+                        IClientPlayerGunOperator operator = IClientPlayerGunOperator.fromLocalPlayer(mc.player);
+                        GunMod.LOGGER.info("[dev] aim state: isAim={} progress={}", operator.isAim(), operator.getClientAimingProgress(0));
                         screenshot(mc, "aiming");
                         GunMod.LOGGER.info("[dev] target health before: {}", target == null ? null : target.getHealth());
                     }
@@ -289,6 +291,15 @@ public final class DevClient {
                     mc.gameSettings.thirdPersonView = 0;
                 } else if (ticks == 160 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
                     mc.shutdown();
+                }
+                // Keep the aim asserted every tick while the sequence wants aiming: a stray real mouse event
+                // (the window sits on a desktop) would otherwise cancel hold-to-aim mid-sequence
+                if (DevTools.PACK_DIR == null && ticks > 40 && ticks < 89) {
+                    net.minecraft.client.settings.KeyBinding.setKeyBindState(com.tacz.guns.client.input.AimKey.AIM_KEY.getKeyCode(), true);
+                    IClientPlayerGunOperator operator = IClientPlayerGunOperator.fromLocalPlayer(mc.player);
+                    if (!operator.isAim()) {
+                        operator.aim(true);
+                    }
                 }
             }
             default -> {
