@@ -18,8 +18,8 @@ The original zooms the whole screen when you aim through a scope. Here a scope m
 
 <table>
   <tr>
-    <td width="50%"><img src="https://raw.githubusercontent.com/Vendetta1871/Timeless-and-Classics-Zero-Legacy/main/docs/img/scope_hip.png" alt="Scoped rifle from the hip: the lens mirrors the world behind the player"></td>
-    <td width="50%"><img src="https://raw.githubusercontent.com/Vendetta1871/Timeless-and-Classics-Zero-Legacy/main/docs/img/scope_aiming.png" alt="Aiming through the scope: the lens shows a magnified view with the reticle"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/Vendetta1871/Timeless-and-Classics-Zero-Legacy/34ee9ef/docs/img/scope_hip.png" alt="Scoped rifle from the hip: the lens mirrors the world behind the player"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/Vendetta1871/Timeless-and-Classics-Zero-Legacy/34ee9ef/docs/img/scope_aiming.png" alt="Aiming through the scope: the lens shows a magnified view with the reticle"></td>
   </tr>
   <tr>
     <td><em>from the hip: the lens mirrors what is behind the player</em></td>
@@ -43,7 +43,7 @@ One switch back, applied without a restart. Open **Mods → Config** (or press *
 | `ScopeZoomMode` | `PICTURE_IN_PICTURE` | `FULL_SCREEN_ZOOM` - the whole screen zooms while aiming (also the cheapest option: no second world pass) |
 | `ScopeMirror` | `true` | `false` - the lens is see-through from the hip again (and skips the reflection's world pass) |
 
-<img src="https://raw.githubusercontent.com/Vendetta1871/Timeless-and-Classics-Zero-Legacy/main/docs/img/config_performance.png" alt="The performance section of the in-game config screen" width="640">
+<img src="https://raw.githubusercontent.com/Vendetta1871/Timeless-and-Classics-Zero-Legacy/34ee9ef/docs/img/config_performance.png" alt="The performance section of the in-game config screen" width="640">
 
 The same keys live in `config/tacz-client.cfg` under `[performance]`. Other scope knobs in the same section:
 `ScopeViewResolution` (resolution of the lens image, lower is faster), `ScopeFisheye` (distortion strength, 0 turns
