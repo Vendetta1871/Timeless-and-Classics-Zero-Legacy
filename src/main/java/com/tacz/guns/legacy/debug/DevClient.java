@@ -64,6 +64,8 @@ public final class DevClient {
     private static int ticks;
     private static int warmupTicks;
     private static boolean shootingShotPending;
+    /** First tick of the shooting sequence; -1 until the aiming screenshot is taken. */
+    private static int aimBase = -1;
     private static net.minecraft.entity.EntityLiving target;
 
     private DevClient() {
@@ -245,18 +247,44 @@ public final class DevClient {
                 if (++ticks == 40) {
                     screenshot(mc, "first_person");
                     if (DevTools.PACK_DIR == null) {
+                        // The dev window sits on a live desktop, so real right-button clicks keep toggling or
+                        // cancelling the aim (the test config may even run toggle-aim), and the aiming screenshot
+                        // would randomly come out from the hip. Rebind the aim key to a key no real input event
+                        // can generate for the rest of the test, and register it there so the synthetic key state
+                        // below actually reaches it.
+                        try {
+                            java.lang.reflect.Field keyCode = net.minecraft.client.settings.KeyBinding.class.getDeclaredField("keyCode");
+                            keyCode.setAccessible(true);
+                            keyCode.setInt(com.tacz.guns.client.input.AimKey.AIM_KEY, 255);
+                            java.lang.reflect.Field hash = net.minecraft.client.settings.KeyBinding.class.getDeclaredField("HASH");
+                            hash.setAccessible(true);
+                            ((net.minecraftforge.client.settings.KeyBindingMap) hash.get(null)).addKey(255, com.tacz.guns.client.input.AimKey.AIM_KEY);
+                        } catch (ReflectiveOperationException e) {
+                            GunMod.LOGGER.warn("[dev] failed to rebind the aim key", e);
+                        }
                         // hold the aim key: with hold-to-aim (the default) a released key cancels aiming next tick
                         net.minecraft.client.settings.KeyBinding.setKeyBindState(com.tacz.guns.client.input.AimKey.AIM_KEY.getKeyCode(), true);
                         IClientPlayerGunOperator.fromLocalPlayer(mc.player).aim(true);
                     }
-                } else if (ticks == 70) {
-                    if (DevTools.PACK_DIR == null) {
+                } else if (ticks >= 70 && aimBase < 0) {
+                    if (DevTools.PACK_DIR != null) {
+                        // debug pack mode: no aim/shoot sequence, the checkpoints below stay on the old fixed ticks
+                        aimBase = 70;
+                    } else {
                         IClientPlayerGunOperator operator = IClientPlayerGunOperator.fromLocalPlayer(mc.player);
-                        GunMod.LOGGER.info("[dev] aim state: isAim={} progress={}", operator.isAim(), operator.getClientAimingProgress(0));
-                        screenshot(mc, "aiming");
-                        GunMod.LOGGER.info("[dev] target health before: {}", target == null ? null : target.getHealth());
+                        // Wait until the aim actually engaged and the transition finished before the screenshot: a
+                        // stray real mouse event over the dev window can cancel hold-to-aim between the re-assert
+                        // below and a fixed tick, which silently made the aiming screenshot come out from the hip.
+                        // The deadline only guards against a broken aim, it should not normally be reached.
+                        if ((operator.isAim() && operator.getClientAimingProgress(0) >= 1f) || ticks > 110) {
+                            GunMod.LOGGER.info("[dev] aim state: isAim={} progress={}", operator.isAim(), operator.getClientAimingProgress(0));
+                            screenshot(mc, "aiming");
+                            GunMod.LOGGER.info("[dev] target health before: {}", target == null ? null : target.getHealth());
+                            aimBase = ticks;
+                        }
                     }
-                } else if (DevTools.PACK_DIR == null && ticks > 70 && ticks <= 85 && ticks % 5 == 1) {
+                } else if (DevTools.PACK_DIR == null && aimBase >= 0 && ticks > aimBase && ticks <= aimBase + 14
+                        && (ticks - aimBase) % 5 == 1) {
                     GunMod.LOGGER.info("[dev] shoot: {}", IClientPlayerGunOperator.fromLocalPlayer(mc.player).shoot());
                     IntegratedServer srv = mc.getIntegratedServer();
                     if (srv != null) {
@@ -269,32 +297,34 @@ public final class DevClient {
                                     target == null ? null : target.getPositionVector(), mc.player.getPositionVector(), mc.player.getLookVec());
                         });
                     }
-                    if (ticks == 81) {
+                    if (ticks == aimBase + 11) {
                         // the frame rendered after this tick shows the muzzle flash (50 ms)
                         shootingShotPending = true;
                     }
-                } else if (ticks == 89) {
+                } else if (aimBase >= 0 && ticks == aimBase + 19) {
                     if (DevTools.PACK_DIR == null) {
                         GunMod.LOGGER.info("[dev] target health after: {} dead={}", target == null ? null : target.getHealth(), target != null && target.isDead);
                         net.minecraft.client.settings.KeyBinding.setKeyBindState(com.tacz.guns.client.input.AimKey.AIM_KEY.getKeyCode(), false);
                         IClientPlayerGunOperator.fromLocalPlayer(mc.player).aim(false);
                     }
-                } else if (ticks == 100 && DevTools.PACK_DIR == null) {
-                    IClientPlayerGunOperator.fromLocalPlayer(mc.player).reload();
-                    GunMod.LOGGER.info("[dev] reload");
-                } else if (ticks == 120 && DevTools.PACK_DIR == null) {
+                } else if (aimBase >= 0 && ticks == aimBase + 30) {
+                    if (DevTools.PACK_DIR == null) {
+                        IClientPlayerGunOperator.fromLocalPlayer(mc.player).reload();
+                        GunMod.LOGGER.info("[dev] reload");
+                    }
+                } else if (aimBase >= 0 && ticks == aimBase + 50) {
                     screenshot(mc, "reloading");
-                } else if (ticks == 130) {
+                } else if (aimBase >= 0 && ticks == aimBase + 60) {
                     mc.gameSettings.thirdPersonView = 2;
-                } else if (ticks == 150) {
+                } else if (aimBase >= 0 && ticks == aimBase + 80) {
                     screenshot(mc, "third_person_front");
                     mc.gameSettings.thirdPersonView = 0;
-                } else if (ticks == 160 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
+                } else if (aimBase >= 0 && ticks == aimBase + 90 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
                     mc.shutdown();
                 }
                 // Keep the aim asserted every tick while the sequence wants aiming: a stray real mouse event
                 // (the window sits on a desktop) would otherwise cancel hold-to-aim mid-sequence
-                if (DevTools.PACK_DIR == null && ticks > 40 && ticks < 89) {
+                if (DevTools.PACK_DIR == null && ticks > 40 && (aimBase < 0 || ticks < aimBase + 19)) {
                     net.minecraft.client.settings.KeyBinding.setKeyBindState(com.tacz.guns.client.input.AimKey.AIM_KEY.getKeyCode(), true);
                     IClientPlayerGunOperator operator = IClientPlayerGunOperator.fromLocalPlayer(mc.player);
                     if (!operator.isAim()) {
