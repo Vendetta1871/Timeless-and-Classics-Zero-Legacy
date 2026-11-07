@@ -2,6 +2,7 @@ package com.tacz.guns.legacy.resource;
 
 import com.tacz.guns.GunMod;
 import com.tacz.guns.client.resource.ClientAssetsManager;
+import com.tacz.guns.compat.playeranimator.PlayerAnimatorCompat;
 import com.tacz.guns.resource.GunPackLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.IResourceManager;
@@ -63,6 +64,7 @@ public final class ClientGunPacks {
     private static void onResourceManagerReload(IResourceManager vanillaResourceManager) {
         ResourceManager resourceManager = resourceManager();
         ClientAssetsManager.INSTANCE.reloadAndRegister(listener -> listener.reload(resourceManager));
+        PlayerAnimatorCompat.registerReloadListener(listener -> listener.reload(resourceManager));
         if (retired != null) {
             retired.close();
             retired = null;

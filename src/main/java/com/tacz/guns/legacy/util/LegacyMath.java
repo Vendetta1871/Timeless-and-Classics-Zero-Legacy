@@ -4,7 +4,13 @@ package com.tacz.guns.legacy.util;
  * 1.20.1 {@code net.minecraft.util.Mth} helpers that 1.12.2's {@code MathHelper} does not have.
  */
 public final class LegacyMath {
+    public static final float DEG_TO_RAD = (float) (Math.PI / 180.0);
+
     private LegacyMath() {
+    }
+
+    public static float rotLerp(float delta, float start, float end) {
+        return start + delta * net.minecraft.util.math.MathHelper.wrapDegrees(end - start);
     }
 
     public static float lerp(float delta, float start, float end) {

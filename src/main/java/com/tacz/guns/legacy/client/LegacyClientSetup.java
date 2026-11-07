@@ -2,6 +2,7 @@ package com.tacz.guns.legacy.client;
 
 import com.tacz.guns.client.init.ClientSetupEvent;
 import com.tacz.guns.client.init.ModEntitiesRender;
+import com.tacz.guns.compat.playeranimator.PlayerAnimatorCompat;
 import com.tacz.guns.legacy.resource.ClientGunPacks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.IReloadableResourceManager;
@@ -30,6 +31,9 @@ public final class LegacyClientSetup {
     public static void init() {
         // upstream: client/init/ClientSetupEvent (FMLClientSetupEvent: item colors, item properties)
         ClientSetupEvent.onClientSetupInit();
+        // upstream: client/init/ClientSetupEvent#onClientResourceReload (与 player animator 的兼容); must run before
+        // the first client player is constructed, its animation layer factories are applied there
+        PlayerAnimatorCompat.init();
         // RegisterClientReloadListenersEvent: registering also runs the listeners once, on the packs that the first
         // resource reload installed
         ((IReloadableResourceManager) Minecraft.getMinecraft().getResourceManager()).registerReloadListener(ClientGunPacks.RELOAD_LISTENER);

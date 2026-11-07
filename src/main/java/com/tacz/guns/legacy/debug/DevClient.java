@@ -206,7 +206,7 @@ public final class DevClient {
                                 player.connection.setPlayerLocation(player.posX, player.posY, player.posZ, yaw, pitch);
                             }
                             server.getWorld(0).setWorldTime(6000);
-                            if (player != null && DevTools.PACK_DIR == null && !targetKind().equals("none")) {
+                            if (player != null && DevTools.PACK_DIR == null && (targetKind().equals("zombie") || targetKind().equals("enderman"))) {
                                 // a target 8 blocks ahead (the player looks south, yaw 0); body height covers the eye line
                                 net.minecraft.entity.monster.EntityMob mob;
                                 if (targetKind().equals("enderman")) {
@@ -243,6 +243,9 @@ public final class DevClient {
                         GunMod.LOGGER.info("[dev] warmup fps {}", Minecraft.getDebugFPS());
                     }
                     return;
+                }
+                if (ticks == 0 && targetKind().equals("dummy")) {
+                    spawnDummy(mc);
                 }
                 if (++ticks == 40) {
                     screenshot(mc, "first_person");
@@ -345,6 +348,26 @@ public final class DevClient {
      * The autotest target: {@code zombie} (default), {@code enderman} (vanilla 1.12.2 ignores indirect damage
      * sources, bullets must still damage it) or {@code none} (an unobstructed view, for scope screenshots).
      */
+    /**
+     * TACZ_AUTOTEST_TARGET=dummy: a client-side copy of a player holding the test item, 3 blocks ahead, a bit to the left and
+     * turned sideways, so the screenshots show the third-person gun pose the way other players see it (Player Animator
+     * compat or the hardcoded animations).
+     */
+    private static void spawnDummy(Minecraft mc) {
+        net.minecraft.client.entity.EntityOtherPlayerMP dummy = new net.minecraft.client.entity.EntityOtherPlayerMP(mc.world,
+                new com.mojang.authlib.GameProfile(java.util.UUID.nameUUIDFromBytes("tacz_dummy".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "tacz_dummy"));
+        // the player looks south (+Z); yaw 90 faces west, so the camera sees the dummy's left side
+        // 1.5 blocks east (left on screen), clear of the first-person gun
+        dummy.setLocationAndAngles(mc.player.posX + 1.5, mc.player.posY, mc.player.posZ + 3, 90F, 0F);
+        dummy.rotationYawHead = dummy.prevRotationYawHead = 90F;
+        dummy.renderYawOffset = dummy.prevRenderYawOffset = 90F;
+        dummy.setHeldItem(EnumHand.MAIN_HAND, testItem());
+        // armor layers must follow the gun pose too
+        dummy.setItemStackToSlot(net.minecraft.inventory.EntityEquipmentSlot.CHEST, new ItemStack(net.minecraft.init.Items.IRON_CHESTPLATE));
+        dummy.setItemStackToSlot(net.minecraft.inventory.EntityEquipmentSlot.HEAD, new ItemStack(net.minecraft.init.Items.IRON_HELMET));
+        mc.world.addEntityToWorld(-4242, dummy);
+    }
+
     private static String targetKind() {
         return System.getenv().getOrDefault("TACZ_AUTOTEST_TARGET", "zombie");
     }

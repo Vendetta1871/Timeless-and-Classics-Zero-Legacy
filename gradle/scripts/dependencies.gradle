@@ -36,6 +36,22 @@ repositories {
             includeGroup 'com.github.FiguraMC.luaj'
         }
     }
+    // Player Animator 1.12.2 port (KosmX API), only published as GitHub release assets
+    exclusiveContent {
+        forRepository {
+            ivy {
+                name 'Player Animator GitHub releases'
+                url 'https://github.com/'
+                patternLayout {
+                    artifact '[organisation]/[module]/releases/download/v[revision]/[module]-[revision](-[classifier]).[ext]'
+                }
+                metadataSources { artifact() }
+            }
+        }
+        filter {
+            includeGroup 'zsjs110110-cpu'
+        }
+    }
     // JEI (1.12.2: mezz.jei 4.x; the HadEnoughItems fork keeps the same API package)
     maven {
         name 'Progwml6 Maven'
@@ -104,6 +120,17 @@ dependencies {
     // File 5225456 = 1.15.4, the last 1.12.2 build; the file the mod README suggests (3619657) predates that API
     compileOnly rfg.deobf('curse.maven:aquaacrobatics-321792:5225456')
     runtimeOnly rfg.deobf('curse.maven:aquaacrobatics-321792:5225456')
+    // optional: third-person gun animations from gun packs (compat/playeranimator)
+    compileOnly rfg.deobf('zsjs110110-cpu:playeranimator-1.12.2:1.0.2-rc1-1.12.2')
+    // -PwithPAL adds Player Animation Legacy (an EMF-based Fresh Animations player model, no API) to check that
+    // the gun poses survive it; https://www.curseforge.com/minecraft/mc-mods/player-animation-legacy, 1.4.8
+    if (project.hasProperty('withPAL')) {
+        runtimeOnly rfg.deobf('curse.maven:player-animation-legacy-1745458:9191704')
+    }
+    // -PnoPlayerAnimator runs the dev client without it (the hardcoded third-person animations)
+    if (!project.hasProperty('noPlayerAnimator')) {
+        runtimeOnly rfg.deobf('zsjs110110-cpu:playeranimator-1.12.2:1.0.2-rc1-1.12.2')
+    }
 }
 
 // Need reobfJar to use uber jars, so dependencies that are shaded in are present
