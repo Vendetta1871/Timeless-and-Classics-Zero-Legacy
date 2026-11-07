@@ -244,6 +244,9 @@ public final class DevClient {
                     }
                     return;
                 }
+                if (craftTest(mc)) {
+                    return;
+                }
                 if (ticks == 0 && targetKind().equals("dummy")) {
                     spawnDummy(mc);
                 }
@@ -353,6 +356,121 @@ public final class DevClient {
      * turned sideways, so the screenshots show the third-person gun pose the way other players see it (Player Animator
      * compat or the hardcoded animations).
      */
+    /**
+     * TACZ_AUTOTEST_CRAFT=<recipe id> ({@code 1} = {@code tacz:gun/ak47}): survival mode, the recipe inputs in the
+     * inventory, a gun smith table placed and opened through the real block code, then the "Create" button packet
+     * is sent exactly as {@code GunSmithTableScreen#addCraftButton} sends it. Logs the window ids on both sides and
+     * the inventory before and after, then quits. Integrated server only.
+     *
+     * @return true while the craft test runs (it replaces the shooting sequence)
+     */
+    private static boolean craftTest(Minecraft mc) {
+        String value = System.getenv("TACZ_AUTOTEST_CRAFT");
+        if (value == null) {
+            return false;
+        }
+        IntegratedServer server = mc.getIntegratedServer();
+        if (server == null) {
+            GunMod.LOGGER.warn("[dev] craft test needs the integrated server");
+            mc.shutdown();
+            return true;
+        }
+        ResourceLocation recipeId = new ResourceLocation("1".equals(value) ? "tacz:gun/ak47" : value);
+        int tick = ticks++;
+        if (tick == 0) {
+            server.addScheduledTask(() -> {
+                EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(mc.player.getUniqueID());
+                if (player == null) {
+                    return;
+                }
+                player.setGameType(GameType.SURVIVAL);
+                player.inventory.clear();
+                com.tacz.guns.crafting.GunSmithTableRecipe recipe = com.tacz.guns.legacy.crafting.RecipeManager.of(player.world).byKey(recipeId).orElse(null);
+                if (recipe == null) {
+                    GunMod.LOGGER.warn("[dev] craft: no recipe {}", recipeId);
+                    return;
+                }
+                for (com.tacz.guns.crafting.GunSmithTableIngredient input : recipe.getInputs()) {
+                    ItemStack[] matching = input.getIngredient().getMatchingStacks();
+                    if (matching.length == 0) {
+                        GunMod.LOGGER.warn("[dev] craft: an input of {} matches no item", recipeId);
+                        continue;
+                    }
+                    int left = input.getCount();
+                    while (left > 0) {
+                        ItemStack stack = matching[0].copy();
+                        int count = Math.min(left, stack.getMaxStackSize());
+                        stack.setCount(count);
+                        player.inventory.addItemStackToInventory(stack);
+                        left -= count;
+                    }
+                }
+                net.minecraft.world.World world = player.world;
+                net.minecraft.util.math.BlockPos pos = new net.minecraft.util.math.BlockPos(player).south(2);
+                net.minecraft.block.Block block = com.tacz.guns.init.ModBlocks.GUN_SMITH_TABLE.get();
+                net.minecraft.block.state.IBlockState state = block.getDefaultState();
+                world.setBlockState(pos, state);
+                block.onBlockPlacedBy(world, pos, state, player, com.tacz.guns.api.item.builder.BlockItemBuilder.create(com.tacz.guns.init.ModItems.GUN_SMITH_TABLE.get())
+                        .setId(com.tacz.guns.api.DefaultAssets.DEFAULT_BLOCK_ID).build());
+                GunMod.LOGGER.info("[dev] craft: recipe {} -> {}, inventory before: {}", recipeId, recipe.getOutput(), describeInventory(player));
+            });
+        } else if (tick == 20) {
+            // a separate tick: the client must have the block entity before the gui handler builds the screen
+            server.addScheduledTask(() -> {
+                EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(mc.player.getUniqueID());
+                if (player != null) {
+                    net.minecraft.util.math.BlockPos pos = new net.minecraft.util.math.BlockPos(player).south(2);
+                    net.minecraft.block.state.IBlockState state = player.world.getBlockState(pos);
+                    state.getBlock().onBlockActivated(player.world, pos, state, player, EnumHand.MAIN_HAND, net.minecraft.util.EnumFacing.UP, 0.5F, 1F, 0.5F);
+                }
+            });
+        } else if (tick == 40) {
+            if (mc.currentScreen instanceof net.minecraft.client.gui.inventory.GuiContainer gui) {
+                // GunSmithTableScreen#menu is GuiContainer#inventorySlots
+                int menuId = gui.inventorySlots.windowId;
+                GunMod.LOGGER.info("[dev] craft: client screen={} menu.windowId={} openContainer is menu={} inventoryContainer.windowId={}",
+                        gui.getClass().getSimpleName(), menuId, mc.player.openContainer == gui.inventorySlots, mc.player.inventoryContainer.windowId);
+                server.addScheduledTask(() -> {
+                    EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(mc.player.getUniqueID());
+                    if (player != null) {
+                        GunMod.LOGGER.info("[dev] craft: server openContainer={} windowId={}",
+                                player.openContainer.getClass().getSimpleName(), player.openContainer.windowId);
+                    }
+                });
+                com.tacz.guns.network.NetworkHandler.CHANNEL.sendToServer(new com.tacz.guns.network.message.ClientMessageCraft(recipeId, menuId));
+            } else {
+                GunMod.LOGGER.warn("[dev] craft: the gun smith table screen did not open, screen={}", mc.currentScreen);
+            }
+        } else if (tick == 80) {
+            server.addScheduledTask(() -> {
+                EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(mc.player.getUniqueID());
+                if (player != null) {
+                    GunMod.LOGGER.info("[dev] craft: inventory after: {}", describeInventory(player));
+                }
+            });
+            screenshot(mc, "craft");
+        } else if (tick == 90) {
+            mc.player.closeScreen();
+        } else if (tick == 100) {
+            GunMod.LOGGER.info("[dev] craft: after closing, client openContainer.windowId={} inventoryContainer.windowId={}",
+                    mc.player.openContainer.windowId, mc.player.inventoryContainer.windowId);
+        } else if (tick == 110 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
+            mc.shutdown();
+        }
+        return true;
+    }
+
+    private static String describeInventory(EntityPlayerMP player) {
+        java.util.List<String> items = new java.util.ArrayList<>();
+        for (int i = 0; i < player.inventory.getSizeInventory(); i++) {
+            ItemStack stack = player.inventory.getStackInSlot(i);
+            if (!stack.isEmpty()) {
+                items.add(stack.getCount() + "x " + stack.getItem().getRegistryName() + (stack.hasTagCompound() ? stack.getTagCompound() : ""));
+            }
+        }
+        return items.toString();
+    }
+
     private static void spawnDummy(Minecraft mc) {
         net.minecraft.client.entity.EntityOtherPlayerMP dummy = new net.minecraft.client.entity.EntityOtherPlayerMP(mc.world,
                 new com.mojang.authlib.GameProfile(java.util.UUID.nameUUIDFromBytes("tacz_dummy".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "tacz_dummy"));

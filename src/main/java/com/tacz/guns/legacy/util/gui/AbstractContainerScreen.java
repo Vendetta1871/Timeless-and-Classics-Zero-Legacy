@@ -114,6 +114,11 @@ public abstract class AbstractContainerScreen<T extends Container> extends GuiCo
 
     @Override
     public final void initGui() {
+        // What GuiContainer#initGui does (super is not called): the open container must be this menu, because FML
+        // writes the server window id into player.openContainer right after the screen opens (OpenGuiHandler).
+        // Without it the id landed in the player inventory container and the menu kept id 0, so the server dropped
+        // every packet checked against the window id (the gun smith table craft button).
+        this.mc.player.openContainer = this.inventorySlots;
         this.minecraft = this.mc;
         this.font = this.fontRenderer;
         this.init();
