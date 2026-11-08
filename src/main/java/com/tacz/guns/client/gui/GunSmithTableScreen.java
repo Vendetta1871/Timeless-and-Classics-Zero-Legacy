@@ -285,14 +285,23 @@ public class GunSmithTableScreen extends AbstractContainerScreen<GunSmithTableMe
         if (this.filterList == null) {
             this.filterList = new GunPackList(this.minecraft, 134, this.imageHeight, topPos, topPos+imageHeight+1, 15, recipes, this);
         }
+        boolean autoByHand = false;
         if (!this.autoByHandFilterApplied && RenderConfig.AUTO_SELECT_GUN_SMITH_TABLE_FILTER.get()) {
-            this.filterList.setByHandSelected(this.shouldFilterByMainHand());
+            autoByHand = this.shouldFilterByMainHand();
+            this.filterList.setByHandSelected(autoByHand);
             this.autoByHandFilterApplied = true;
         }
         this.filterList.updateSize(134, this.imageHeight, topPos, topPos+imageHeight+1);
         this.filterList.setLeftPos(leftPos);
 
         this.classifyRecipes();
+        if (autoByHand && this.recipes.isEmpty()) {
+            // 1.12.2: the automatic held item filter is not kept when it leaves nothing to craft (upstream keeps it):
+            // the default gun smith table crafts guns only (ammo and attachments are on the workbenches), so with a
+            // gun in hand it would open empty, which looks broken. The filter checkbox still works by hand.
+            this.filterList.setByHandSelected(false);
+            this.classifyRecipes();
+        }
         this.updateSelectedRecipeAfterFiltering();
         this.clearWidgets();
 

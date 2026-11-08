@@ -173,6 +173,11 @@ public final class DevClient {
                 }
             }
             case 1 -> {
+                if (mc.player != null && mc.currentScreen instanceof net.minecraft.client.gui.GuiGameOver) {
+                    // the save kept a dead player (e.g. a survival craft test run): respawn instead of waiting forever
+                    mc.player.respawnPlayer();
+                    mc.displayGuiScreen(null);
+                }
                 if (mc.player != null && mc.world != null && mc.currentScreen == null && ++ticks > 60) {
                     IntegratedServer server = mc.getIntegratedServer();
                     if (server == null && DevTools.PACK_DIR == null) {
@@ -192,6 +197,8 @@ public final class DevClient {
                         server.addScheduledTask(() -> {
                             EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(mc.player.getUniqueID());
                             if (player != null) {
+                                // the save may hold a survival player (a craft test run); the sequence expects creative
+                                player.setGameType(GameType.CREATIVE);
                                 player.inventory.setInventorySlotContents(0, testItem());
                                 player.inventory.currentItem = 0;
                                 // TACZ_AUTOTEST_LOOK=yaw,pitch: where to face (the default straight ahead may be
@@ -384,7 +391,16 @@ public final class DevClient {
                     return;
                 }
                 player.setGameType(GameType.SURVIVAL);
+                // survival for the real inventory rules, but the flat world spawns slimes: nothing may kill the player
+                player.capabilities.disableDamage = true;
+                player.sendPlayerAbilities();
                 player.inventory.clear();
+                String handGun = System.getenv("TACZ_AUTOTEST_CRAFT_HAND");
+                if (handGun != null) {
+                    // the gun goes into the selected hotbar slot, so the table opens with it in the main hand
+                    player.inventory.setInventorySlotContents(player.inventory.currentItem, GunItemBuilder.create()
+                            .setId(new ResourceLocation(handGun.contains(":") ? handGun : GunMod.MOD_ID + ":" + handGun)).setAmmoCount(1).build());
+                }
                 com.tacz.guns.crafting.GunSmithTableRecipe recipe = com.tacz.guns.legacy.crafting.RecipeManager.of(player.world).byKey(recipeId).orElse(null);
                 if (recipe == null) {
                     GunMod.LOGGER.warn("[dev] craft: no recipe {}", recipeId);
@@ -428,6 +444,17 @@ public final class DevClient {
             if (mc.currentScreen instanceof net.minecraft.client.gui.inventory.GuiContainer gui) {
                 // GunSmithTableScreen#menu is GuiContainer#inventorySlots
                 int menuId = gui.inventorySlots.windowId;
+                try {
+                    java.lang.reflect.Field keysField = gui.getClass().getDeclaredField("recipeKeys");
+                    keysField.setAccessible(true);
+                    java.lang.reflect.Field listField = gui.getClass().getDeclaredField("filterList");
+                    listField.setAccessible(true);
+                    com.tacz.guns.client.gui.components.GunPackList list = (com.tacz.guns.client.gui.components.GunPackList) listField.get(gui);
+                    GunMod.LOGGER.info("[dev] craft: screen tabs {} namespaces {} byHand {}", ((java.util.Map<?, ?>) keysField.get(gui)).keySet(),
+                            list == null ? null : list.namespaceList(), list == null ? null : list.isByHandSelected());
+                } catch (ReflectiveOperationException e) {
+                    GunMod.LOGGER.warn("[dev] craft: cannot read the screen tabs", e);
+                }
                 GunMod.LOGGER.info("[dev] craft: client screen={} menu.windowId={} openContainer is menu={} inventoryContainer.windowId={}",
                         gui.getClass().getSimpleName(), menuId, mc.player.openContainer == gui.inventorySlots, mc.player.inventoryContainer.windowId);
                 server.addScheduledTask(() -> {
@@ -476,7 +503,10 @@ public final class DevClient {
                 new com.mojang.authlib.GameProfile(java.util.UUID.nameUUIDFromBytes("tacz_dummy".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "tacz_dummy"));
         // the player looks south (+Z); yaw 90 faces west, so the camera sees the dummy's left side
         // 1.5 blocks east (left on screen), clear of the first-person gun
-        dummy.setLocationAndAngles(mc.player.posX + 1.5, mc.player.posY, mc.player.posZ + 3, 90F, 0F);
+        // TACZ_AUTOTEST_DUMMY_PITCH: the dummy looks up (negative) or down (positive), to check that the gun follows the head
+        float pitch = envInt("TACZ_AUTOTEST_DUMMY_PITCH", 0);
+        dummy.setLocationAndAngles(mc.player.posX + 1.5, mc.player.posY, mc.player.posZ + 3, 90F, pitch);
+        dummy.prevRotationPitch = pitch;
         dummy.rotationYawHead = dummy.prevRotationYawHead = 90F;
         dummy.renderYawOffset = dummy.prevRenderYawOffset = 90F;
         dummy.setHeldItem(EnumHand.MAIN_HAND, testItem());

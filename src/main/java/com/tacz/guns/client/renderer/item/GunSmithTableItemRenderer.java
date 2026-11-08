@@ -4,7 +4,7 @@ import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.VertexConsumer;
 import com.tacz.guns.legacy.render.Axis;
 import com.tacz.guns.client.model.SlotModel;
-import com.tacz.guns.legacy.util.Optionals;
+import com.tacz.guns.client.resource.index.ClientBlockIndex;
 import com.tacz.guns.client.model.bedrock.BedrockModel;
 import com.tacz.guns.client.renderer.block.GunSmithTableRenderer;
 import com.tacz.guns.legacy.render.BlockEntityWithoutLevelRenderer;
@@ -27,32 +27,36 @@ public class GunSmithTableItemRenderer extends BlockEntityWithoutLevelRenderer {
 
     @Override
     public void renderByItem(@Nonnull ItemStack stack, @Nonnull ItemCameraTransforms.TransformType transformType, @Nonnull PoseStack poseStack, @Nonnull MultiBufferSource pBuffer, int pPackedLight, int pPackedOverlay) {
-        Optionals.ifPresentOrElse(GunSmithTableRenderer.getIndex(stack), index -> {
-            BedrockModel model = index.getModel();
-            ResourceLocation texture = index.getTexture();
-            if (model == null) {
-                return;
-            }
-            poseStack.pushPose();
-
-            ItemCameraTransforms transforms = index.getTransforms();
-            if (transforms != null) {
-                poseStack.translate(0.5F, 0.5F, 0.5F);
-                ItemTransformVec3f transform = transforms.getTransform(transformType);
-                ItemTransforms.apply(transform, false, poseStack);
-                poseStack.translate(-0.5F, -0.5F, -0.5F);
-            }
-
-            poseStack.translate(0.5, 1.5, 0.5);
-            poseStack.mulPose(Axis.ZN.rotationDegrees(180));
-            RenderType renderType = RenderType.entityTranslucent(texture);
-            model.render(poseStack, transformType, renderType, pPackedLight, pPackedOverlay);
-            poseStack.popPose();
-        }, ()->{
+        // Plain branches instead of Optionals.ifPresentOrElse with two lambdas: the Java 8u51 runtime bundled with the
+        // vanilla launcher crashed (EXCEPTION_ACCESS_VIOLATION, an implicit null check without a handler) in the C2
+        // compiled form of the lambda version of this method.
+        ClientBlockIndex index = GunSmithTableRenderer.getIndex(stack).orElse(null);
+        if (index == null) {
             poseStack.translate(0.5, 1.5, 0.5);
             poseStack.mulPose(Axis.ZN.rotationDegrees(180));
             VertexConsumer buffer = pBuffer.getBuffer(RenderType.entityTranslucent(MissingTexture.getLocation()));
             SLOT_BLOCK_MODEL.renderToBuffer(poseStack, buffer, pPackedLight, pPackedOverlay, 1, 1, 1, 1);
-        });
+            return;
+        }
+        BedrockModel model = index.getModel();
+        if (model == null) {
+            return;
+        }
+        ResourceLocation texture = index.getTexture();
+        poseStack.pushPose();
+
+        ItemCameraTransforms transforms = index.getTransforms();
+        if (transforms != null) {
+            poseStack.translate(0.5F, 0.5F, 0.5F);
+            ItemTransformVec3f transform = transforms.getTransform(transformType);
+            ItemTransforms.apply(transform, false, poseStack);
+            poseStack.translate(-0.5F, -0.5F, -0.5F);
+        }
+
+        poseStack.translate(0.5, 1.5, 0.5);
+        poseStack.mulPose(Axis.ZN.rotationDegrees(180));
+        RenderType renderType = RenderType.entityTranslucent(texture);
+        model.render(poseStack, transformType, renderType, pPackedLight, pPackedOverlay);
+        poseStack.popPose();
     }
 }
