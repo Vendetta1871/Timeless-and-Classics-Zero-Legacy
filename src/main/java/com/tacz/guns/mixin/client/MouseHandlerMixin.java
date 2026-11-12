@@ -26,11 +26,16 @@ import java.util.Optional;
 
 /**
  * 1.12.2: {@code MouseHandler#turnPlayer} is inlined into {@code EntityRenderer#updateCameraAndRender}, which calls
- * {@code EntityPlayerSP#turn(float, float)} (normal and smooth camera).
+ * {@code EntityPlayerSP#turn(float, float)} (normal and smooth camera). Cleanroom (0.7.x) patches those calls into
+ * the static {@code InputHooks.onMouseTurn(EntityPlayerSP, float, float)}; the wrapped operation has the same shape
+ * either way, so both targets share this handler (the injector needs one of them to match).
  */
 @Mixin(EntityRenderer.class)
 public class MouseHandlerMixin {
-    @WrapOperation(method = "updateCameraAndRender(FJ)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/entity/EntityPlayerSP;turn(FF)V"))
+    @WrapOperation(method = "updateCameraAndRender(FJ)V", at = {
+            @At(value = "INVOKE", target = "Lnet/minecraft/client/entity/EntityPlayerSP;turn(FF)V"),
+            @At(value = "INVOKE", target = "Lcom/cleanroommc/client/input/InputHooks;onMouseTurn(Lnet/minecraft/client/entity/EntityPlayerSP;FF)V", remap = false)
+    })
     public void reduceSensitivity(EntityPlayerSP player, float yaw, float pitch, Operation<Void> original) {
         ItemStack mainHandItem = player.getHeldItemMainhand();
         IGun iGun = IGun.getIGunOrNull(mainHandItem);
