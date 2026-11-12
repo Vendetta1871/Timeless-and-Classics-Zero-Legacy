@@ -181,7 +181,11 @@ public class SyncedEntityData {
          * have a synced data key. In order to prevent checking this every time we attach the
          * capability, a simple one time check can be performed then cache the result. */
         Class<? extends Entity> entityClass = entity.getClass();
-        return this.getClassNameCapabilityCache(entity.world.isRemote).computeIfAbsent(entityClass.getName(), c ->
+        // 1.12.2: mods construct dummy entities with a null world (e.g. Random Things' biome radar item), and
+        // capabilities are gathered in the Entity constructor; the cached answer only depends on the class.
+        boolean client = entity.world != null ? entity.world.isRemote
+                : net.minecraftforge.fml.common.FMLCommonHandler.instance().getEffectiveSide().isClient();
+        return this.getClassNameCapabilityCache(client).computeIfAbsent(entityClass.getName(), c ->
         {
             Class<?> targetClass = entityClass;
             while(!targetClass.isAssignableFrom(Entity.class)) // Should be good enough
