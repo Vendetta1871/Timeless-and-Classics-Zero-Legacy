@@ -265,6 +265,9 @@ public final class DevClient {
                 if (ticks == 0 && targetKind().equals("dummy")) {
                     spawnDummy(mc);
                 }
+                if (ticks == 0 && targetKind().equals("minecart")) {
+                    mc.getRenderManager().setDebugBoundingBox(true);
+                }
                 if (++ticks == 40) {
                     screenshot(mc, "first_person");
                     if (DevTools.PACK_DIR == null) {

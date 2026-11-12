@@ -63,6 +63,9 @@ public class TargetMinecartRenderer extends RenderMinecart<TargetMinecart> {
             head2Model.visible = false;
 
             stack.pushPose();
+            // 1.12.2: 1.20s MinecartRenderer turns the contents by 90 degrees before renderMinecartContents, 1.12s
+            // RenderMinecart does not; without it the target is turned sideways and drawn beside its bounding box
+            stack.mulPose(Axis.YP.rotationDegrees(90));
             stack.translate(0.5, 1.875, 0.5);
             stack.scale(1.5f, 1.5f, 1.5f);
             stack.mulPose(Axis.ZN.rotationDegrees(180));
