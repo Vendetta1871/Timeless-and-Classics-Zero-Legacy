@@ -14,9 +14,12 @@ import com.tacz.guns.resource.index.CommonBlockIndex;
 import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.play.server.SPacketSetSlot;
+import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 
@@ -28,12 +31,24 @@ public class GunSmithTableMenu extends Container {
 
     private final ResourceLocation blockId;
     private final RecipeFilter filter;
+    /**
+     * 1.12.2: the client applies window 0 ({@code inventoryContainer}) slot updates outside the hotbar only while that
+     * container is open, and the server only syncs the open container every tick. While this menu is open the player
+     * inventory (craft inputs taken, crafted item picked up) is synced by {@link #detectAndSendChanges()} instead.
+     */
+    private final InventoryPlayer playerInventory;
+    private final NonNullList<ItemStack> syncedInventory;
 
     public GunSmithTableMenu(int id, InventoryPlayer inventory, @Nullable ResourceLocation resourceLocation) {
         super();
         this.windowId = id;
         this.blockId = resourceLocation;
         this.filter = TimelessAPI.getCommonBlockIndex(getBlockId()).map(CommonBlockIndex::getFilter).orElse(null);
+        this.playerInventory = inventory;
+        this.syncedInventory = NonNullList.withSize(inventory.getSizeInventory(), ItemStack.EMPTY);
+        for (int i = 0; i < inventory.getSizeInventory(); i++) {
+            this.syncedInventory.set(i, inventory.getStackInSlot(i).copy());
+        }
     }
 
     @Nullable
@@ -49,6 +64,26 @@ public class GunSmithTableMenu extends Container {
     @Override
     public boolean canInteractWith(EntityPlayer player) {
         return player.isEntityAlive();
+    }
+
+    /**
+     * 1.12.2: sends the changed player inventory slots as window -2 updates (slot = {@link InventoryPlayer} index),
+     * which the client applies whatever container is open.
+     */
+    @Override
+    public void detectAndSendChanges() {
+        super.detectAndSendChanges();
+        if (!(this.playerInventory.player instanceof EntityPlayerMP player)) {
+            return;
+        }
+        for (int i = 0; i < this.syncedInventory.size(); i++) {
+            ItemStack stack = this.playerInventory.getStackInSlot(i);
+            if (!ItemStack.areItemStacksEqual(this.syncedInventory.get(i), stack)) {
+                ItemStack copy = stack.copy();
+                this.syncedInventory.set(i, copy);
+                player.connection.sendPacket(new SPacketSetSlot(-2, i, copy));
+            }
+        }
     }
 
     @Nullable
@@ -127,6 +162,8 @@ public class GunSmithTableMenu extends Container {
             }
             // 更新，否则客户端显示不正确
             player.inventoryContainer.detectAndSendChanges();
+            // 1.12.2: window 0 updates of the main inventory are dropped by the client while this menu is open
+            this.detectAndSendChanges();
             NetworkHandler.sendToClientPlayer(new ServerMessageCraft(this.windowId), player);
         });
     }

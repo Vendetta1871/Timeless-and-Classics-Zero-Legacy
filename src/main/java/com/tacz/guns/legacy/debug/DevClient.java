@@ -230,6 +230,14 @@ public final class DevClient {
                                 player.world.spawnEntity(mob);
                                 target = mob;
                             }
+                            if (player != null && DevTools.PACK_DIR == null && targetKind().equals("minecart")) {
+                                // a target minecart 4 blocks ahead, seen from the side, with hitboxes shown (the model
+                                // must stay inside its bounding box); the save keeps the carts of earlier runs
+                                player.world.getEntities(com.tacz.guns.entity.TargetMinecart.class, e -> true).forEach(net.minecraft.entity.Entity::setDead);
+                                com.tacz.guns.entity.TargetMinecart cart = new com.tacz.guns.entity.TargetMinecart(player.world, player.posX + 0.5, player.posY, player.posZ + 4);
+                                cart.rotationYaw = 90F;
+                                player.world.spawnEntity(cart);
+                            }
                         });
                     }
                     mc.player.inventory.currentItem = 0;
@@ -475,6 +483,8 @@ public final class DevClient {
                     GunMod.LOGGER.info("[dev] craft: inventory after: {}", describeInventory(player));
                 }
             });
+            // the table is still open: the client must already see the inputs gone and the crafted gun picked up
+            GunMod.LOGGER.info("[dev] craft: client inventory with the table open: {}", describeInventory(mc.player));
             screenshot(mc, "craft");
         } else if (tick == 90) {
             mc.player.closeScreen();
@@ -487,7 +497,7 @@ public final class DevClient {
         return true;
     }
 
-    private static String describeInventory(EntityPlayerMP player) {
+    private static String describeInventory(net.minecraft.entity.player.EntityPlayer player) {
         java.util.List<String> items = new java.util.ArrayList<>();
         for (int i = 0; i < player.inventory.getSizeInventory(); i++) {
             ItemStack stack = player.inventory.getStackInSlot(i);
