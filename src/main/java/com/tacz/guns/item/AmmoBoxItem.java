@@ -31,9 +31,13 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import com.tacz.guns.legacy.util.Components;
+import com.tacz.guns.legacy.util.ClickAction;
+import com.tacz.guns.legacy.util.ItemClickBehaviour;
+import com.tacz.guns.legacy.util.Slots;
+import net.minecraft.entity.player.EntityPlayer;
 
 // TODO(port): upstream implements DyeableLeatherItem (dye colour in the "display.color" tag, 1.12.2 has no such interface)
-public class AmmoBoxItem extends Item implements AmmoBoxItemDataAccessor {
+public class AmmoBoxItem extends Item implements AmmoBoxItemDataAccessor, ItemClickBehaviour {
     public static final ResourceLocation PROPERTY_NAME = new ResourceLocation(GunMod.MOD_ID, "ammo_statue");
 
     public static final int IRON_LEVEL = 0;
@@ -95,92 +99,90 @@ public class AmmoBoxItem extends Item implements AmmoBoxItemDataAccessor {
         return compoundtag != null && compoundtag.hasKey(COLOR_TAG, Constants.NBT.TAG_ANY_NUMERIC) ? compoundtag.getInteger(COLOR_TAG) : 0x727d6b;
     }
 
-    // TODO(port): 1.12.2 has no Item#overrideOtherStackedOnMe / overrideStackedOnOther (bundle-like clicks on an ammo box in
-    //  an inventory screen); needs a mixin into Container#slotClick or a ClickType hook
-    //    @Override
-    //    public boolean overrideOtherStackedOnMe(ItemStack stack, ItemStack pOther, Slot slot, ClickAction action, EntityPlayer player, SlotAccess access) {
-    //        return super.overrideOtherStackedOnMe(stack, pOther, slot, action, player, access);
-    //    }
-    //
-    //    @Override
-    //    public boolean overrideStackedOnOther(ItemStack ammoBox, Slot slot, ClickAction action, EntityPlayer player) {
-    //        // 右击
-    //        if (action == ClickAction.SECONDARY) {
-    //            // 点击的格子
-    //            ItemStack slotItem = slot.getItem();
-    //            ResourceLocation boxAmmoId = this.getAmmoId(ammoBox);
-    //
-    //            // 格子为空，那就是取出物品
-    //            if (slotItem.isEmpty()) {
-    //                // 创造模式弹药箱不能取出任何东西
-    //                if (isAllTypeCreative(ammoBox) || isCreative(ammoBox)) {
-    //                    return false;
-    //                }
-    //                // 啥也没有，不能取出
-    //                if (boxAmmoId.equals(DefaultAssets.EMPTY_AMMO_ID)) {
-    //                    return false;
-    //                }
-    //                // 数量不对，不能取出
-    //                int boxAmmoCount = this.getAmmoCount(ammoBox);
-    //                if (boxAmmoCount <= 0) {
-    //                    return false;
-    //                }
-    //                return TimelessAPI.getCommonAmmoIndex(boxAmmoId).map(index -> {
-    //                    int takeCount = Math.min(index.getStackSize(), boxAmmoCount);
-    //                    ItemStack takeAmmo = AmmoItemBuilder.create().setId(boxAmmoId).setCount(takeCount).build();
-    //                    ItemStack remainingAmmo = slot.safeInsert(takeAmmo);
-    //                    int insertedCount = takeCount - remainingAmmo.getCount();
-    //                    if (insertedCount <= 0) {
-    //                        return false;
-    //                    }
-    //
-    //                    int remainCount = boxAmmoCount - insertedCount;
-    //                    this.setAmmoCount(ammoBox, remainCount);
-    //                    if (remainCount <= 0) {
-    //                        this.setAmmoId(ammoBox, DefaultAssets.EMPTY_AMMO_ID);
-    //                    }
-    //                    this.playRemoveOneSound(player);
-    //                    return true;
-    //                }).orElse(false);
-    //            }
-    //
-    //            // 如果是子弹
-    //            if (slotItem.getItem() instanceof IAmmo iAmmo) {
-    //                // 全类型弹药箱不能存入
-    //                if (isAllTypeCreative(ammoBox)) {
-    //                    return false;
-    //                }
-    //                ResourceLocation slotAmmoId = iAmmo.getAmmoId(slotItem);
-    //                // 格子里的子弹 ID 不对，不能放
-    //                if (slotAmmoId.equals(DefaultAssets.EMPTY_AMMO_ID)) {
-    //                    return false;
-    //                }
-    //                // 如果盒子的子弹 ID 为空，变成当前点击的类型
-    //                if (boxAmmoId.equals(DefaultAssets.EMPTY_AMMO_ID)) {
-    //                    this.setAmmoId(ammoBox, slotAmmoId);
-    //                } else if (!slotAmmoId.equals(boxAmmoId)) {
-    //                    return false;
-    //                }
-    //                TimelessAPI.getCommonAmmoIndex(slotAmmoId).ifPresent(index -> {
-    //                    // 创造模式弹药箱，那就直接存入最大
-    //                    if (isCreative(ammoBox)) {
-    //                        this.setAmmoCount(ammoBox, Integer.MAX_VALUE);
-    //                        return;
-    //                    }
-    //                    int boxAmmoCount = this.getAmmoCount(ammoBox);
-    //                    int boxLevelMultiplier = this.getAmmoLevel(ammoBox) + 1;
-    //                    int maxSize = index.getStackSize() * SyncConfig.AMMO_BOX_STACK_SIZE.get() * boxLevelMultiplier;
-    //                    int needCount = maxSize - boxAmmoCount;
-    //                    ItemStack takeItem = slot.safeTake(slotItem.getCount(), needCount, player);
-    //                    this.setAmmoCount(ammoBox, boxAmmoCount + takeItem.getCount());
-    //                });
-    //                // 播放取出声音
-    //                this.playInsertSound(player);
-    //                return true;
-    //            }
-    //        }
-    //        return false;
-    //    }
+    // 1.12.2: upstream also overrides overrideOtherStackedOnMe, but only to call super (no override), so it is left out
+
+    /**
+     * 1.12.2: {@link ItemClickBehaviour}, called by {@code ContainerMixin} from {@code Container#slotClick}
+     */
+    @Override
+    public boolean overrideStackedOnOther(ItemStack ammoBox, Slot slot, ClickAction action, EntityPlayer player) {
+        // 右击
+        if (action == ClickAction.SECONDARY) {
+            // 点击的格子
+            ItemStack slotItem = slot.getStack();
+            ResourceLocation boxAmmoId = this.getAmmoId(ammoBox);
+
+            // 格子为空，那就是取出物品
+            if (slotItem.isEmpty()) {
+                // 创造模式弹药箱不能取出任何东西
+                if (isAllTypeCreative(ammoBox) || isCreative(ammoBox)) {
+                    return false;
+                }
+                // 啥也没有，不能取出
+                if (boxAmmoId.equals(DefaultAssets.EMPTY_AMMO_ID)) {
+                    return false;
+                }
+                // 数量不对，不能取出
+                int boxAmmoCount = this.getAmmoCount(ammoBox);
+                if (boxAmmoCount <= 0) {
+                    return false;
+                }
+                return TimelessAPI.getCommonAmmoIndex(boxAmmoId).map(index -> {
+                    int takeCount = Math.min(index.getStackSize(), boxAmmoCount);
+                    ItemStack takeAmmo = AmmoItemBuilder.create().setId(boxAmmoId).setCount(takeCount).build();
+                    ItemStack remainingAmmo = Slots.safeInsert(slot, takeAmmo);
+                    int insertedCount = takeCount - remainingAmmo.getCount();
+                    if (insertedCount <= 0) {
+                        return false;
+                    }
+
+                    int remainCount = boxAmmoCount - insertedCount;
+                    this.setAmmoCount(ammoBox, remainCount);
+                    if (remainCount <= 0) {
+                        this.setAmmoId(ammoBox, DefaultAssets.EMPTY_AMMO_ID);
+                    }
+                    this.playRemoveOneSound(player);
+                    return true;
+                }).orElse(false);
+            }
+
+            // 如果是子弹
+            if (slotItem.getItem() instanceof IAmmo iAmmo) {
+                // 全类型弹药箱不能存入
+                if (isAllTypeCreative(ammoBox)) {
+                    return false;
+                }
+                ResourceLocation slotAmmoId = iAmmo.getAmmoId(slotItem);
+                // 格子里的子弹 ID 不对，不能放
+                if (slotAmmoId.equals(DefaultAssets.EMPTY_AMMO_ID)) {
+                    return false;
+                }
+                // 如果盒子的子弹 ID 为空，变成当前点击的类型
+                if (boxAmmoId.equals(DefaultAssets.EMPTY_AMMO_ID)) {
+                    this.setAmmoId(ammoBox, slotAmmoId);
+                } else if (!slotAmmoId.equals(boxAmmoId)) {
+                    return false;
+                }
+                TimelessAPI.getCommonAmmoIndex(slotAmmoId).ifPresent(index -> {
+                    // 创造模式弹药箱，那就直接存入最大
+                    if (isCreative(ammoBox)) {
+                        this.setAmmoCount(ammoBox, Integer.MAX_VALUE);
+                        return;
+                    }
+                    int boxAmmoCount = this.getAmmoCount(ammoBox);
+                    int boxLevelMultiplier = this.getAmmoLevel(ammoBox) + 1;
+                    int maxSize = index.getStackSize() * SyncConfig.AMMO_BOX_STACK_SIZE.get() * boxLevelMultiplier;
+                    int needCount = maxSize - boxAmmoCount;
+                    ItemStack takeItem = Slots.safeTake(slot, slotItem.getCount(), needCount, player);
+                    this.setAmmoCount(ammoBox, boxAmmoCount + takeItem.getCount());
+                });
+                // 播放取出声音
+                this.playInsertSound(player);
+                return true;
+            }
+        }
+        return false;
+    }
 
     private void playRemoveOneSound(Entity entity) {
         // TODO(port): 1.12.2 has no bundle sounds, closest vanilla sound
