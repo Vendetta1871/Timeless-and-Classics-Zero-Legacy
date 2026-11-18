@@ -64,6 +64,8 @@ public final class DevClient {
     private static int ticks;
     private static int warmupTicks;
     private static boolean shootingShotPending;
+    /** The sound levels are zeroed once, on the first client tick. */
+    private static boolean muted;
     /** First tick of the shooting sequence; -1 until the aiming screenshot is taken. */
     private static int aimBase = -1;
     private static net.minecraft.entity.EntityLiving target;
@@ -151,6 +153,10 @@ public final class DevClient {
             return;
         }
         Minecraft mc = Minecraft.getMinecraft();
+        if (!muted) {
+            muted = true;
+            mute(mc);
+        }
         switch (stage) {
             case 0 -> {
                 if (mc.currentScreen instanceof GuiMainMenu) {
@@ -167,7 +173,11 @@ public final class DevClient {
                     boolean terrain = "default".equals(System.getenv("TACZ_AUTOTEST_WORLD"));
                     WorldSettings settings = new WorldSettings(0L, GameType.CREATIVE, false, false, terrain ? WorldType.DEFAULT : WorldType.FLAT);
                     settings.enableCommands();
-                    String save = terrain ? "tacz_autotest_terrain" : "tacz_autotest";
+                    String save = terrain ? "tacz_autotest_terrain" : freshWorld() ? "tacz_autotest_fresh" : "tacz_autotest";
+                    if (freshWorld()) {
+                        // TACZ_AUTOTEST_WORLD=fresh: a new flat world every run, so nothing left by earlier runs shows up
+                        mc.getSaveLoader().deleteWorldDirectory(save);
+                    }
                     mc.launchIntegratedServer(save, save, settings);
                     stage = 1;
                 }
@@ -213,6 +223,17 @@ public final class DevClient {
                                 player.connection.setPlayerLocation(player.posX, player.posY, player.posZ, yaw, pitch);
                             }
                             server.getWorld(0).setWorldTime(6000);
+                            if (freshWorld()) {
+                                // a clean background: no mob spawns, no animals of the world generation, no day cycle
+                                net.minecraft.world.GameRules rules = server.getWorld(0).getGameRules();
+                                rules.setOrCreateGameRule("doMobSpawning", "false");
+                                rules.setOrCreateGameRule("doDaylightCycle", "false");
+                                for (net.minecraft.entity.Entity entity : new java.util.ArrayList<>(server.getWorld(0).loadedEntityList)) {
+                                    if (!(entity instanceof net.minecraft.entity.player.EntityPlayer)) {
+                                        entity.setDead();
+                                    }
+                                }
+                            }
                             if (player != null && DevTools.PACK_DIR == null && (targetKind().equals("zombie") || targetKind().equals("enderman"))) {
                                 // a target 8 blocks ahead (the player looks south, yaw 0); body height covers the eye line
                                 net.minecraft.entity.monster.EntityMob mob;
@@ -260,6 +281,9 @@ public final class DevClient {
                     return;
                 }
                 if (craftTest(mc)) {
+                    return;
+                }
+                if (ammoBoxTest(mc)) {
                     return;
                 }
                 if (ticks == 0 && targetKind().equals("dummy")) {
@@ -325,6 +349,11 @@ public final class DevClient {
                         // the frame rendered after this tick shows the muzzle flash (50 ms)
                         shootingShotPending = true;
                     }
+                } else if (aimBase >= 0 && ticks > aimBase + 11 && ticks < aimBase + 19 && targetKind().equals("minecart")) {
+                    // the target wobble after the last shot, one screenshot per tick (wobble12..wobble18)
+                    screenshot(mc, "wobble" + (ticks - aimBase));
+                    mc.world.getEntities(com.tacz.guns.entity.TargetMinecart.class, e -> true).forEach(cart -> GunMod.LOGGER.info(
+                            "[dev] wobble{}: rolling amplitude {} direction {} damage {}", ticks - aimBase, cart.getRollingAmplitude(), cart.getRollingDirection(), cart.getDamage()));
                 } else if (aimBase >= 0 && ticks == aimBase + 19) {
                     if (DevTools.PACK_DIR == null) {
                         GunMod.LOGGER.info("[dev] target health after: {} dead={}", target == null ? null : target.getHealth(), target != null && target.isDead);
@@ -500,6 +529,119 @@ public final class DevClient {
         return true;
     }
 
+    /**
+     * TACZ_AUTOTEST_AMMOBOX=1: survival mode, an empty ammo box and two stacks of 7.62x39 ammo in the main inventory,
+     * the inventory screen open; then the clicks go through {@code PlayerControllerMP#windowClick} exactly as the
+     * screen sends them: the box is picked up, right clicked on both ammo stacks (stores them), right clicked on an
+     * empty slot (takes a stack out), dragged over a single empty slot (the quick craft that 1.20 turns into a plain
+     * click) and put back. Logs the client and server inventories and cursor after each step ({@code [dev] ammobox:}
+     * lines), then quits. Integrated server only.
+     *
+     * @return true while the ammo box test runs (it replaces the shooting sequence)
+     */
+    private static boolean ammoBoxTest(Minecraft mc) {
+        if (System.getenv("TACZ_AUTOTEST_AMMOBOX") == null) {
+            return false;
+        }
+        IntegratedServer server = mc.getIntegratedServer();
+        if (server == null) {
+            GunMod.LOGGER.warn("[dev] ammo box test needs the integrated server");
+            mc.shutdown();
+            return true;
+        }
+        int tick = ticks++;
+        // ContainerPlayer: main inventory slots 9-35 keep their numbers
+        int boxSlot = 9, ammoSlot1 = 10, ammoSlot2 = 11, emptySlot1 = 12, emptySlot2 = 13;
+        if (tick == 0) {
+            server.addScheduledTask(() -> {
+                EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(mc.player.getUniqueID());
+                if (player == null) {
+                    return;
+                }
+                player.setGameType(GameType.SURVIVAL);
+                // the flat world spawns slimes: nothing may kill the player
+                player.capabilities.disableDamage = true;
+                player.sendPlayerAbilities();
+                player.inventory.clear();
+                ResourceLocation ammoId = new ResourceLocation(GunMod.MOD_ID, "762x39");
+                player.inventory.setInventorySlotContents(boxSlot, new ItemStack(com.tacz.guns.init.ModItems.AMMO_BOX.get()));
+                player.inventory.setInventorySlotContents(ammoSlot1, com.tacz.guns.api.item.builder.AmmoItemBuilder.create().setId(ammoId).setCount(60).build());
+                player.inventory.setInventorySlotContents(ammoSlot2, com.tacz.guns.api.item.builder.AmmoItemBuilder.create().setId(ammoId).setCount(50).build());
+                GunMod.LOGGER.info("[dev] ammobox: server inventory before: {}", describeInventory(player));
+            });
+        } else if (tick == 20) {
+            mc.displayGuiScreen(new net.minecraft.client.gui.inventory.GuiInventory(mc.player));
+        } else if (tick == 25) {
+            screenshot(mc, "ammobox_before");
+        } else if (tick == 30) {
+            ammoBoxClick(mc, server, "pick up the box", boxSlot, 0, net.minecraft.inventory.ClickType.PICKUP);
+        } else if (tick == 40) {
+            ammoBoxClick(mc, server, "right click 60 ammo", ammoSlot1, 1, net.minecraft.inventory.ClickType.PICKUP);
+        } else if (tick == 50) {
+            ammoBoxClick(mc, server, "right click 50 ammo", ammoSlot2, 1, net.minecraft.inventory.ClickType.PICKUP);
+        } else if (tick == 55) {
+            // the filled box goes back into its slot for a screenshot (a left click is not overridden)
+            ammoBoxClick(mc, server, "put the filled box down", boxSlot, 0, net.minecraft.inventory.ClickType.PICKUP);
+        } else if (tick == 58) {
+            screenshot(mc, "ammobox_stored");
+        } else if (tick == 60) {
+            ammoBoxClick(mc, server, "pick up the filled box", boxSlot, 0, net.minecraft.inventory.ClickType.PICKUP);
+        } else if (tick == 65) {
+            ammoBoxClick(mc, server, "right click an empty slot", emptySlot1, 1, net.minecraft.inventory.ClickType.PICKUP);
+        } else if (tick == 70) {
+            // GuiContainer#mouseReleased after the mouse moved inside one slot with the right button held
+            int window = mc.player.openContainer.windowId;
+            mc.playerController.windowClick(window, -999, net.minecraft.inventory.Container.getQuickcraftMask(0, 1), net.minecraft.inventory.ClickType.QUICK_CRAFT, mc.player);
+            mc.playerController.windowClick(window, emptySlot2, net.minecraft.inventory.Container.getQuickcraftMask(1, 1), net.minecraft.inventory.ClickType.QUICK_CRAFT, mc.player);
+            ammoBoxClick(mc, server, "right drag over a single empty slot", -999, net.minecraft.inventory.Container.getQuickcraftMask(2, 1), net.minecraft.inventory.ClickType.QUICK_CRAFT);
+        } else if (tick == 80) {
+            ammoBoxClick(mc, server, "put the box back", boxSlot, 0, net.minecraft.inventory.ClickType.PICKUP);
+        } else if (tick == 85) {
+            screenshot(mc, "ammobox_taken");
+        } else if (tick == 90) {
+            mc.player.closeScreen();
+            server.addScheduledTask(() -> {
+                EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(mc.player.getUniqueID());
+                if (player != null) {
+                    GunMod.LOGGER.info("[dev] ammobox: server inventory after: {}", describeInventory(player));
+                }
+            });
+            GunMod.LOGGER.info("[dev] ammobox: client inventory after: {}", describeInventory(mc.player));
+        } else if (tick == 100 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
+            mc.shutdown();
+        }
+        return true;
+    }
+
+    private static void ammoBoxClick(Minecraft mc, IntegratedServer server, String step, int slot, int button, net.minecraft.inventory.ClickType type) {
+        mc.playerController.windowClick(mc.player.openContainer.windowId, slot, button, type, mc.player);
+        GunMod.LOGGER.info("[dev] ammobox: {}: client cursor {} inventory {}", step, describeStack(mc.player.inventory.getItemStack()), describeInventory(mc.player));
+        server.addScheduledTask(() -> {
+            EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(mc.player.getUniqueID());
+            if (player != null) {
+                GunMod.LOGGER.info("[dev] ammobox: {}: server cursor {} inventory {}", step, describeStack(player.inventory.getItemStack()), describeInventory(player));
+            }
+        });
+    }
+
+    private static String describeStack(ItemStack stack) {
+        return stack.isEmpty() ? "empty" : stack.getCount() + "x " + stack.getItem().getRegistryName() + (stack.hasTagCompound() ? stack.getTagCompound() : "");
+    }
+
+    /**
+     * The autotest runs silently: every sound category is set to zero in memory only (options.txt keeps the user's
+     * levels, {@code GameSettings#setSoundLevel} would save them), so {@code SoundManager#playSound} skips each sound;
+     * what already plays (the main menu music) is stopped.
+     */
+    private static void mute(Minecraft mc) {
+        java.util.Map<net.minecraft.util.SoundCategory, Float> levels = net.minecraftforge.fml.common.ObfuscationReflectionHelper
+                .getPrivateValue(net.minecraft.client.settings.GameSettings.class, mc.gameSettings, "field_186714_aM");
+        for (net.minecraft.util.SoundCategory category : net.minecraft.util.SoundCategory.values()) {
+            levels.put(category, 0F);
+        }
+        mc.getSoundHandler().stopSounds();
+    }
+
     private static String describeInventory(net.minecraft.entity.player.EntityPlayer player) {
         java.util.List<String> items = new java.util.ArrayList<>();
         for (int i = 0; i < player.inventory.getSizeInventory(); i++) {
@@ -529,6 +671,14 @@ public final class DevClient {
         mc.world.addEntityToWorld(-4242, dummy);
     }
 
+    /**
+     * TACZ_AUTOTEST_WORLD=fresh: a new flat world for this run (the save {@code tacz_autotest_fresh} is recreated) with
+     * mob spawning and the day cycle off, for screenshots with a clean background.
+     */
+    private static boolean freshWorld() {
+        return "fresh".equals(System.getenv("TACZ_AUTOTEST_WORLD"));
+    }
+
     private static String targetKind() {
         return System.getenv().getOrDefault("TACZ_AUTOTEST_TARGET", "zombie");
     }
@@ -550,6 +700,10 @@ public final class DevClient {
         String scope = System.getenv("TACZ_AUTOTEST_SCOPE");
         if (scope != null) {
             builder.putAttachment(com.tacz.guns.api.item.attachment.AttachmentType.SCOPE, new ResourceLocation(GunMod.MOD_ID, scope));
+        }
+        String grip = System.getenv("TACZ_AUTOTEST_GRIP");
+        if (grip != null) {
+            builder.putAttachment(com.tacz.guns.api.item.attachment.AttachmentType.GRIP, new ResourceLocation(GunMod.MOD_ID, grip));
         }
         return builder.build();
     }

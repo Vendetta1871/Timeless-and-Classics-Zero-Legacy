@@ -7,6 +7,7 @@
 #   AUTOTEST_SIZE="1920 1080"               - window size (default 854 480, the vanilla default window)
 #   AUTOTEST_GPU=10de:1db1                  - Vulkan device for gamescope (default: the V100)
 #   AUTOTEST_WINDOW=1                       - on the desktop instead, without gamescope
+# Silent: OpenAL Soft runs on its null backend (ALSOFT_DRIVERS=null) and DevClient zeroes the sound levels.
 # The log is build/autotest.log; the script exits with the Gradle exit code.
 cd "$(dirname "$0")/.." || exit 1
 task=${1:-runClient}
@@ -18,13 +19,13 @@ size=${AUTOTEST_SIZE:-854 480}
 w=${size% *} h=${size#* }
 mkdir -p build
 if [ -n "$AUTOTEST_WINDOW" ]; then
-    TACZ_AUTOTEST=1 ./gw "$task" "$@" > build/autotest.log 2>&1 < /dev/null
+    ALSOFT_DRIVERS=null TACZ_AUTOTEST=1 ./gw "$task" "$@" > build/autotest.log 2>&1 < /dev/null
 else
     # gamescope starts its own Xwayland and hands its DISPLAY to the client; the desktop session is not used.
     # gamescope itself may crash on shutdown after the client exited, so the Gradle exit code is passed in a file.
     rm -f build/autotest.status
     # The extra sh (not exec'ed, hence "; true") reports that crash into the log instead of the terminal.
-    sh -c '"$@"; true' sh env -u DISPLAY -u WAYLAND_DISPLAY XDG_SESSION_TYPE=wayland TACZ_AUTOTEST=1 \
+    sh -c '"$@"; true' sh env -u DISPLAY -u WAYLAND_DISPLAY XDG_SESSION_TYPE=wayland ALSOFT_DRIVERS=null TACZ_AUTOTEST=1 \
         gamescope --backend headless --prefer-vk-device "${AUTOTEST_GPU:-10de:1db1}" -W "$w" -H "$h" -w "$w" -h "$h" -r 1000 -- \
         sh -c './gw "$@"; echo $? > build/autotest.status' sh "$task" "$@" > build/autotest.log 2>&1 < /dev/null
 fi
