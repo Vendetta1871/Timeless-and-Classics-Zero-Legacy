@@ -2,6 +2,10 @@ package com.tacz.guns.init;
 
 import com.tacz.guns.advancement.GunRefitTrigger;
 import com.tacz.guns.advancement.TargetHitTrigger;
+import com.tacz.guns.legacy.advancement.ItemUsedOnBlockTrigger;
+import com.tacz.guns.legacy.advancement.LegacyItemPredicate;
+import com.tacz.guns.legacy.advancement.PlayerKilledEntityTrigger;
+import com.tacz.guns.legacy.advancement.RecipeCraftedTrigger;
 
 /**
  * 1.12.2: upstream's mod-bus listeners are lifecycle calls made from {@code GunMod}:
@@ -23,12 +27,14 @@ public final class CommonRegistry {
      * cauldron interaction registry, the washing is done by {@code GunPegboardItem#onItemUseFirst}.
      */
     public static void onSetupEvent() {
-        // TODO(port): the triggers work, but nothing loads the gun packs' advancements (data/<namespace>/advancements,
-        //  e.g. tacz_default_gun's target_hit.json): 1.12.2 only reads assets/<modid>/advancements from mod jars, and
-        //  most default pack criteria use 1.20.1 triggers or condition formats (recipe_crafted, item_used_on_block
-        //  location predicates, inventory_changed item lists) that 1.12.2 cannot parse
         TargetHitTrigger.register();
         GunRefitTrigger.register();
+        // 1.12.2: the gun packs' advancements are loaded by GunPackAdvancements; these are the 1.20.1 vanilla
+        // triggers and item predicates they need
+        LegacyItemPredicate.register();
+        RecipeCraftedTrigger.register();
+        ItemUsedOnBlockTrigger.register();
+        PlayerKilledEntityTrigger.register();
     }
 
     public static void onLoadComplete() {

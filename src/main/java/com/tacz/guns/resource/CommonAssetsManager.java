@@ -3,6 +3,7 @@ package com.tacz.guns.resource;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.tacz.guns.legacy.advancement.GunPackAdvancements;
 import com.tacz.guns.legacy.util.EnumMapTypeAdapterFactory;
 import com.tacz.guns.legacy.balance.RebalancedGunDataManager;
 import com.tacz.guns.api.vmlib.LuaGunLogicConstant;
@@ -314,6 +315,8 @@ public class CommonAssetsManager implements ICommonResourceProvider {
             for (PreparableReloadListener listener : listeners) {
                 listener.reload(resourceManager);
             }
+            // 1.12.2: the packs' advancements, added to the next AdvancementManager#reload
+            GunPackAdvancements.INSTANCE.reload(resourceManager);
         }
         onTagsUpdated();
     }
@@ -376,5 +379,8 @@ public class CommonAssetsManager implements ICommonResourceProvider {
         // 1.12.2: only TACZ's own data is reloaded, vanilla 1.12.2 has no data packs
         onReload();
         syncTo(null);
+        // 1.12.2: the advancements of the packs (vanilla's /reload does the same)
+        server.getAdvancementManager().reload();
+        server.getPlayerList().reloadResources();
     }
 }
