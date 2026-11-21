@@ -116,8 +116,13 @@ public abstract class GameRendererMixin {
 
     /**
      * 1.12.2 only: keeps the camera modelview of every world pass for eye space to world conversions.
+     * <p>
+     * Either overload: Forge's renderWorldPass calls its {@code updateRenderInfo(Entity, boolean)}, OptiFine's patched
+     * one the vanilla {@code updateRenderInfo(EntityPlayer, boolean)}.
      */
-    @Inject(method = "renderWorldPass(IFJ)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ActiveRenderInfo;updateRenderInfo(Lnet/minecraft/entity/Entity;Z)V", shift = At.Shift.AFTER))
+    @Inject(method = "renderWorldPass(IFJ)V", at = {
+            @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ActiveRenderInfo;updateRenderInfo(Lnet/minecraft/entity/Entity;Z)V", shift = At.Shift.AFTER),
+            @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ActiveRenderInfo;updateRenderInfo(Lnet/minecraft/entity/player/EntityPlayer;Z)V", shift = At.Shift.AFTER)})
     public void recordCameraMatrix(int pass, float partialTicks, long finishTimeNano, CallbackInfo ci) {
         CameraMatrices.record();
     }
