@@ -2,15 +2,18 @@ package com.tacz.guns.client.model.bedrock;
 
 import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.VertexConsumer;
+import com.tacz.guns.legacy.render.Axis;
 import com.tacz.guns.client.model.IFunctionalRenderer;
 import com.tacz.guns.client.resource.pojo.model.*;
 import com.tacz.guns.compat.oculus.OculusCompat;
+import com.tacz.guns.util.RenderHelper;
 import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.RenderBuffers;
 import com.tacz.guns.legacy.render.RenderType;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3d;
+import org.joml.Matrix4f;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -33,6 +36,11 @@ public class BedrockModel {
      * 委托到渲染结束时执行的渲染器，用于特殊部分的渲染，如手臂
      */
     protected List<IFunctionalRenderer> delegateRenderers = new ArrayList<>();
+    /**
+     * 模板窗口内粒子渲染器：由第一人称渲染器在渲染前设置，模型渲染时在模板测试
+     * 仍开启的窗口内执行（用于让粒子被镜内剔除），执行后清空。
+     */
+    protected IFunctionalRenderer particleWindowRenderer = null;
     /**
      * 模型的中心点
      */
@@ -62,6 +70,13 @@ public class BedrockModel {
 
     public void delegateRender(IFunctionalRenderer renderer) {
         delegateRenderers.add(renderer);
+    }
+
+    /**
+     * 设置模板窗口内粒子渲染器：在模型渲染的模板开启窗口内执行一次后自动清空。
+     */
+    public void setParticleWindowRenderer(IFunctionalRenderer renderer) {
+        this.particleWindowRenderer = renderer;
     }
 
     private void setRotationAngle(BedrockPart modelRenderer, float x, float y, float z) {
@@ -138,6 +153,7 @@ public class BedrockModel {
                 continue;
             }
 
+            float extraInflate = getExtraCubeInflate(bones);
             // 塞入 Cube List
             for (CubesItem cube : bones.getCubes()) {
                 List<Float> uv = cube.getUv();
@@ -145,41 +161,33 @@ public class BedrockModel {
                 List<Float> size = cube.getSize();
                 @Nullable List<Float> cubeRotation = cube.getRotation();
                 boolean mirror = cube.isMirror();
-                float inflate = cube.getInflate();
+                float inflate = cube.getInflate() + extraInflate;
 
-                // 当做普通 cube 存入
+                Matrix4f cubeTransform = null;
+                float x;
+                float y;
+                float z;
                 if (cubeRotation == null) {
-                    if (faceUv == null) {
-                        model.cubes.add(new BedrockCubeBox(uv.get(0), uv.get(1),
-                                convertOrigin(bones, cube, 0), convertOrigin(bones, cube, 1), convertOrigin(bones, cube, 2),
-                                size.get(0), size.get(1), size.get(2), inflate, mirror,
-                                texWidth, texHeight));
-                    } else {
-                        model.cubes.add(new BedrockCubePerFace(
-                                convertOrigin(bones, cube, 0), convertOrigin(bones, cube, 1), convertOrigin(bones, cube, 2),
-                                size.get(0), size.get(1), size.get(2), inflate,
-                                texWidth, texHeight, faceUv));
-                    }
+                    x = convertOrigin(bones, cube, 0);
+                    y = convertOrigin(bones, cube, 1);
+                    z = convertOrigin(bones, cube, 2);
+                } else {
+                    x = convertOrigin(cube, 0);
+                    y = convertOrigin(cube, 1);
+                    z = convertOrigin(cube, 2);
+                    // Bake cube-local geometry into its bone in model units.
+                    cubeTransform = new Matrix4f()
+                            .translation(convertPivot(bones, cube, 0), convertPivot(bones, cube, 1), convertPivot(bones, cube, 2))
+                            .rotate(Axis.ZP.rotation(convertRotation(cubeRotation.get(2))))
+                            .rotate(Axis.YP.rotation(convertRotation(cubeRotation.get(1))))
+                            .rotate(Axis.XP.rotation(convertRotation(cubeRotation.get(0))));
                 }
-                // 创建 Cube ModelRender
-                else {
-                    BedrockPart cubeRenderer = new BedrockPart(null);
-                    cubeRenderer.setPos(convertPivot(bones, cube, 0), convertPivot(bones, cube, 1), convertPivot(bones, cube, 2));
-                    setRotationAngle(cubeRenderer, convertRotation(cubeRotation.get(0)), convertRotation(cubeRotation.get(1)), convertRotation(cubeRotation.get(2)));
-                    if (faceUv == null) {
-                        cubeRenderer.cubes.add(new BedrockCubeBox(uv.get(0), uv.get(1),
-                                convertOrigin(cube, 0), convertOrigin(cube, 1), convertOrigin(cube, 2),
-                                size.get(0), size.get(1), size.get(2), inflate, mirror,
-                                texWidth, texHeight));
-                    } else {
-                        cubeRenderer.cubes.add(new BedrockCubePerFace(
-                                convertOrigin(cube, 0), convertOrigin(cube, 1), convertOrigin(cube, 2),
-                                size.get(0), size.get(1), size.get(2), inflate,
-                                texWidth, texHeight, faceUv));
-                    }
-
-                    // 添加进父骨骼中
-                    model.addChild(cubeRenderer);
+                if (faceUv == null) {
+                    model.cubes.add(new BedrockCubeBox(uv.get(0), uv.get(1), x, y, z,
+                            size.get(0), size.get(1), size.get(2), inflate, mirror, texWidth, texHeight, cubeTransform));
+                } else {
+                    model.cubes.add(new BedrockCubePerFace(x, y, z,
+                            size.get(0), size.get(1), size.get(2), inflate, texWidth, texHeight, faceUv, cubeTransform));
                 }
             }
         }
@@ -249,12 +257,13 @@ public class BedrockModel {
                 continue;
             }
 
+            float extraInflate = getExtraCubeInflate(bones);
             // 塞入 Cube List
             for (CubesItem cube : bones.getCubes()) {
                 List<Float> uv = cube.getUv();
                 List<Float> size = cube.getSize();
                 boolean mirror = cube.isMirror();
-                float inflate = cube.getInflate();
+                float inflate = cube.getInflate() + extraInflate;
 
                 model.cubes.add(new BedrockCubeBox(uv.get(0), uv.get(1),
                         convertOrigin(bones, cube, 0), convertOrigin(bones, cube, 1), convertOrigin(bones, cube, 2),
@@ -262,6 +271,10 @@ public class BedrockModel {
                         texWidth, texHeight));
             }
         }
+    }
+
+    protected float getExtraCubeInflate(BonesItem bone) {
+        return 0;
     }
 
     /**
@@ -353,20 +366,39 @@ public class BedrockModel {
     }
 
     public void render(PoseStack matrixStack, ItemCameraTransforms.TransformType transformType, RenderType renderType, int light, int overlay, float red, float green, float blue, float alpha) {
-        MultiBufferSource.BufferSource bufferSource = RenderBuffers.bufferSource();
+        render(matrixStack, transformType, renderType, light, overlay, red, green, blue, alpha, RenderHelper.getBufferSource(transformType));
+    }
+
+    /**
+     * 带手部 bufferSource 的渲染入口：由第一人称手部渲染链路调用，
+     * 保证枪体 / 配件 / quad / 粒子共用同一 bufferSource（光影下保持同一投影空间）。
+     */
+    public void render(PoseStack matrixStack, ItemCameraTransforms.TransformType transformType, RenderType renderType, int light, int overlay, MultiBufferSource bufferSource) {
+        render(matrixStack, transformType, renderType, light, overlay, 1.0F, 1.0F, 1.0F, 1.0F, bufferSource);
+    }
+
+    public void render(PoseStack matrixStack, ItemCameraTransforms.TransformType transformType, RenderType renderType, int light, int overlay, float red, float green, float blue, float alpha, MultiBufferSource bufferSource) {
         VertexConsumer builder = bufferSource.getBuffer(renderType);
 
         matrixStack.pushPose();
         for (BedrockPart model : shouldRender) {
-            model.render(matrixStack, transformType, builder, light, overlay, red, green, blue, alpha);
+            model.render(matrixStack, transformType, builder, light, overlay, red, green, blue, alpha, bufferSource);
         }
         matrixStack.popPose();
         if (!OculusCompat.endBatch(bufferSource)) {
-            bufferSource.endBatch(renderType);
+            RenderHelper.endBatch(bufferSource, renderType);
+        }
+
+        if (particleWindowRenderer != null) {
+            particleWindowRenderer.render(matrixStack, builder, transformType, light, overlay, bufferSource);
+            particleWindowRenderer = null;
+            if (!OculusCompat.endBatch(bufferSource)) {
+                RenderHelper.endBatch(bufferSource);
+            }
         }
 
         for (IFunctionalRenderer renderer : delegateRenderers) {
-            renderer.render(matrixStack, builder, transformType, light, overlay);
+            renderer.render(matrixStack, builder, transformType, light, overlay, bufferSource);
         }
         delegateRenderers = new ArrayList<>();
     }

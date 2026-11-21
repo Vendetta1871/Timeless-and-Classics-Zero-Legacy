@@ -20,14 +20,13 @@ import com.tacz.guns.entity.shooter.ShooterDataHolder;
 import com.tacz.guns.init.ModDamageTypes;
 import com.tacz.guns.legacy.entity.Projectile;
 import com.tacz.guns.legacy.network.FriendlyByteBuf;
-import com.tacz.guns.legacy.particle.BulletHoleMessage;
 import com.tacz.guns.legacy.tags.TagKey;
 import com.tacz.guns.legacy.tags.TagType;
 import com.tacz.guns.legacy.util.ClipContext;
 import com.tacz.guns.network.NetworkHandler;
+import com.tacz.guns.network.message.ServerMessageBulletHitBlock;
 import com.tacz.guns.network.message.event.ServerMessageGunHurt;
 import com.tacz.guns.network.message.event.ServerMessageGunKill;
-import com.tacz.guns.particles.BulletHoleOption;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
 import com.tacz.guns.resource.modifier.custom.DamageModifier;
 import com.tacz.guns.resource.modifier.custom.ExplosionModifier;
@@ -43,6 +42,7 @@ import com.tacz.guns.util.TacHitResult;
 import com.tacz.guns.util.block.BlockRayTrace;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.MultiPartEntityPart;
@@ -152,9 +152,9 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
     private float cameraYRot;
     private Vector3f firstPersonRenderOffset;
     // 发射的枪械 ID
-    private ResourceLocation gunId;
+    private ResourceLocation gunId = DefaultAssets.EMPTY_GUN_ID;
     // 枪械display ID
-    private ResourceLocation gunDisplayId;
+    private ResourceLocation gunDisplayId = DefaultAssets.DEFAULT_GUN_DISPLAY_ID;
     private float armorIgnore;
     private float headShot;
     private float shotDamageMultiplier = 1f;
@@ -189,7 +189,7 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
         this(throwerIn.posX, throwerIn.posY + throwerIn.getEyeHeight() - (double) 0.1F, throwerIn.posZ, worldIn);
         this.setOwner(throwerIn);
         // gunId 提前赋值，以让 modifyProperty 可以在构造函数中运行
-        this.gunId = gunId;
+        this.gunId = MoreObjects.firstNonNull(gunId, DefaultAssets.EMPTY_GUN_ID);
         AttachmentCacheProperty cacheProperty = Objects.requireNonNull(IGunOperator.fromLivingEntity(throwerIn).getCacheProperty());
         float armorIgnore = modifyProperty(GunProperties.ARMOR_IGNORE, Float.class, cacheProperty.getCache(GunProperties.ARMOR_IGNORE));
         float headshot = modifyProperty(GunProperties.HEADSHOT_MULTIPLIER, Float.class, cacheProperty.getCache(GunProperties.HEADSHOT_MULTIPLIER));
@@ -197,7 +197,7 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
         this.armorIgnore = MathHelper.clamp(armorIgnore, 0f, 1f);
         this.headShot = Math.max(headshot, 0f);
         this.knockback = Math.max(knockback, 0f);
-        this.ammoId = ammoId;
+        this.ammoId = MoreObjects.firstNonNull(ammoId, DefaultAssets.EMPTY_AMMO_ID);
         float lifeSecond = modifyProperty(BULLET_LIFE, Float.class, bulletData.getLifeSecond());
         this.life = MathHelper.clamp((int) (lifeSecond * 20), 1, Integer.MAX_VALUE);
         // speed 字段是无效的，实际生效的速度是 shootOnce 里传给 doBulletSpread 的速度
@@ -236,7 +236,7 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
         this.setPosition(posX, posY, posZ);
         this.startPos = this.getPositionVector();
         this.isTracerAmmo = isTracerAmmo;
-        this.gunDisplayId = gunDisplayId;
+        this.gunDisplayId = MoreObjects.firstNonNull(gunDisplayId, DefaultAssets.DEFAULT_GUN_DISPLAY_ID);
     }
 
     @ApiStatus.Internal
@@ -453,6 +453,9 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
     }
 
     protected void onHitEntity(TacHitResult result, Vec3d startVec, Vec3d endVec) {
+        if (EntityUtil.isBulletDamageIgnored(result.getEntity())) {
+            return;
+        }
         if (result.getEntity() instanceof ITargetEntity targetEntity) {
             DamageSource source = DamageSource.causeThrownDamage(this, this.getOwner());
             targetEntity.onProjectileHit(this, result, source, this.getDamage(result.getLocation()));
@@ -476,6 +479,9 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
         }
         // 刷新由Pre事件修改后的参数
         entity = preEvent.getHurtEntity();
+        if (entity == null || EntityUtil.isBulletDamageIgnored(entity)) {
+            return;
+        }
         // 受击目标
         var parts = MaybeMultipartEntity.of(entity);
         attacker = preEvent.getAttacker();
@@ -484,9 +490,6 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
         sources = Pair.of(preEvent.getDamageSource(NON_ARMOR_PIERCING), preEvent.getDamageSource(ARMOR_PIERCING));
         headshot = preEvent.isHeadShot();
         headShotMultiplier = preEvent.getHeadshotMultiplier();
-        if (entity == null) {
-            return;
-        }
         // 点燃
         if (this.igniteEntity && AmmoConfig.IGNITE_ENTITY.get()) {
             entity.setFire(this.igniteEntityTime);
@@ -557,9 +560,8 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
         }
         // 弹孔与点燃特效
         if (this.world instanceof WorldServer serverLevel) {
-            BulletHoleOption bulletHoleOption = new BulletHoleOption(result.sideHit, result.getBlockPos(), this.ammoId.toString(), this.gunId.toString(), this.gunDisplayId.toString());
-            // 1.12.2: custom particles cannot go through the vanilla particle packet
-            BulletHoleMessage.send(serverLevel, bulletHoleOption, hitVec.x, hitVec.y, hitVec.z);
+            ServerMessageBulletHitBlock message = new ServerMessageBulletHitBlock(hitVec, result.sideHit, result.getBlockPos(), this.ammoId.toString(), this.gunId.toString(), this.gunDisplayId.toString(), this.igniteEntity);
+            sendBulletHitBlockEffect(serverLevel, message, hitVec, this.getOwner());
             if (this.igniteBlock) {
                 serverLevel.spawnParticle(EnumParticleTypes.LAVA, hitVec.x, hitVec.y, hitVec.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             }
@@ -574,6 +576,17 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
             }
         }
         this.setDead();
+    }
+
+    private static void sendBulletHitBlockEffect(WorldServer serverLevel, ServerMessageBulletHitBlock message, Vec3d hitVec, @Nullable Entity owner) {
+        int maxDistance = SyncConfig.BULLET_HIT_BLOCK_EFFECT_SEND_DISTANCE.get();
+        double maxDistanceSqr = (double) maxDistance * (double) maxDistance;
+        for (EntityPlayer player : serverLevel.playerEntities) {
+            if (maxDistance > 0 && player != owner && player.getDistanceSq(hitVec.x, hitVec.y, hitVec.z) > maxDistanceSqr) {
+                continue;
+            }
+            NetworkHandler.sendToClientPlayer(message, player);
+        }
     }
 
     // 根据距离进行伤害衰减设计
@@ -665,7 +678,7 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
         buffer.writeDouble(motionZ);
         Entity entity = getOwner();
         buffer.writeInt(entity != null ? entity.getEntityId() : 0);
-        buffer.writeResourceLocation(ammoId);
+        buffer.writeResourceLocation(MoreObjects.firstNonNull(this.ammoId, DefaultAssets.EMPTY_AMMO_ID));
         buffer.writeFloat(this.gravity);
         buffer.writeBoolean(this.explosion);
         buffer.writeBoolean(this.igniteEntity);
@@ -677,8 +690,8 @@ public class EntityKineticBullet extends Projectile implements IEntityAdditional
         buffer.writeFloat(this.friction);
         buffer.writeInt(this.pierce);
         buffer.writeBoolean(this.isTracerAmmo);
-        buffer.writeResourceLocation(this.gunId);
-        buffer.writeResourceLocation(this.gunDisplayId);
+        buffer.writeResourceLocation(MoreObjects.firstNonNull(this.gunId, DefaultAssets.EMPTY_GUN_ID));
+        buffer.writeResourceLocation(MoreObjects.firstNonNull(this.gunDisplayId, DefaultAssets.DEFAULT_GUN_DISPLAY_ID));
     }
 
     @Override

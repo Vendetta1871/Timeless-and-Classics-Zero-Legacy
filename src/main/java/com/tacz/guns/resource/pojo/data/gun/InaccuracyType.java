@@ -3,6 +3,7 @@ package com.tacz.guns.resource.pojo.data.gun;
 import com.google.common.collect.Maps;
 import com.google.gson.annotations.SerializedName;
 import com.tacz.guns.api.entity.IGunOperator;
+import com.tacz.guns.config.sync.SyncConfig;
 import com.tacz.guns.util.HitboxHelper;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
@@ -43,8 +44,11 @@ public enum InaccuracyType {
      * @return 不准度情况
      */
     public static InaccuracyType getInaccuracyType(EntityLivingBase livingEntity) {
+        if (!livingEntity.onGround && SyncConfig.USE_HIP_FIRE_INACCURACY_WHILE_AIRBORNE.get()) {
+            return isMove(livingEntity) ? InaccuracyType.MOVE : InaccuracyType.STAND;
+        }
         float aimingProgress = IGunOperator.fromLivingEntity(livingEntity).getSynAimingProgress();
-        // 瞄准优先级最高
+        // 瞄准优先于地面姿态和移动状态。
         if (aimingProgress == 1.0f) {
             return InaccuracyType.AIM;
         }

@@ -7,6 +7,7 @@ import com.tacz.guns.block.AbstractGunSmithTableBlock;
 import com.tacz.guns.client.renderer.item.GunSmithTableItemRenderer;
 import com.tacz.guns.client.resource.index.ClientBlockIndex;
 import com.tacz.guns.inventory.tooltip.BlockItemTooltip;
+import com.tacz.guns.util.ContentPackOrder;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.resources.I18n;
@@ -57,8 +58,12 @@ public class GunSmithTableItem extends ItemBlock implements BlockItemDataAccesso
 
     public static NonNullList<ItemStack> fillItemCategory() {
         NonNullList<ItemStack> stacks = NonNullList.create();
-        TimelessAPI.getAllCommonBlockIndex().forEach((blockIndex) -> {
-            ItemStack stack = BlockItemBuilder.create(blockIndex.getValue().getBlock()).setId(blockIndex.getKey()).build();
+        TimelessAPI.getAllCommonBlockIndex().stream().sorted(ContentPackOrder.byNamespace()).forEach((blockIndex) -> {
+            ItemBlock blockItem = blockIndex.getValue().getBlock();
+            if (!(blockItem instanceof GunSmithTableItem)) {
+                return;
+            }
+            ItemStack stack = BlockItemBuilder.create(blockItem).setId(blockIndex.getKey()).build();
             stacks.add(stack);
         });
         return stacks;

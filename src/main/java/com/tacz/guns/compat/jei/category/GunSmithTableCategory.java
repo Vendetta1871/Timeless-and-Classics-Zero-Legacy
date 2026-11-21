@@ -15,8 +15,12 @@ import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
  * 1.12.2 JEI category for gun smith table recipes; one instance per gun smith table block.
@@ -24,6 +28,11 @@ import java.util.List;
  */
 @SideOnly(Side.CLIENT)
 public class GunSmithTableCategory implements IRecipeCategory<IRecipeWrapper> {
+    /**
+     * 1.12.2: JEI 4 passes only the recipe layout to transfer handlers, so the recipe shown in each layout is kept here
+     * for {@link com.tacz.guns.compat.jei.transfer.GunSmithTableTransferHandler}.
+     */
+    private static final Map<IRecipeLayout, GunSmithTableRecipe> LAYOUT_RECIPES = Collections.synchronizedMap(new WeakHashMap<>());
     private final String uid;
     private final String title;
     private final IDrawableStatic bgDraw;
@@ -69,6 +78,7 @@ public class GunSmithTableCategory implements IRecipeCategory<IRecipeWrapper> {
             return;
         }
         GunSmithTableRecipe recipe = ((Wrapper) recipeWrapper).getRecipe();
+        LAYOUT_RECIPES.put(recipeLayout, recipe);
         IGuiItemStackGroup itemStacks = recipeLayout.getItemStacks();
 
         itemStacks.init(0, false, 3, 12);
@@ -101,6 +111,14 @@ public class GunSmithTableCategory implements IRecipeCategory<IRecipeWrapper> {
             }
         }
         itemStacks.set(ingredients);
+    }
+
+    /**
+     * 1.12.2: the gun smith table recipe shown in a recipe layout of this category, or null.
+     */
+    @Nullable
+    public static GunSmithTableRecipe getRecipe(IRecipeLayout recipeLayout) {
+        return LAYOUT_RECIPES.get(recipeLayout);
     }
 
     /**

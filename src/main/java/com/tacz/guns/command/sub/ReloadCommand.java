@@ -44,18 +44,6 @@ public class ReloadCommand extends CommandBase {
         }
         watch.stop();
         double time = watch.getTime(TimeUnit.MICROSECONDS) / 1000.0;
-//        if (context.getSource().getEntity() instanceof ServerPlayer serverPlayer) {
-//
-//            if (OtherConfig.DEFAULT_PACK_DEBUG.get()) {
-//                serverPlayer.sendSystemMessage(Component.translatable("commands.tacz.reload.overwrite_off"));
-//                serverPlayer.sendSystemMessage(Component.translatable("commands.tacz.reload.overwrite_command.off"));
-//            } else {
-//                serverPlayer.sendSystemMessage(Component.translatable("commands.tacz.reload.overwrite_on"));
-//                serverPlayer.sendSystemMessage(Component.translatable("commands.tacz.reload.overwrite_command.on"));
-//                serverPlayer.sendSystemMessage(Component.translatable("commands.tacz.reload.backup"));
-//            }
-//        }
-//        GunMod.LOGGER.info("Model loading time: {} ms", time);
         sender.sendMessage(Components.translatable("commands.tacz.reload.success", time));
     }
 

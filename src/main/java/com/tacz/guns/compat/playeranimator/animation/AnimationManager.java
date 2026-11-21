@@ -24,9 +24,57 @@ import com.tacz.guns.legacy.compat.AquaAcrobaticsCompat;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.client.event.RenderPlayerEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import java.util.Map;
+import java.util.WeakHashMap;
+import com.tacz.guns.legacy.util.Optionals;
+
 public class AnimationManager {
+    private static final Map<AbstractClientPlayer, Integer> LAST_UPDATE_TICK = new WeakHashMap<>();
+
+    @SubscribeEvent
+    public void onClientTick(TickEvent.ClientTickEvent event) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (event.phase != TickEvent.Phase.END || minecraft.world == null || minecraft.isGamePaused()) {
+            return;
+        }
+        for (EntityPlayer player : minecraft.world.playerEntities) {
+            if (player instanceof AbstractClientPlayer clientPlayer) {
+                updateAnimation(clientPlayer);
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onRenderPlayer(RenderPlayerEvent.Pre event) {
+        if (event.getEntityPlayer() instanceof AbstractClientPlayer player) {
+            updateAnimation(player);
+        }
+    }
+
+    private static void updateAnimation(AbstractClientPlayer player) {
+        Integer previousTick = LAST_UPDATE_TICK.get(player);
+        if (previousTick != null && (previousTick == player.ticksExisted || Minecraft.getMinecraft().isGamePaused())) {
+            return;
+        }
+        LAST_UPDATE_TICK.put(player, player.ticksExisted);
+        if (!PlayerAnimatorCompat.canPlayAnimation(player)) {
+            stopAllAnimation(player);
+            return;
+        }
+        GunDisplayInstance display = TimelessAPI.getGunDisplay(player.getHeldItemMainhand()).orElse(null);
+        if (display == null || !hasPlayerAnimator3rd(display)) {
+            stopAllAnimation(player);
+            return;
+        }
+        playLowerAnimation(player, display, player.limbSwingAmount);
+        playLoopUpperAnimation(player, display, player.limbSwingAmount);
+        playRotationAnimation(player, display);
+    }
+
     public static boolean hasPlayerAnimator3rd(GunDisplayInstance display) {
         ResourceLocation location = display.getPlayerAnimator3rd();
         if (location == null) {
@@ -49,20 +97,25 @@ public class AnimationManager {
         if (!PlayerAnimatorAssetManager.get().containsKey(animator3rd)) {
             return;
         }
-        PlayerAnimatorAssetManager.get().getAnimations(animator3rd, animationName).ifPresent(keyframeAnimation -> {
+        Optionals.ifPresentOrElse(PlayerAnimatorAssetManager.get().getAnimations(animator3rd, animationName), keyframeAnimation -> {
             var associatedData = PlayerAnimationAccess.getPlayerAssociatedData(player);
-            var modifierLayer = (ModifierLayer<IAnimation>) associatedData.get(dataId);
+            var modifierLayer = (PlayerAnimationLayer) associatedData.get(dataId);
             if (modifierLayer == null) {
                 return;
             }
-            AbstractFadeModifier fadeModifier = AbstractFadeModifier.standardFadeIn(8, Ease.INOUTSINE);
-            modifierLayer.replaceAnimationWithFade(fadeModifier, new KeyframeAnimationPlayer(keyframeAnimation));
-        });
+            if (modifierLayer.getAnimation() instanceof RotationAnimation current
+                    && current.isActive() && current.getData() == keyframeAnimation) {
+                return;
+            }
+            modifierLayer.setAnimationImmediately(
+                    new RotationAnimation(keyframeAnimation, AdjustmentYRotModifier.getModifier(player)));
+        }, () -> stopAnimation(player, dataId, 8));
     }
 
     public static void playLowerAnimation(AbstractClientPlayer player, GunDisplayInstance display, float limbSwingAmount) {
         // 如果玩家趴下，不播放下半身动画
         if (isPlayerLie(player)) {
+            stopAnimation(player, PlayerAnimatorCompat.LOWER_ANIMATION, 8);
             return;
         }
         // 如果玩家骑乘
@@ -215,7 +268,18 @@ public class AnimationManager {
     private static void stopAnimation(AbstractClientPlayer player, ResourceLocation dataId, int fadeTime) {
         var associatedData = PlayerAnimationAccess.getPlayerAssociatedData(player);
         var modifierLayer = (ModifierLayer<IAnimation>) associatedData.get(dataId);
-        if (modifierLayer != null && modifierLayer.isActive()) {
+        if (modifierLayer == null) {
+            return;
+        }
+        if (fadeTime <= 0) {
+            if (modifierLayer instanceof PlayerAnimationLayer layer) {
+                layer.clearAnimation();
+            } else {
+                modifierLayer.setAnimation(null);
+            }
+            return;
+        }
+        if (modifierLayer.getAnimation() != null) {
             AbstractFadeModifier fadeModifier = AbstractFadeModifier.standardFadeIn(fadeTime, Ease.INOUTSINE);
             modifierLayer.replaceAnimationWithFade(fadeModifier, null);
         }
@@ -236,9 +300,6 @@ public class AnimationManager {
         EntityLivingBase shooter = event.getShooter();
         if (!(shooter instanceof AbstractClientPlayer player)) {
             return;
-        }
-        if (Minecraft.getMinecraft().player != null && Minecraft.getMinecraft().player == player) {
-            if (Minecraft.getMinecraft().gameSettings.thirdPersonView == 0) return;
         }
         ItemStack gunItemStack = event.getGunItemStack();
         IGun iGun = IGun.getIGunOrNull(gunItemStack);
@@ -273,9 +334,6 @@ public class AnimationManager {
         if (!(shooter instanceof AbstractClientPlayer player)) {
             return;
         }
-        if (Minecraft.getMinecraft().player != null && Minecraft.getMinecraft().player == player) {
-            if (Minecraft.getMinecraft().gameSettings.thirdPersonView == 0) return;
-        }
         ItemStack gunItemStack = event.getGunItemStack();
         IGun iGun = IGun.getIGunOrNull(gunItemStack);
         if (iGun == null) {
@@ -298,9 +356,6 @@ public class AnimationManager {
         EntityLivingBase shooter = event.getShooter();
         if (!(shooter instanceof AbstractClientPlayer player)) {
             return;
-        }
-        if (Minecraft.getMinecraft().player != null && Minecraft.getMinecraft().player == player) {
-            if (Minecraft.getMinecraft().gameSettings.thirdPersonView == 0) return;
         }
         ItemStack gunItemStack = event.getGunItemStack();
         IGun iGun = IGun.getIGunOrNull(gunItemStack);
@@ -327,16 +382,11 @@ public class AnimationManager {
         if (!(entity instanceof AbstractClientPlayer player)) {
             return;
         }
-        if (Minecraft.getMinecraft().player != null && Minecraft.getMinecraft().player == player) {
-            if (Minecraft.getMinecraft().gameSettings.thirdPersonView == 0) return;
-        }
         ItemStack currentGunItem = event.getCurrentGunItem();
         ItemStack previousGunItem = event.getPreviousGunItem();
-        // 在切枪时，重置上半身动画
-        if (currentGunItem.getItem() instanceof IGun && previousGunItem.getItem() instanceof IGun) {
-            stopAnimation(player, PlayerAnimatorCompat.LOOP_UPPER_ANIMATION, 8);
-            stopAnimation(player, PlayerAnimatorCompat.ONCE_UPPER_ANIMATION, 8);
-            stopAnimation(player, PlayerAnimatorCompat.LOWER_ANIMATION, 8);
+        LAST_UPDATE_TICK.remove(player);
+        if (currentGunItem.getItem() instanceof IGun || previousGunItem.getItem() instanceof IGun) {
+            stopAllAnimation(player);
         }
     }
 }

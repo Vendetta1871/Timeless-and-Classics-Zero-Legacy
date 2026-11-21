@@ -12,6 +12,7 @@ import net.minecraft.util.ResourceLocation;
 
 import java.util.List;
 import java.util.Locale;
+import com.google.common.collect.ImmutableList;
 
 /**
  * 1.12.2 port of upstream's attachment query entry: an attachment and the guns it fits (one per gun tab type).
@@ -39,19 +40,14 @@ public class AttachmentQueryEntry {
     }
 
     public static List<AttachmentQueryEntry> getAllAttachmentQueryEntries() {
-        List<AttachmentQueryEntry> entries = Lists.newArrayList();
-        TimelessAPI.getAllCommonAttachmentIndex().forEach(entry -> {
-            if (entry.getValue().getPojo().isHidden()) {
-                return;
-            }
-            for (GunTabType tabType : GunTabType.values()) {
-                AttachmentQueryEntry queryEntry = new AttachmentQueryEntry(entry.getKey(), tabType);
-                if (!queryEntry.getAllowGunStacks().isEmpty()) {
-                    entries.add(queryEntry);
-                }
-            }
-        });
-        return entries;
+        return AttachmentQueryData.load().attachmentQueries();
+    }
+
+    AttachmentQueryEntry(ItemStack attachmentStack, List<ItemStack> guns) {
+        this.attachmentStack = attachmentStack;
+        this.allowGunStacks = guns;
+        this.extraAllowGunStacks = ImmutableList.of();
+        this.dividedGuns();
     }
 
     public ItemStack getAttachmentStack() {

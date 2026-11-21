@@ -20,11 +20,13 @@ import com.tacz.guns.resource.pojo.data.attachment.EffectData;
 import com.tacz.guns.resource.pojo.data.attachment.MeleeData;
 import com.tacz.guns.resource.pojo.data.gun.*;
 import com.tacz.guns.util.AllowAttachmentTagMatcher;
+import com.tacz.guns.util.time.GunTime;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.WorldServer;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.ai.attributes.AttributeModifier;
 import net.minecraft.entity.SharedMonsterAttributes;
@@ -39,6 +41,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import com.tacz.guns.client.renderer.item.GunItemRendererWrapper;
 import net.minecraft.item.ItemStack;
+import net.minecraft.world.World;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import org.apache.logging.log4j.MarkerManager;
@@ -81,6 +84,35 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
     @SideOnly(Side.CLIENT)
     private void initializeClient() {
         this.setTileEntityItemStackRenderer(new GunItemRendererWrapper());
+    }
+
+    /**
+     * 1.12.2: {@code Item#inventoryTick} is {@code Item#onUpdate}.
+     */
+    @Override
+    public void onUpdate(ItemStack stack, World level, Entity entity, int slot, boolean selected) {
+        super.onUpdate(stack, level, entity, slot, selected);
+        if (level.isRemote || !(entity instanceof EntityPlayer player) || stack == player.getHeldItemMainhand()) {
+            return;
+        }
+        TimelessAPI.getCommonGunIndex(getGunId(stack)).ifPresent(index -> {
+            GunHeatData heatData = index.getGunData().getHeatData();
+            if (heatData == null) {
+                return;
+            }
+            float cooling = heatData.getInventoryCoolingPerTick();
+            if (!Float.isFinite(cooling) || cooling <= 0) {
+                return;
+            }
+            float heat = getHeatAmount(stack);
+            if (heat > 0) {
+                heat = Math.max(0, heat - cooling);
+                setHeatAmount(stack, heat);
+            }
+            if (heat <= 0 && isOverheatLocked(stack)) {
+                setOverheatLocked(stack, false);
+            }
+        });
     }
 
     @Override
@@ -197,6 +229,26 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
 
 
     @Override
+    public void unloadAmmo(ShooterDataHolder dataHolder, ItemStack gunItem, EntityLivingBase shooter) {
+        if (shooter.world.isRemote || useInventoryAmmo(gunItem)) {
+            return;
+        }
+        ModernKineticGunScriptAPI api = new ModernKineticGunScriptAPI();
+        api.setItemStack(gunItem);
+        api.setShooter(shooter);
+        api.setDataHolder(dataHolder);
+
+        CommonGunIndex gunIndex = api.getGunIndex();
+        if (gunIndex == null || !gunIndex.canUnloadAmmo()) {
+            return;
+        }
+        Optionals.ifPresentOrElse(Optional.ofNullable(gunIndex.getScript())
+                .map(script -> checkFunction(script.get("unload_ammo"))),
+                        func -> func.call(CoerceJavaToLua.coerce(api)),
+                        () -> super.unloadAmmo(dataHolder, gunItem, shooter));
+    }
+
+    @Override
     public void melee(ShooterDataHolder dataHolder, EntityLivingBase user, ItemStack gunItem) {
         ResourceLocation gunId = this.getGunId(gunItem);
         TimelessAPI.getCommonGunIndex(gunId).ifPresent(gunIndex -> {
@@ -260,9 +312,9 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
     }
 
     public void tickLocked(IGun iGun, ItemStack gunStack, GunHeatData heatData, long heatTimestamp) {
-        if(System.currentTimeMillis() - heatTimestamp >= heatData.getOverHeatTime()) {
+        if(GunTime.nowMillis() - heatTimestamp >= heatData.getOverHeatTime()) {
             float heatAmount = iGun.getHeatAmount(gunStack)
-                    - ((float)(System.currentTimeMillis() - heatTimestamp) / 10000f)
+                    - ((float)(GunTime.nowMillis() - heatTimestamp) / 10000f)
                     * heatData.getCoolingMultiplier();
 
             iGun.setHeatAmount(gunStack, heatAmount);
@@ -273,9 +325,9 @@ public class ModernKineticGunItem extends AbstractGunItem implements GunItemData
     }
 
     public void tickNormal(IGun iGun, ItemStack gunStack, GunHeatData heatData, long heatTimestamp) {
-        if(System.currentTimeMillis() - heatTimestamp >= heatData.getCoolingDelay()) {
+        if(GunTime.nowMillis() - heatTimestamp >= heatData.getCoolingDelay()) {
             float heatAmount = iGun.getHeatAmount(gunStack)
-                    - ((float)(System.currentTimeMillis() - heatTimestamp) / 10000f)
+                    - ((float)(GunTime.nowMillis() - heatTimestamp) / 10000f)
                     * heatData.getCoolingMultiplier();
 
             iGun.setHeatAmount(gunStack, heatAmount);

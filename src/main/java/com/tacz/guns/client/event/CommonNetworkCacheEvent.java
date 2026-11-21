@@ -2,6 +2,7 @@ package com.tacz.guns.client.event;
 
 import com.tacz.guns.GunMod;
 import com.tacz.guns.client.resource.ClientIndexManager;
+import com.tacz.guns.network.message.ServerMessageSyncGunPack;
 import com.tacz.guns.resource.CommonAssetsManager;
 import com.tacz.guns.resource.network.CommonNetworkCache;
 import net.minecraftforge.fml.relauncher.Side;
@@ -18,6 +19,7 @@ public class CommonNetworkCacheEvent {
      */
     @SubscribeEvent
     public static void onClientPlayerLoggingIn(FMLNetworkEvent.ClientConnectedToServerEvent event) {
+        ServerMessageSyncGunPack.clearPendingSync();
         if (event.getManager() == null || event.getManager().isLocalChannel()) {
             return;
         }
@@ -26,5 +28,10 @@ public class CommonNetworkCacheEvent {
             CommonNetworkCache.INSTANCE.clear();
             ClientIndexManager.clear();
         });
+    }
+
+    @SubscribeEvent
+    public static void onClientPlayerLoggingOut(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
+        ServerMessageSyncGunPack.clearPendingSync();
     }
 }

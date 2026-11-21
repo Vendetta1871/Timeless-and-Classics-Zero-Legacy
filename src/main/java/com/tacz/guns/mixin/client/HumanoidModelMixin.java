@@ -27,7 +27,7 @@ public class HumanoidModelMixin {
 
     @Inject(method = "setRotationAngles(FFFFFFLnet/minecraft/entity/Entity;)V", at = @At(value = "TAIL"))
     private void setRotationAnglesHead(float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, float scaleFactor, Entity entityIn, CallbackInfo ci) {
-        if (ageInTicks == 0 || !(entityIn instanceof EntityLivingBase livingEntity)) {
+        if (!(entityIn instanceof EntityLivingBase livingEntity)) {
             return;
         }
         InnerThirdPersonManager.setRotationAnglesHead(livingEntity, bipedRightArm, bipedLeftArm, bipedBody, bipedHead, limbSwingAmount);

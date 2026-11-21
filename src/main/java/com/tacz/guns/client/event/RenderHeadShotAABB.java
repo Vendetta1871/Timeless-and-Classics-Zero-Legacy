@@ -18,8 +18,9 @@ import net.minecraftforge.fml.common.Mod;
 public class RenderHeadShotAABB {
     @SubscribeEvent
     public static void onRenderEntity(RenderLivingEvent.Post<?> event) {
-        boolean canRender = Minecraft.getMinecraft().getRenderManager().isDebugBoundingBox();
-        if (!canRender) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        boolean canRender = minecraft.getRenderManager().isDebugBoundingBox();
+        if (!canRender || minecraft.gameSettings.reducedDebugInfo || minecraft.player != null && minecraft.player.hasReducedDebug()) {
             return;
         }
         if (!RenderConfig.HEAD_SHOT_DEBUG_HITBOX.get()) {

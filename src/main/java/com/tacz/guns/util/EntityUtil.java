@@ -1,5 +1,7 @@
 package com.tacz.guns.util;
 
+import net.minecraft.entity.MultiPartEntityPart;
+import com.tacz.guns.config.common.AmmoConfig;
 import com.tacz.guns.config.util.HeadShotAABBConfigRead;
 import com.tacz.guns.entity.EntityKineticBullet;
 import net.minecraft.util.ResourceLocation;
@@ -9,6 +11,7 @@ import net.minecraft.util.EntitySelectors;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.scoreboard.Team;
 import net.minecraftforge.fml.common.registry.EntityRegistry;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -80,6 +83,17 @@ public class EntityUtil {
     
     @Nullable
     protected static EntityKineticBullet.EntityResult getHitResult(EntityKineticBullet bulletEntity, Entity entity, Vec3d startVec, Vec3d endVec) {
+        if (isBulletDamageIgnored(entity)) {
+            return null;
+        }
+        // Filter before picking the nearest hit, so an ignored ally cannot hide an enemy behind it.
+        Entity owner = bulletEntity.getOwner();
+        if (AmmoConfig.IGNORE_TEAM_FRIENDLY_FIRE.get() && owner != null) {
+            Team team = owner.getTeam();
+            if (team != null && team.isSameTeam(entity.getTeam()) && !team.getAllowFriendlyFire()) {
+                return null;
+            }
+        }
         AxisAlignedBB boundingBox = HitboxHelper.getFixedBoundingBox(entity, bulletEntity.getOwner());
         // 计算射线与实体 boundingBox 的交点
         RayTraceResult intercept = boundingBox.calculateIntercept(startVec, endVec);
@@ -105,5 +119,15 @@ public class EntityUtil {
             headshot = true;
         }
         return new EntityKineticBullet.EntityResult(entity, hitPos, headshot);
+    }
+
+    public static boolean isBulletDamageIgnored(@Nullable Entity entity) {
+        if (entity == null || !AmmoConfig.ENABLE_BULLET_DAMAGE_IGNORE_LIST.get()) {
+            return false;
+        }
+        // 1.12.2: multipart entities are MultiPartEntityPart, entity ids come from EntityList
+        Entity core = entity instanceof MultiPartEntityPart part && part.parent instanceof Entity parent ? parent : entity;
+        ResourceLocation entityId = EntityList.getKey(core);
+        return entityId != null && AmmoConfig.BULLET_DAMAGE_IGNORE_LIST.get().contains(entityId.toString());
     }
 }

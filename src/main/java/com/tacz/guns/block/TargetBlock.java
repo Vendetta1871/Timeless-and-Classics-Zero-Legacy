@@ -1,6 +1,7 @@
 package com.tacz.guns.block;
 
 import com.mojang.authlib.GameProfile;
+import com.tacz.guns.advancement.TargetHitTrigger;
 import com.tacz.guns.block.entity.TargetBlockEntity;
 import com.tacz.guns.entity.EntityKineticBullet;
 import com.tacz.guns.legacy.entity.Projectile;
@@ -20,6 +21,7 @@ import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
@@ -241,6 +243,9 @@ public class TargetBlock extends Block implements ProjectileHitBlock {
                    String formattedDamage = String.format("%.1f", bullet.getDamage(hit.hitVec));
                    String formattedDistance = String.format("%.2f", hit.hitVec.distanceTo(player.getPositionVector()));
                    player.sendStatusMessage(Components.translatable("message.tacz.target_minecart.hit", formattedDamage, formattedDistance), true);
+                   if (player instanceof EntityPlayerMP sp) {
+                       TargetHitTrigger.INSTANCE.trigger(sp, hit.hitVec.distanceTo(player.getPositionVector()));
+                   }
                }
 
            }

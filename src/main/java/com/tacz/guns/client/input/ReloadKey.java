@@ -11,7 +11,6 @@ import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.client.settings.KeyConflictContext;
 import net.minecraftforge.client.settings.KeyModifier;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -19,7 +18,6 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import com.tacz.guns.GunMod;
 import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.input.Keyboard;
-import com.tacz.guns.legacy.util.KeyInputs;
 
 import static com.tacz.guns.util.InputExtraCheck.isInGame;
 
@@ -32,35 +30,26 @@ public class ReloadKey {
             Keyboard.KEY_R,
             "key.category.tacz");
 
-    @SubscribeEvent
-    public static void onReloadPress(InputEvent.KeyInputEvent event) {
-        if (isInGame() && KeyInputs.isPress() && KeyInputs.matches(RELOAD_KEY)) {
-            EntityPlayerSP player = Minecraft.getMinecraft().player;
-            if (player == null || player.isSpectator()) {
-                return;
-            }
-            if (player.getHeldItemMainhand().getItem() instanceof IGun iGun) {
-                // 如果使用背包直读，且没有换弹冷却机制，则在输入时就屏蔽换弹
-                if (iGun.useInventoryAmmo(player.getHeldItemMainhand())) {
-                    return;
-                }
-                IClientPlayerGunOperator.fromLocalPlayer(player).reload();
-            }
-        }
-    }
-
-    public static boolean onReloadControllerPress(boolean isPress) {
-        if (isInGame() && isPress) {
+    public static boolean onReloadPress() {
+        if (isInGame()) {
             EntityPlayerSP player = Minecraft.getMinecraft().player;
             if (player == null || player.isSpectator()) {
                 return false;
             }
-            if (IGun.mainHandHoldGun(player)) {
+            if (player.getHeldItemMainhand().getItem() instanceof IGun iGun) {
+                // 如果使用背包直读，且没有换弹冷却机制，则在输入时就屏蔽换弹
+                if (iGun.useInventoryAmmo(player.getHeldItemMainhand())) {
+                    return false;
+                }
                 IClientPlayerGunOperator.fromLocalPlayer(player).reload();
                 return true;
             }
         }
         return false;
+    }
+
+    public static boolean onReloadControllerPress(boolean isPress) {
+        return isPress && onReloadPress();
     }
 
     @SideOnly(Side.CLIENT)
@@ -76,6 +65,9 @@ public class ReloadKey {
 
         EntityPlayerSP player = Minecraft.getMinecraft().player;
         if (player == null || player.isSpectator() || player.ticksExisted % 5 != 0) {
+            return;
+        }
+        if (IClientPlayerGunOperator.fromLocalPlayer(player).getDataHolder().autoReloadSuppressed) {
             return;
         }
         ItemStack currentGunItem = player.getHeldItemMainhand();

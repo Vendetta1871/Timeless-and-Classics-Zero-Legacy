@@ -3,10 +3,8 @@ package com.tacz.guns.client.animation.third;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.client.other.ThirdPersonManager;
 import com.tacz.guns.api.entity.IGunOperator;
-import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.client.resource.GunDisplayInstance;
 import com.tacz.guns.compat.playeranimator.PlayerAnimatorCompat;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.ModelRenderer;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
@@ -14,28 +12,13 @@ import net.minecraft.item.ItemStack;
 
 public class InnerThirdPersonManager {
     public static void setRotationAnglesHead(EntityLivingBase entityIn, ModelRenderer rightArm, ModelRenderer leftArm, ModelRenderer body, ModelRenderer head, float limbSwingAmount) {
-        // 游戏暂停时不进行动画计算，否则会 StackOverflow
-        if (Minecraft.getMinecraft().isGamePaused()) {
+        if (AnimationRenderContext.isFirstPersonHand(entityIn) || !PlayerAnimatorCompat.canPlayAnimation(entityIn)) {
             return;
         }
         if (entityIn instanceof IGunOperator operator) {
             ItemStack mainHandItem = entityIn.getHeldItemMainhand();
-            IGun iGun = IGun.getIGunOrNull(mainHandItem);
-            if (iGun == null) {
-                PlayerAnimatorCompat.stopAllAnimation(entityIn);
-                return;
-            }
-            // 睡觉、爬梯、游泳、鞘翅飞行不播放第三人称动画
-            // 1.12.2: no poses; sleeping, ladders and elytra are checked directly, there is no swimming state
-            if (entityIn instanceof EntityPlayer player && player.isPlayerSleeping() || entityIn.isOnLadder() || entityIn.isElytraFlying()) {
-                PlayerAnimatorCompat.stopAllAnimation(entityIn);
-                return;
-            }
-
             TimelessAPI.getGunDisplay(mainHandItem).ifPresent(display -> {
-                if (PlayerAnimatorCompat.hasPlayerAnimator3rd(entityIn, display)) {
-                    PlayerAnimatorCompat.playAnimation(entityIn, display, limbSwingAmount);
-                } else {
+                if (!PlayerAnimatorCompat.hasPlayerAnimator3rd(entityIn, display)) {
                     playVanillaAnimation(entityIn, rightArm, leftArm, body, head, operator, display);
                 }
             });

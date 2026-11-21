@@ -34,7 +34,7 @@ public class HeatBarOverlay implements IGuiOverlay {
         }
         Minecraft mc = Minecraft.getMinecraft();
         EntityPlayerSP player = mc.player;
-        if (!(player instanceof IClientPlayerGunOperator)) {
+        if (!(player instanceof IClientPlayerGunOperator) || player.isSpectator()) {
             return;
         }
         ItemStack stack = player.getHeldItemMainhand();

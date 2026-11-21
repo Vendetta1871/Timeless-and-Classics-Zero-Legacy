@@ -2,6 +2,7 @@ package com.tacz.guns.mixin.client;
 
 import com.tacz.guns.api.client.other.KeepingItemRenderer;
 import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.client.animation.third.AnimationRenderContext;
 import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.model.ModelPlayer;
 import net.minecraft.client.model.ModelRenderer;
@@ -17,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * 1.12.2: {@code PlayerModel#setupAnim} is {@link ModelPlayer#setRotationAngles}; the sleeves are the arm wear parts.
- * First-person arm rendering also calls it with {@code ageInTicks == 0}, as upstream relies on.
+ * The hand draw is recognized through {@code AnimationRenderContext}, as upstream does.
  */
 @Mixin(ModelPlayer.class)
 public abstract class PlayerModelMixin extends ModelBiped {
@@ -28,14 +29,13 @@ public abstract class PlayerModelMixin extends ModelBiped {
 
     @Inject(method = "setRotationAngles(FFFFFFLnet/minecraft/entity/Entity;)V", at = @At(value = "TAIL"))
     private void setRotationAnglesTail(float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch, float scaleFactor, Entity entityIn, CallbackInfo ci) {
-        if (!(entityIn instanceof EntityPlayer player)) {
+        if (!(entityIn instanceof EntityPlayer) || !AnimationRenderContext.isFirstPersonHand(entityIn)) {
             return;
         }
 
-        // 用于清除默认的手臂旋转
-        // 当第一人称渲染是，ageInTicks 正好是 0
+        // Only neutralize the vanilla arm rotation during an actual hand draw.
         ItemStack currentItem = KeepingItemRenderer.getRenderer().getCurrentItem();
-        if (ageInTicks == 0F && IGun.getIGunOrNull(currentItem) != null) {
+        if (IGun.getIGunOrNull(currentItem) != null) {
             tacz$resetAll(this.bipedRightArm);
             tacz$resetAll(this.bipedLeftArm);
             copyModelAngles(this.bipedRightArm, this.bipedRightArmwear);
@@ -44,7 +44,7 @@ public abstract class PlayerModelMixin extends ModelBiped {
     }
 
     /**
-     * 将给定模型的旋转角度和旋转点重置为零
+     * 将给定模型的旋转角度重置为零
      */
     @Unique
     private void tacz$resetAll(ModelRenderer part) {

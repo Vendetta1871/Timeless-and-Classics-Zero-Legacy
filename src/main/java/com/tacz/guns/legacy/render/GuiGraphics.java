@@ -85,6 +85,55 @@ public class GuiGraphics {
         blit(texture, x, y, (float) u, (float) v, width, height, 256, 256);
     }
 
+    /**
+     * 1.20's {@code GuiGraphics#blitNineSliced} with the same slice size on every side (256x256 texture).
+     */
+    public void blitNineSliced(ResourceLocation texture, int x, int y, int width, int height, int sliceSize, int uWidth, int vHeight, int uOffset, int vOffset) {
+        blitNineSliced(texture, x, y, width, height, sliceSize, sliceSize, sliceSize, sliceSize, uWidth, vHeight, uOffset, vOffset);
+    }
+
+    public void blitNineSliced(ResourceLocation texture, int x, int y, int width, int height, int left, int top, int right, int bottom,
+                               int uWidth, int vHeight, int uOffset, int vOffset) {
+        left = Math.min(left, width / 2);
+        right = Math.min(right, width / 2);
+        top = Math.min(top, height / 2);
+        bottom = Math.min(bottom, height / 2);
+        if (width == uWidth && height == vHeight) {
+            blit(texture, x, y, uOffset, vOffset, width, height);
+        } else if (height == vHeight) {
+            blit(texture, x, y, uOffset, vOffset, left, height);
+            blitRepeating(texture, x + left, y, width - right - left, height, uOffset + left, vOffset, uWidth - right - left, vHeight);
+            blit(texture, x + width - right, y, uOffset + uWidth - right, vOffset, right, height);
+        } else if (width == uWidth) {
+            blit(texture, x, y, uOffset, vOffset, width, top);
+            blitRepeating(texture, x, y + top, width, height - bottom - top, uOffset, vOffset + top, uWidth, vHeight - bottom - top);
+            blit(texture, x, y + height - bottom, uOffset, vOffset + vHeight - bottom, width, bottom);
+        } else {
+            blit(texture, x, y, uOffset, vOffset, left, top);
+            blitRepeating(texture, x + left, y, width - right - left, top, uOffset + left, vOffset, uWidth - right - left, top);
+            blit(texture, x + width - right, y, uOffset + uWidth - right, vOffset, right, top);
+            blit(texture, x, y + height - bottom, uOffset, vOffset + vHeight - bottom, left, bottom);
+            blitRepeating(texture, x + left, y + height - bottom, width - right - left, bottom, uOffset + left, vOffset + vHeight - bottom, uWidth - right - left, bottom);
+            blit(texture, x + width - right, y + height - bottom, uOffset + uWidth - right, vOffset + vHeight - bottom, right, bottom);
+            blitRepeating(texture, x, y + top, left, height - bottom - top, uOffset, vOffset + top, left, vHeight - bottom - top);
+            blitRepeating(texture, x + left, y + top, width - right - left, height - bottom - top, uOffset + left, vOffset + top, uWidth - right - left, vHeight - bottom - top);
+            blitRepeating(texture, x + width - right, y + top, left, height - bottom - top, uOffset + uWidth - right, vOffset + top, right, vHeight - bottom - top);
+        }
+    }
+
+    private void blitRepeating(ResourceLocation texture, int x, int y, int width, int height, int uOffset, int vOffset, int sourceWidth, int sourceHeight) {
+        if (sourceWidth <= 0 || sourceHeight <= 0) {
+            return;
+        }
+        for (int dx = 0; dx < width; dx += sourceWidth) {
+            int w = Math.min(sourceWidth, width - dx);
+            for (int dy = 0; dy < height; dy += sourceHeight) {
+                int h = Math.min(sourceHeight, height - dy);
+                blit(texture, x + dx, y + dy, uOffset, vOffset, w, h);
+            }
+        }
+    }
+
     public void fill(int minX, int minY, int maxX, int maxY, int color) {
         begin();
         Gui.drawRect(minX, minY, maxX, maxY, color);

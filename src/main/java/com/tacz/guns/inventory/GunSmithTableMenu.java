@@ -11,6 +11,7 @@ import com.tacz.guns.network.NetworkHandler;
 import com.tacz.guns.network.message.ServerMessageCraft;
 import com.tacz.guns.resource.filter.RecipeFilter;
 import com.tacz.guns.resource.index.CommonBlockIndex;
+import com.tacz.guns.resource.pojo.data.block.TabConfig;
 import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
@@ -38,6 +39,8 @@ public class GunSmithTableMenu extends Container {
      */
     private final InventoryPlayer playerInventory;
     private final NonNullList<ItemStack> syncedInventory;
+    @Nullable
+    private ResourceLocation requestedRecipeId;
 
     public GunSmithTableMenu(int id, InventoryPlayer inventory, @Nullable ResourceLocation resourceLocation) {
         super();
@@ -54,6 +57,32 @@ public class GunSmithTableMenu extends Container {
     @Nullable
     public ResourceLocation getBlockId() {
         return blockId;
+    }
+
+    public boolean canSelectRecipe(ResourceLocation recipeId, RecipeManager recipeManager) {
+        if (this.blockId == null || !TimelessAPI.getCommonBlockIndex(this.blockId).isPresent()) {
+            return false;
+        }
+        GunSmithTableRecipe recipe = this.getRecipe(recipeId, recipeManager);
+        if (recipe == null) {
+            return false;
+        }
+        if (DefaultAssets.DEFAULT_BLOCK_ID.equals(this.blockId) && !SyncConfig.ENABLE_TABLE_FILTER.get()) {
+            return TabConfig.DEFAULT_TABS.stream().anyMatch(tab -> tab.id().equals(recipe.getTab()));
+        }
+        return true;
+    }
+
+    /** Queues a client-side selection for when JEI restores the workbench screen. */
+    public void requestRecipeSelection(ResourceLocation recipeId) {
+        this.requestedRecipeId = recipeId;
+    }
+
+    @Nullable
+    public ResourceLocation consumeRecipeSelection() {
+        ResourceLocation recipeId = this.requestedRecipeId;
+        this.requestedRecipeId = null;
+        return recipeId;
     }
 
     @Override
@@ -156,9 +185,15 @@ public class GunSmithTableMenu extends Container {
             // 给玩家对应的物品
             World level = player.world;
             if (!level.isRemote) {
-                EntityItem itemEntity = new EntityItem(level, player.posX, player.posY + 0.5, player.posZ, recipe.getResultItem().copy());
-                itemEntity.setPickupDelay(0);
-                level.spawnEntity(itemEntity);
+                ItemStack result = recipe.getResultItem();
+                // Item counts in entity packets are bytes; also respect each stack's dynamic limit.
+                int stackLimit = Math.max(1, Math.min(result.getMaxStackSize(), Byte.MAX_VALUE));
+                while (!result.isEmpty()) {
+                    ItemStack stack = result.splitStack(stackLimit);
+                    EntityItem itemEntity = new EntityItem(level, player.posX, player.posY + 0.5, player.posZ, stack);
+                    itemEntity.setPickupDelay(0);
+                    level.spawnEntity(itemEntity);
+                }
             }
             // 更新，否则客户端显示不正确
             player.inventoryContainer.detectAndSendChanges();

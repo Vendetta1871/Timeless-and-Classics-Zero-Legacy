@@ -4,9 +4,14 @@ import com.tacz.guns.api.item.IAmmo;
 import com.tacz.guns.api.item.IAttachment;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.block.AbstractGunSmithTableBlock;
+import com.tacz.guns.block.AmmoStorageBlock;
+import com.tacz.guns.block.GunDisplayCaseBlock;
+import com.tacz.guns.block.GunDisplayCaseSlotHelper;
+import com.tacz.guns.block.entity.GunDisplayCaseBlockEntity;
 import com.tacz.guns.client.input.InteractKey;
 import com.tacz.guns.config.client.KeyConfig;
 import com.tacz.guns.config.client.RenderConfig;
+import com.tacz.guns.config.util.GunPegboardItemConfigRead;
 import com.tacz.guns.config.util.InteractKeyConfigRead;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.client.Minecraft;
@@ -54,15 +59,39 @@ public class InteractKeyTextOverlay implements IGuiOverlay {
     private static void renderBlockText(GuiGraphics graphics, int width, int height, RayTraceResult blockHitResult, EntityPlayerSP player, Minecraft mc) {
         BlockPos blockPos = blockHitResult.getBlockPos();
         IBlockState block = player.world.getBlockState(blockPos);
+        if (block.getBlock() instanceof GunDisplayCaseBlock) {
+            renderDisplayCaseText(graphics, width, height, blockHitResult, player, mc, block);
+            return;
+        }
+        if (block.getBlock() instanceof AmmoStorageBlock && IGun.mainHandHoldGun(player)) {
+            renderText(graphics, width, height, mc.fontRenderer, InteractKey.INTERACT_KEY.getDisplayName(),
+                    Components.translatable("gui.tacz.interact_key.text.ammo_storage_pickup"));
+            return;
+        }
         if (InteractKeyConfigRead.canInteractBlock(block)) {
             boolean mainHandHoldGun = IGun.mainHandHoldGun(player);
             boolean hasGunSmithTableFilterItem = hasGunSmithTableFilterItem(block, player);
             boolean willFilterByHand = RenderConfig.AUTO_SELECT_GUN_SMITH_TABLE_FILTER.get() && hasGunSmithTableFilterItem;
             if (mainHandHoldGun) {
-                renderText(graphics, width, height, mc.fontRenderer, interactKeyName(mc), willFilterByHand);
+                renderText(graphics, width, height, mc.fontRenderer, interactKeyName(mc), willFilterByHand ? Components.translatable("gui.tacz.interact_key.text.gun_smith_table_filter") : null);
             } else if (hasGunSmithTableFilterItem) {
-                renderText(graphics, width, height, mc.fontRenderer, mc.gameSettings.keyBindUseItem.getDisplayName(), willFilterByHand);
+                renderText(graphics, width, height, mc.fontRenderer, mc.gameSettings.keyBindUseItem.getDisplayName(), willFilterByHand ? Components.translatable("gui.tacz.interact_key.text.gun_smith_table_filter") : null);
             }
+        }
+    }
+
+    private static void renderDisplayCaseText(GuiGraphics graphics, int width, int height, RayTraceResult blockHitResult, EntityPlayerSP player, Minecraft mc, IBlockState block) {
+        if (!IGun.mainHandHoldGun(player) || block.getValue(GunDisplayCaseBlock.LOCKED)) {
+            return;
+        }
+        int slot = GunDisplayCaseSlotHelper.getSlot(block, blockHitResult.getBlockPos(), blockHitResult.hitVec);
+        if (slot < 0 || !(player.world.getTileEntity(blockHitResult.getBlockPos()) instanceof GunDisplayCaseBlockEntity displayCase)) {
+            return;
+        }
+        boolean occupied = !displayCase.getItem(slot).isEmpty();
+        boolean canPlaceHeld = GunPegboardItemConfigRead.canPlace(player.getHeldItemMainhand());
+        if (occupied || canPlaceHeld) {
+            renderText(graphics, width, height, mc.fontRenderer, InteractKey.INTERACT_KEY.getDisplayName(), null);
         }
     }
 
@@ -72,7 +101,7 @@ public class InteractKeyTextOverlay implements IGuiOverlay {
         }
         Entity entity = entityHitResult.entityHit;
         if (InteractKeyConfigRead.canInteractEntity(entity)) {
-            renderText(graphics, width, height, mc.fontRenderer, interactKeyName(mc), false);
+            renderText(graphics, width, height, mc.fontRenderer, interactKeyName(mc), null);
         }
     }
 
@@ -96,12 +125,11 @@ public class InteractKeyTextOverlay implements IGuiOverlay {
         return item instanceof IGun || item instanceof IAttachment || item instanceof IAmmo;
     }
 
-    private static void renderText(GuiGraphics graphics, int width, int height, FontRenderer font, String keyName, boolean willFilterByHand) {
+    private static void renderText(GuiGraphics graphics, int width, int height, FontRenderer font, String keyName, ITextComponent subtitle) {
         ITextComponent title = Components.translatable("gui.tacz.interact_key.text.desc", StringUtils.capitalize(keyName));
         graphics.drawString(font, title, (int) ((width - FontUtil.width(font, title)) / 2.0f), (int) (height / 2.0f - 25), 0xFFFF55, false);
-        if (willFilterByHand) {
-            ITextComponent filter = Components.translatable("gui.tacz.interact_key.text.gun_smith_table_filter");
-            graphics.drawString(font, filter, (int) ((width - FontUtil.width(font, filter)) / 2.0f), (int) (height / 2.0f - 14), 0xAAAAAA, false);
+        if (subtitle != null) {
+            graphics.drawString(font, subtitle, (int) ((width - FontUtil.width(font, subtitle)) / 2.0f), (int) (height / 2.0f - 14), 0xAAAAAA, false);
         }
     }
 }

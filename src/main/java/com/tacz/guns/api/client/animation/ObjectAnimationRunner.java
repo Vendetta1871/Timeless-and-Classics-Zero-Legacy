@@ -1,11 +1,14 @@
 package com.tacz.guns.api.client.animation;
 
+import com.github.mcmodderanchor.simplebedrockmodel.v1.common.resource.pojo.ParticleEffectData;
 import com.tacz.guns.util.math.MathUtil;
+import com.tacz.guns.util.time.GunTime;
 import net.minecraft.client.Minecraft;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
+import com.google.common.collect.ImmutableList;
 
 public class ObjectAnimationRunner {
     @Nonnull
@@ -34,6 +37,7 @@ public class ObjectAnimationRunner {
     private boolean running = false;
     private boolean pausing = false;
     private long lastUpdateNs;
+    private long lastUpdateEpoch = GunTime.epoch();
     /**
      * 当前动画播放进度
      */
@@ -42,6 +46,10 @@ public class ObjectAnimationRunner {
     @Nullable
     private ObjectAnimationRunner transitionTo;
     private long transitionProgressNs;
+    /**
+     * 本帧粒子效果通道跨过的关键帧请求（渲染层每帧消费）。
+     */
+    private final List<ParticleEffectData> pendingParticles = new ArrayList<>();
 
     public ObjectAnimationRunner(@Nonnull ObjectAnimation animation) {
         this.animation = Objects.requireNonNull(animation);
@@ -62,7 +70,8 @@ public class ObjectAnimationRunner {
     public void run() {
         if (!running) {
             running = true;
-            lastUpdateNs = System.nanoTime();
+            lastUpdateNs = GunTime.nowNanos();
+            lastUpdateEpoch = GunTime.epoch();
         }
         pausing = false;
     }
@@ -253,10 +262,8 @@ public class ObjectAnimationRunner {
 
     public void update(boolean blend) {
         long fromTimeNs = progressNs;
-        long currentNs = System.nanoTime();
-        long alphaProgress = currentNs - lastUpdateNs;
+        long alphaProgress = elapsedSinceLastUpdate();
         updateProgress(alphaProgress);
-        lastUpdateNs = currentNs;
         if (isTransitioning) {
             transitionProgressNs += alphaProgress;
             if (transitionProgressNs >= transitionTimeNs) {
@@ -271,18 +278,49 @@ public class ObjectAnimationRunner {
             if (soundChannel != null && Minecraft.getMinecraft().player != null) {
                 soundChannel.playSound(fromTimeNs / 1e9, progressNs / 1e9, Minecraft.getMinecraft().player, 16, 1 ,1);
             }
+            ObjectAnimationParticleChannel particleChannel = animation.getParticleChannel();
+            if (particleChannel != null) {
+                particleChannel.collectParticles(fromTimeNs / 1e9, progressNs / 1e9, pendingParticles);
+            }
         }
     }
 
     public void updateSoundOnly() {
         long fromTimeNs = progressNs;
-        long currentNs = System.nanoTime();
-        updateProgress(currentNs - lastUpdateNs);
-        lastUpdateNs = currentNs;
+        updateProgress(elapsedSinceLastUpdate());
         ObjectAnimationSoundChannel soundChannel = animation.getSoundChannel();
         if (soundChannel != null && Minecraft.getMinecraft().player != null) {
             soundChannel.playSound(fromTimeNs / 1e9, progressNs / 1e9, Minecraft.getMinecraft().player, 16, 1 ,1);
         }
+        ObjectAnimationParticleChannel particleChannel = animation.getParticleChannel();
+        if (particleChannel != null) {
+            particleChannel.collectParticles(fromTimeNs / 1e9, progressNs / 1e9, pendingParticles);
+        }
+    }
+
+    /**
+     * 取出本帧动画 {@code particle_effects} 通道累积的粒子请求并清空。
+     */
+    public List<ParticleEffectData> consumeParticleEvents() {
+        if (pendingParticles.isEmpty()) {
+            return ImmutableList.of();
+        }
+        List<ParticleEffectData> result = new ArrayList<>(pendingParticles);
+        pendingParticles.clear();
+        return result;
+    }
+
+    private long elapsedSinceLastUpdate() {
+        long currentEpoch = GunTime.epoch();
+        long currentNs = GunTime.nowNanos();
+        if (lastUpdateEpoch != currentEpoch) {
+            lastUpdateEpoch = currentEpoch;
+            lastUpdateNs = currentNs;
+            return 0;
+        }
+        long elapsed = Math.max(0L, currentNs - lastUpdateNs);
+        lastUpdateNs = currentNs;
+        return elapsed;
     }
 
     public boolean isRunning() {

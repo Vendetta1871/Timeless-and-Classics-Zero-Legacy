@@ -3,6 +3,7 @@ package com.tacz.guns.util.block;
 import com.google.common.collect.Sets;
 import com.tacz.guns.config.common.AmmoConfig;
 import com.tacz.guns.legacy.util.ClipContext;
+import com.tacz.guns.util.EntityUtil;
 import com.tacz.guns.util.HitboxHelper;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.enchantment.EnchantmentProtection;
@@ -59,6 +60,10 @@ public class ProjectileExplosion extends Explosion {
 
     @Override
     public void doExplosionA() {
+        // 防止直接调用时使用无效半径进行爆炸计算
+        if (!Float.isFinite(this.radius) || this.radius <= 0) {
+            return;
+        }
         // TODO(port): upstream posts GameEvent.EXPLODE here (no 1.12.2 equivalent)
         Set<BlockPos> set = Sets.newHashSet();
         int i = 16;
@@ -122,7 +127,7 @@ public class ProjectileExplosion extends Explosion {
         Vec3d explosionPos = new Vec3d(this.x, this.y, this.z);
 
         for (Entity entity : entities) {
-            if (entity.isImmuneToExplosions()) {
+            if (entity.isImmuneToExplosions() || EntityUtil.isBulletDamageIgnored(entity)) {
                 continue;
             }
 

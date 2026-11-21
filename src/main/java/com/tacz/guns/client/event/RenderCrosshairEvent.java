@@ -15,6 +15,7 @@ import com.tacz.guns.client.renderer.crosshair.CrosshairType;
 // TODO(port): needs ShoulderSurfingCompat
 //import com.tacz.guns.compat.shouldersurfing.ShoulderSurfingCompat;
 import com.tacz.guns.config.client.RenderConfig;
+import com.tacz.guns.util.time.GunTime;
 import com.tacz.guns.legacy.render.GuiGraphics;
 import com.tacz.guns.legacy.render.Window;
 import net.minecraft.client.Minecraft;
@@ -50,7 +51,7 @@ public class RenderCrosshairEvent {
             GuiGraphics graphics = new GuiGraphics();
             Window window = Window.of(event.getResolution());
             EntityPlayerSP player = Minecraft.getMinecraft().player;
-            if (player == null) {
+            if (player == null || player.isSpectator()) {
                 return;
             }
             if (!IGun.mainHandHoldGun(player)) {
@@ -143,14 +144,13 @@ public class RenderCrosshairEvent {
     }
 
     private static void renderHitMarker(GuiGraphics graphics, Window window) {
-        long remainHitTime = System.currentTimeMillis() - hitTimestamp;
-        long remainKillTime = System.currentTimeMillis() - killTimestamp;
-        long remainHeadShotTime = System.currentTimeMillis() - headShotTimestamp;
+        long remainHitTime = GunTime.nowMillis() - hitTimestamp;
+        long remainKillTime = GunTime.nowMillis() - killTimestamp;
         float offset = RenderConfig.HIT_MARKET_START_POSITION.get().floatValue();
         float fadeTime;
 
-        if (remainKillTime > KEEP_TIME) {
-            if (remainHitTime > KEEP_TIME) {
+        if (!GunTime.isWithin(killTimestamp, KEEP_TIME)) {
+            if (!GunTime.isWithin(hitTimestamp, KEEP_TIME)) {
                 return;
             } else {
                 fadeTime = remainHitTime;
@@ -168,7 +168,7 @@ public class RenderCrosshairEvent {
 
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
-        if (remainHeadShotTime > KEEP_TIME) {
+        if (!GunTime.isWithin(headShotTimestamp, KEEP_TIME)) {
             RenderSystem.setShaderColor(1F, 1F, 1F, 1 - fadeTime / KEEP_TIME);
         } else {
             RenderSystem.setShaderColor(1F, 0, 0, 1 - fadeTime / KEEP_TIME);
@@ -181,14 +181,20 @@ public class RenderCrosshairEvent {
     }
 
     public static void markHitTimestamp() {
-        RenderCrosshairEvent.hitTimestamp = System.currentTimeMillis();
+        RenderCrosshairEvent.hitTimestamp = GunTime.nowMillis();
     }
 
     public static void markKillTimestamp() {
-        RenderCrosshairEvent.killTimestamp = System.currentTimeMillis();
+        RenderCrosshairEvent.killTimestamp = GunTime.nowMillis();
     }
 
     public static void markHeadShotTimestamp() {
-        RenderCrosshairEvent.headShotTimestamp = System.currentTimeMillis();
+        RenderCrosshairEvent.headShotTimestamp = GunTime.nowMillis();
+    }
+
+    public static void resetTimestamps() {
+        hitTimestamp = -1L;
+        killTimestamp = -1L;
+        headShotTimestamp = -1L;
     }
 }

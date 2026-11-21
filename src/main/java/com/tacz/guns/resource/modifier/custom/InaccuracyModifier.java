@@ -45,6 +45,11 @@ public class InaccuracyModifier implements IAttachmentModifier<Map<InaccuracyTyp
     }
 
     @Override
+    public List<String> getOptionalFieldList() {
+        return ImmutableList.of("inaccuracy_addend", "aim_inaccuracy", "sneak_inaccuracy", "lie_inaccuracy");
+    }
+
+    @Override
     @SuppressWarnings("deprecation")
     public JsonProperty<Map<InaccuracyType, Modifier>> readJson(String json) {
         Data data = CommonAssetsManager.GSON.fromJson(json, Data.class);
@@ -132,8 +137,8 @@ public class InaccuracyModifier implements IAttachmentModifier<Map<InaccuracyTyp
 
         return ImmutableList.of(
                 buildNormal(gunData, cacheProperty, fireModeAdjustData, InaccuracyType.STAND, "gui.tacz.gun_refit.property_diagrams.hipfire_inaccuracy", 10.0),
-                buildNormal(gunData, cacheProperty, fireModeAdjustData, InaccuracyType.SNEAK, "gui.tacz.gun_refit.property_diagrams.sneak_inaccuracy", 5.0),
-                buildNormal(gunData, cacheProperty, fireModeAdjustData, InaccuracyType.LIE, "gui.tacz.gun_refit.property_diagrams.lie_inaccuracy", 5.0),
+                buildNormal(gunData, cacheProperty, fireModeAdjustData, InaccuracyType.SNEAK, "gui.tacz.gun_refit.property_diagrams.sneak_inaccuracy", 10.0),
+                buildNormal(gunData, cacheProperty, fireModeAdjustData, InaccuracyType.LIE, "gui.tacz.gun_refit.property_diagrams.lie_inaccuracy", 10.0),
                 buildAim(gunData, cacheProperty, fireModeAdjustData)
         );
     }
@@ -193,7 +198,7 @@ public class InaccuracyModifier implements IAttachmentModifier<Map<InaccuracyTyp
     @Override
     @SideOnly(Side.CLIENT)
     public int getDiagramsDataSize() {
-        return 3;
+        return 4;
     }
 
     public static class InaccuracyJsonProperty extends JsonProperty<Map<InaccuracyType, Modifier>> {

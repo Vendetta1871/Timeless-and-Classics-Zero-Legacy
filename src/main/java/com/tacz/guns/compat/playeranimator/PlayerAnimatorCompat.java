@@ -1,15 +1,15 @@
 package com.tacz.guns.compat.playeranimator;
 
 import com.tacz.guns.GunMod;
+import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.client.resource.GunDisplayInstance;
-import com.tacz.guns.compat.playeranimator.animation.AnimationDataRegisterFactory;
-import com.tacz.guns.compat.playeranimator.animation.AnimationManager;
-import com.tacz.guns.compat.playeranimator.animation.PlayerAnimatorAssetManager;
-import com.tacz.guns.compat.playeranimator.animation.PlayerAnimatorLoader;
+import com.tacz.guns.compat.playeranimator.animation.*;
+import net.minecraft.client.model.ModelPlayer;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.util.ResourceLocation;
 import com.tacz.guns.legacy.resource.PreparableReloadListener;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Loader;
 
@@ -60,6 +60,13 @@ public class PlayerAnimatorCompat {
         return false;
     }
 
+    public static boolean canPlayAnimation(EntityLivingBase entity) {
+        // 1.12.2: no poses; sleeping, ladders and elytra are checked directly, there is no swimming state
+        return IGun.getIGunOrNull(entity.getHeldItemMainhand()) != null
+                && !(entity instanceof EntityPlayer player && player.isPlayerSleeping()) && !entity.isOnLadder()
+                && !entity.isElytraFlying();
+    }
+
     public static void stopAllAnimation(EntityLivingBase livingEntity) {
         if (isInstalled() && livingEntity instanceof AbstractClientPlayer player) {
             AnimationManager.stopAllAnimation(player);
@@ -82,6 +89,10 @@ public class PlayerAnimatorCompat {
 
     public static boolean isInstalled() {
         return INSTALLED;
+    }
+
+    public static Runnable captureModelState(ModelPlayer model) {
+        return isInstalled() ? PlayerAnimatorModelState.capture(model) : () -> {};
     }
 
     public static void registerReloadListener(Consumer<PreparableReloadListener> register) {

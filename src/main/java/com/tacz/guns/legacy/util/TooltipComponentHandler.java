@@ -3,14 +3,17 @@ package com.tacz.guns.legacy.util;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.api.item.gun.AbstractGunItem;
 import com.tacz.guns.client.tooltip.ClientAmmoBoxTooltip;
+import com.tacz.guns.client.tooltip.ClientAmmoStorageTooltip;
 import com.tacz.guns.client.tooltip.ClientAttachmentItemTooltip;
 import com.tacz.guns.client.tooltip.ClientBlockItemTooltip;
 import com.tacz.guns.client.tooltip.ClientGunTooltip;
 import com.tacz.guns.inventory.tooltip.AmmoBoxTooltip;
+import com.tacz.guns.inventory.tooltip.AmmoStorageTooltip;
 import com.tacz.guns.inventory.tooltip.AttachmentItemTooltip;
 import com.tacz.guns.inventory.tooltip.BlockItemTooltip;
 import com.tacz.guns.inventory.tooltip.GunTooltip;
 import com.tacz.guns.item.AmmoBoxItem;
+import com.tacz.guns.item.AmmoStorageBlockItem;
 import com.tacz.guns.item.AttachmentItem;
 import com.tacz.guns.item.GunSmithTableItem;
 import com.tacz.guns.legacy.render.GuiGraphics;
@@ -64,6 +67,9 @@ public final class TooltipComponentHandler {
         } else if (item instanceof AmmoBoxItem) {
             Optional<AmmoBoxTooltip> image = ((AmmoBoxItem) item).getTooltipImage(stack);
             return image.isPresent() ? new ClientAmmoBoxTooltip(image.get()) : null;
+        } else if (item instanceof AmmoStorageBlockItem) {
+            Optional<AmmoStorageTooltip> image = ((AmmoStorageBlockItem) item).getTooltipImage(stack);
+            return image.isPresent() ? new ClientAmmoStorageTooltip(image.get()) : null;
         } else if (item instanceof AttachmentItem) {
             Optional<AttachmentItemTooltip> image = ((AttachmentItem) item).getTooltipImage(stack);
             return image.isPresent() ? new ClientAttachmentItemTooltip(image.get()) : null;

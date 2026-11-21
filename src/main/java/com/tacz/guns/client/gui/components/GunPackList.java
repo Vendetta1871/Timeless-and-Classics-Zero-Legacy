@@ -29,7 +29,9 @@ public class GunPackList implements Renderable, GuiEventListener {
     private final List<Checkbox> gunPackList = new ArrayList<>();
     private final Set<String> selectedNamespaces = new HashSet<>();
     private final Checkbox byHandCheckbox;
+    private final Checkbox allCheckbox;
     private final EditBox byName;
+    private boolean clearingFilters;
 
     private final List<Entry> entries = new ArrayList<>();
     protected int width;
@@ -60,8 +62,10 @@ public class GunPackList implements Renderable, GuiEventListener {
         this.byName = new EditBox(pMinecraft.fontRenderer, 3, 0, 94, 10, Components.literal(""));
         this.byName.setHint(Components.translatable("gui.tacz.gun_smith_table.filter.search"));
         this.byName.setResponder((pText) -> {
-            parent.init();
-            parent.setIndexPage(0);
+            if (!this.clearingFilters) {
+                parent.init();
+                parent.setIndexPage(0);
+            }
         });
         this.entries.add(new GunPackList.Entry(byName));
 
@@ -75,7 +79,7 @@ public class GunPackList implements Renderable, GuiEventListener {
         };
         this.entries.add(new GunPackList.Entry(byHandCheckbox));
 
-        Checkbox checkbox1 = new Checkbox(0, 0, 10, 10, Components.translatable("gui.tacz.gun_smith_table.filter.all"), true) {
+        this.allCheckbox = new Checkbox(0, 0, 10, 10, Components.translatable("gui.tacz.gun_smith_table.filter.all"), true) {
             @Override
             public void onPress() {
                 super.onPress();
@@ -83,7 +87,7 @@ public class GunPackList implements Renderable, GuiEventListener {
                 updateSelectedNamespaces();
             }
         };
-        this.entries.add(new GunPackList.Entry(checkbox1));
+        this.entries.add(new GunPackList.Entry(this.allCheckbox));
 
         for (String namespace : namespaces) {
             PackInfo packInfo = ClientAssetsManager.INSTANCE.getPackInfo(namespace);
@@ -93,7 +97,7 @@ public class GunPackList implements Renderable, GuiEventListener {
                 @Override
                 public void onPress() {
                     super.onPress();
-                    checkbox1.selected = gunPackList.stream().allMatch(Checkbox::selected);
+                    allCheckbox.selected = gunPackList.stream().allMatch(Checkbox::selected);
                     updateSelectedNamespaces();
                 }
             };
@@ -113,6 +117,23 @@ public class GunPackList implements Renderable, GuiEventListener {
 
     public void setByHandSelected(boolean selected) {
         byHandCheckbox.selected = selected;
+    }
+
+    /** Clears user filters without rebuilding the parent screen. */
+    public void clearFilters() {
+        this.byHandCheckbox.selected = false;
+        this.allCheckbox.selected = true;
+        this.selectedNamespaces.clear();
+        for (Checkbox checkbox : this.gunPackList) {
+            checkbox.selected = true;
+            this.selectedNamespaces.add(checkbox.getId());
+        }
+        this.clearingFilters = true;
+        try {
+            this.byName.setValue("");
+        } finally {
+            this.clearingFilters = false;
+        }
     }
 
     public Set<String> namespaceList() {

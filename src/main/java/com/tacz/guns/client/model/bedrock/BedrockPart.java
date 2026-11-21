@@ -3,9 +3,11 @@ package com.tacz.guns.client.model.bedrock;
 import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.VertexConsumer;
 import com.tacz.guns.legacy.render.Axis;
+import com.tacz.guns.util.RenderHelper;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import com.tacz.guns.legacy.render.LightTexture;
+import com.tacz.guns.legacy.render.MultiBufferSource;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -59,19 +61,25 @@ public class BedrockPart {
     }
 
     public void render(PoseStack poseStack, ItemCameraTransforms.TransformType transformType, VertexConsumer consumer, int light, int overlay, float red, float green, float blue, float alpha) {
+        render(poseStack, transformType, consumer, light, overlay, red, green, blue, alpha, RenderHelper.getBufferSource(transformType));
+    }
+
+    public void render(PoseStack poseStack, ItemCameraTransforms.TransformType transformType, VertexConsumer consumer, int light, int overlay, float red, float green, float blue, float alpha, @Nullable MultiBufferSource bufferSource) {
         int cubePackedLight = light;
+        VertexConsumer cubeConsumer = consumer;
         if (illuminated) {
             // 最大亮度
             cubePackedLight = LightTexture.pack(15, 15);
+            cubeConsumer = UnshadedVertexConsumer.wrap(consumer);
         }
         if (this.visible) {
             if (!this.cubes.isEmpty() || !this.children.isEmpty()) {
                 poseStack.pushPose();
                 this.translateAndRotateAndScale(poseStack);
-                this.compile(poseStack.last(), consumer, cubePackedLight, overlay, red, green, blue, alpha);
+                this.compile(poseStack.last(), cubeConsumer, cubePackedLight, overlay, red, green, blue, alpha);
 
                 for (BedrockPart part : this.children) {
-                    part.render(poseStack, transformType, consumer, cubePackedLight, overlay, red, green, blue, alpha);
+                    part.render(poseStack, transformType, cubeConsumer, cubePackedLight, overlay, red, green, blue, alpha, bufferSource);
                 }
 
                 poseStack.popPose();

@@ -5,11 +5,9 @@ import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.client.gameplay.IClientPlayerGunOperator;
-import com.tacz.guns.api.entity.IGunOperator;
-import com.tacz.guns.api.item.IAmmo;
-import com.tacz.guns.api.item.IAmmoBox;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.api.item.gun.FireMode;
+import com.tacz.guns.client.gameplay.ClientAmmoCount;
 import com.tacz.guns.client.resource.GunDisplayInstance;
 import com.tacz.guns.client.resource.index.ClientGunIndex;
 import com.tacz.guns.client.resource.pojo.display.gun.AmmoCountStyle;
@@ -17,12 +15,12 @@ import com.tacz.guns.config.client.RenderConfig;
 import com.tacz.guns.resource.pojo.data.gun.Bolt;
 import com.tacz.guns.resource.pojo.data.gun.GunData;
 import com.tacz.guns.util.AttachmentDataUtils;
+import com.tacz.guns.util.time.GunTime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import com.tacz.guns.legacy.render.GuiGraphics;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.client.gui.GuiIngame;
 import com.tacz.guns.legacy.util.IGuiOverlay;
@@ -45,7 +43,7 @@ public class GunHudOverlay implements IGuiOverlay {
     private static int cacheMaxAmmoCount = 0;
     private static int cacheInventoryAmmoCount = 0;
 
-    private static final int MAX_AMMO_COUNT = 9999;
+    private static final int MAX_AMMO_COUNT = ClientAmmoCount.MAX_DISPLAY_COUNT;
 
     @Override
     public void render(GuiIngame gui, GuiGraphics graphics, float partialTick, int width, int height) {
@@ -54,7 +52,7 @@ public class GunHudOverlay implements IGuiOverlay {
         }
         Minecraft mc = Minecraft.getMinecraft();
         EntityPlayerSP player = mc.player;
-        if (!(player instanceof IClientPlayerGunOperator)) {
+        if (!(player instanceof IClientPlayerGunOperator) || player.isSpectator()) {
             return;
         }
         ItemStack stack = player.getHeldItemMainhand();
@@ -113,7 +111,7 @@ public class GunHudOverlay implements IGuiOverlay {
         }
 
         // 计算弹药数
-        handleCacheCount(player, stack, gunData, iGun, useInventoryAmmo);
+        handleCacheCount(player, stack, gunData, iGun);
 
         // 竖线
         graphics.fill(width - 75, height - 43, width - 74, height - 25, 0xFFFFFFFF);
@@ -173,45 +171,21 @@ public class GunHudOverlay implements IGuiOverlay {
         graphics.blit(fireModeTexture, (int) (width - 68.5 + mc.fontRenderer.getStringWidth(currentAmmoCountText) * 1.5), height - 38, 0, 0, 10, 10, 10, 10);
     }
 
-    private static void handleCacheCount(EntityPlayerSP player, ItemStack stack, GunData gunData, IGun iGun, boolean useInventoryAmmo) {
+    private static void handleCacheCount(EntityPlayerSP player, ItemStack stack, GunData gunData, IGun iGun) {
         // 0.05 秒 (1 tick) 检查一次
-        if ((System.currentTimeMillis() - checkAmmoTimestamp) > 50) {
-            checkAmmoTimestamp = System.currentTimeMillis();
+        if (checkAmmoTimestamp < 0 || GunTime.hasElapsed(checkAmmoTimestamp, 50)) {
+            checkAmmoTimestamp = GunTime.nowMillis();
             // 当前枪械的总弹药数
             cacheMaxAmmoCount = AttachmentDataUtils.getAmmoCountWithAttachment(stack, gunData);
             // 玩家背包弹药数
-            if (IGunOperator.fromLivingEntity(player).needCheckAmmo()) {
-                if (iGun.useDummyAmmo(stack)) {
-                    // 缓存虚拟弹药数
-                    cacheInventoryAmmoCount = iGun.getDummyAmmoAmount(stack);
-                } else {
-                    // 缓存背包内的弹药数
-                    handleInventoryAmmo(stack, player.inventory);
-                }
-            } else {
-                cacheInventoryAmmoCount = MAX_AMMO_COUNT;
-            }
-            if (useInventoryAmmo) {
-                iGun.setCurrentAmmoCount(stack, cacheInventoryAmmoCount);
-            }
+            cacheInventoryAmmoCount = ClientAmmoCount.getCached(player, stack, iGun);
         }
     }
 
-    private static void handleInventoryAmmo(ItemStack stack, InventoryPlayer inventory) {
+    public static void resetTimestamp() {
+        checkAmmoTimestamp = -1L;
+        cacheMaxAmmoCount = 0;
         cacheInventoryAmmoCount = 0;
-        for (int i = 0; i < inventory.getSizeInventory(); i++) {
-            ItemStack inventoryItem = inventory.getStackInSlot(i);
-            if (inventoryItem.getItem() instanceof IAmmo iAmmo && iAmmo.isAmmoOfGun(stack, inventoryItem)) {
-                cacheInventoryAmmoCount += inventoryItem.getCount();
-            }
-            if (inventoryItem.getItem() instanceof IAmmoBox iAmmoBox && iAmmoBox.isAmmoBoxOfGun(stack, inventoryItem)) {
-                // 创造模式弹药箱？直接返回 9999
-                if (iAmmoBox.isAllTypeCreative(inventoryItem) || iAmmoBox.isCreative(inventoryItem)) {
-                    cacheInventoryAmmoCount = 9999;
-                    return;
-                }
-                cacheInventoryAmmoCount += iAmmoBox.getAmmoCount(inventoryItem);
-            }
-        }
     }
+
 }

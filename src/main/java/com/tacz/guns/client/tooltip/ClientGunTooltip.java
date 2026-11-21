@@ -179,7 +179,7 @@ public class ClientGunTooltip implements ClientTooltipComponent {
             int bulletAmount = hasSlugInstalled ? 1 : gunData.getBulletData().getBulletAmount();
             MutableComponent value;
             if (display != null && display.getDamageStyle() == DamageStyle.PER_PROJECTILE && bulletAmount > 1) {
-                value = Components.literal(DAMAGE_FORMAT.format(damage/bulletAmount) + "x" + bulletAmount).withStyle(TextFormatting.AQUA);
+                value = Components.literal(DAMAGE_FORMAT.format(damage) + " (" + DAMAGE_FORMAT.format(damage / bulletAmount) + "x" + bulletAmount + ")").withStyle(TextFormatting.AQUA);
             } else {
                 value = Components.literal(DAMAGE_FORMAT.format(damage)).withStyle(TextFormatting.AQUA);
             }

@@ -2,6 +2,7 @@ package com.tacz.guns.entity;
 
 import com.mojang.authlib.GameProfile;
 import com.tacz.guns.GunMod;
+import com.tacz.guns.advancement.TargetHitTrigger;
 import com.tacz.guns.api.entity.ITargetEntity;
 import com.tacz.guns.api.event.common.EntityHurtByGunEvent;
 import com.tacz.guns.network.NetworkHandler;
@@ -13,6 +14,7 @@ import com.tacz.guns.init.ModItems;
 import com.tacz.guns.init.ModSounds;
 import com.tacz.guns.legacy.util.Components;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityMinecart;
 import net.minecraft.entity.player.EntityPlayer;
@@ -71,6 +73,9 @@ public class TargetMinecart extends EntityMinecart implements ITargetEntity {
             this.setDamage(10);
             double dis = this.getPositionVector().distanceTo(sourceEntity.getPositionVector());
             player.sendStatusMessage(Components.translatable("message.tacz.target_minecart.hit", String.format("%.1f", damage), String.format("%.2f", dis)), true);
+            if (player instanceof EntityPlayerMP sp) {
+                TargetHitTrigger.INSTANCE.trigger(sp, dis);
+            }
             // 原版的声音传播距离由 volume 决定
             // 当声音大于 1 时，距离为 = 16 * volume
             float volume = OtherConfig.TARGET_SOUND_DISTANCE.get() / 16.0f;

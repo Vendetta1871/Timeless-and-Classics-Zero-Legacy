@@ -198,6 +198,27 @@ processResources {
             // tag, loot and recipe data that the 1.12.2 shims read from the jar (legacy.tags etc.)
             include 'data/**'
             include 'icon.png', 'logo.png'
+            // the other block models (display case, pegboards, ...) get the 1.12 vanilla texture paths here
+            filesMatching('assets/tacz/models/**/*.json') {
+                // 1.12.2 cannot resolve a texture variable that points to another variable of the same model
+                // ("particle": "#1" next to "1": "..."), so such references are replaced by the texture itself;
+                // Blockbench writes the texture entries before "particle"
+                def textures = [:]
+                filter { String line ->
+                    def fixed = line.replace('"minecraft:block/iron_block"', '"minecraft:blocks/iron_block"')
+                            .replace('"minecraft:block/oak_planks"', '"minecraft:blocks/planks_oak"')
+                            .replace('"minecraft:block/stone"', '"minecraft:blocks/stone"')
+                    def entry = fixed =~ /^\s*"(\w+)"\s*:\s*"([^"#][^"]*)"\s*,?\s*$/
+                    if (entry.matches()) {
+                        textures[entry.group(1)] = entry.group(2)
+                    }
+                    def particle = fixed =~ /^(\s*"particle"\s*:\s*")#(\w+)(".*)$/
+                    if (particle.matches() && textures.containsKey(particle.group(2))) {
+                        fixed = particle.group(1) + textures[particle.group(2)] + particle.group(3)
+                    }
+                    fixed
+                }
+            }
         }
     } else {
         logger.warn('Upstream TACZ checkout missing (.upstream/TACZ): the jar will not contain TACZ assets')

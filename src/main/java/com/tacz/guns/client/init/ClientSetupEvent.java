@@ -2,21 +2,20 @@ package com.tacz.guns.client.init;
 
 import com.tacz.guns.GunMod;
 import com.tacz.guns.api.client.other.ThirdPersonManager;
-import com.tacz.guns.client.gui.overlay.GunHudOverlay;
-import com.tacz.guns.client.gui.overlay.HeatBarOverlay;
-import com.tacz.guns.client.gui.overlay.InteractKeyTextOverlay;
-import com.tacz.guns.client.gui.overlay.KillAmountOverlay;
-import com.tacz.guns.client.input.*;
+import com.tacz.guns.client.gui.overlay.*;
+import com.tacz.guns.client.input.GunInputHandler;
+import com.tacz.guns.client.sound.SoundPlayManager;
 import com.tacz.guns.init.ModItems;
 import com.tacz.guns.item.AmmoBoxItem;
 import com.tacz.guns.legacy.render.GuiGraphics;
 import com.tacz.guns.legacy.util.IGuiOverlay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.resources.IReloadableResourceManager;
+import net.minecraft.client.resources.IResourceManagerReloadListener;
 import net.minecraft.item.Item;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
@@ -32,7 +31,8 @@ import java.util.List;
  *     <li>{@code RegisterClientTooltipComponentFactoriesEvent}: tooltip images are created by
  *     {@code legacy.util.TooltipComponentHandler};</li>
  *     <li>{@code RegisterGuiOverlaysEvent}: the overlays are drawn by {@link #onRenderGameOverlay} after the whole HUD;</li>
- *     <li>{@code RegisterClientReloadListenersEvent}: done by {@code LegacyClientSetup#init} ({@code ClientGunPacks}).</li>
+ *     <li>{@code RegisterClientReloadListenersEvent}: done by {@code LegacyClientSetup#init} ({@code ClientGunPacks}) and
+ *     {@link #onClientSetupInit} (sound cache).</li>
  * </ul>
  */
 @SideOnly(Side.CLIENT)
@@ -40,22 +40,19 @@ import java.util.List;
 public class ClientSetupEvent {
     private static final List<IGuiOverlay> OVERLAYS = new ArrayList<>();
 
+    // 1.12.2: no RegisterShadersEvent; upstream registers ScopeLensRenderer's shaders here, the port's lens effects
+    // (legacy.client.ScopeLensEffect) compile their programs on first use
+
     /**
      * {@code RegisterKeyMappingsEvent}
      */
     public static void onClientSetup() {
         // 注册键位
-        ClientRegistry.registerKeyBinding(InspectKey.INSPECT_KEY);
-        ClientRegistry.registerKeyBinding(ReloadKey.RELOAD_KEY);
-        ClientRegistry.registerKeyBinding(ShootKey.SHOOT_KEY);
-        ClientRegistry.registerKeyBinding(InteractKey.INTERACT_KEY);
-        ClientRegistry.registerKeyBinding(FireSelectKey.FIRE_SELECT_KEY);
-        ClientRegistry.registerKeyBinding(AimKey.AIM_KEY);
-        ClientRegistry.registerKeyBinding(RefitKey.REFIT_KEY);
-        ClientRegistry.registerKeyBinding(ZoomKey.ZOOM_KEY);
-        ClientRegistry.registerKeyBinding(MeleeKey.MELEE_KEY);
-        ClientRegistry.registerKeyBinding(ConfigKey.OPEN_CONFIG_KEY);
+        GunInputHandler.registerKeyMappings();
     }
+
+    // RegisterClientTooltipComponentFactoriesEvent: the factories (including ClientAmmoStorageTooltip) are in
+    // legacy.util.TooltipComponentHandler#createComponent
 
     /**
      * {@code RegisterGuiOverlaysEvent}
@@ -66,6 +63,7 @@ public class ClientSetupEvent {
         OVERLAYS.add(new HeatBarOverlay());
         OVERLAYS.add(new KillAmountOverlay());
         OVERLAYS.add(new InteractKeyTextOverlay());
+        OVERLAYS.add(new DisplayCaseLockHintOverlay());
     }
 
     /**
@@ -82,6 +80,16 @@ public class ClientSetupEvent {
         Item ammoBox = ModItems.AMMO_BOX.get();
         ammoBox.addPropertyOverride(AmmoBoxItem.PROPERTY_NAME, (stack, world, entity) -> AmmoBoxItem.getStatue(stack, world, entity));
 
+        // upstream: GunPegboardColors (RegisterColorHandlersEvent, ItemProperties of the gun pegboards)
+        GunPegboardColors.register();
+
+        // 1.12.2: ItemBlockRenderTypes.setRenderLayer(GUN_DISPLAY_CASE, cutout) is Block#getRenderLayer of GunDisplayCaseBlock
+
+        // upstream: onClientResourceReload (RegisterClientReloadListenersEvent); the other listeners are registered by
+        // LegacyClientSetup#init
+        ((IReloadableResourceManager) Minecraft.getMinecraft().getResourceManager())
+                .registerReloadListener((IResourceManagerReloadListener) resourceManager -> SoundPlayManager.clearSoundResourceCache());
+
         // 与 Shoulder Surfing Reloaded / Controllable / Accelerated Rendering 的兼容
         // TODO(port): needs ShoulderSurfingCompat (no 1.12.2 version, see README)
         // TODO(port): needs ControllableCompat (no 1.12.2 version, see README)
@@ -89,8 +97,8 @@ public class ClientSetupEvent {
     }
 
     /**
-     * Draws the overlays above the whole HUD ({@code registerAboveAll}; upstream draws the interact key text right above
-     * the crosshair).
+     * Draws the overlays above the whole HUD ({@code registerAboveAll}; upstream draws the interact key text and the
+     * display case lock hint right above the crosshair).
      */
     @SubscribeEvent
     public static void onRenderGameOverlay(RenderGameOverlayEvent.Post event) {

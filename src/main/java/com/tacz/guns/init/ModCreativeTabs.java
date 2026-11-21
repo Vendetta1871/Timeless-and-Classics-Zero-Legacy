@@ -37,6 +37,12 @@ public class ModCreativeTabs {
                 output.addAll(GunSmithTableItem.fillItemCategory());
                 output.add(new ItemStack(ModItems.TARGET.get()));
                 output.add(new ItemStack(ModItems.STATUE.get()));
+                output.add(new ItemStack(ModItems.GUN_PEGBOARD.get()));
+                output.add(new ItemStack(ModItems.GLOW_GUN_PEGBOARD.get()));
+                output.add(new ItemStack(ModItems.AMMO_STORAGE.get()));
+                output.add(new ItemStack(ModItems.AMMO_STORAGE_GOLD.get()));
+                output.add(new ItemStack(ModItems.AMMO_STORAGE_DIAMOND.get()));
+                output.add(new ItemStack(ModItems.GUN_DISPLAY_CASE.get()));
                 output.add(new ItemStack(ModItems.TARGET_MINECART.get()));
                 AmmoBoxItem.fillItemCategory(output);
             });
@@ -76,6 +82,10 @@ public class ModCreativeTabs {
     public static CreativeTabs GUN_SNIPER_TAB = new Tab("tacz_sniper", "tacz.type.sniper.name",
             () -> GunItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, "ai_awp")).build(),
             output -> output.addAll(AbstractGunItem.fillItemCategory(GunTabType.SNIPER)));
+
+    public static CreativeTabs GUN_DMR_TAB = new Tab("tacz_dmr", "tacz.type.dmr.name",
+            () -> GunItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, "mk14")).build(),
+            output -> output.addAll(AbstractGunItem.fillItemCategory(GunTabType.DMR)));
 
     public static CreativeTabs GUN_RIFLE_TAB = new Tab("tacz_rifle", "tacz.type.rifle.name",
             () -> GunItemBuilder.create().setId(new ResourceLocation(GunMod.MOD_ID, "ak47")).build(),

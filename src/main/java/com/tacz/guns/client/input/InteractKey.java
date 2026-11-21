@@ -1,7 +1,12 @@
 package com.tacz.guns.client.input;
 
 import com.tacz.guns.api.item.IGun;
+import com.tacz.guns.block.AmmoStorageBlock;
+import com.tacz.guns.block.GunDisplayCaseBlock;
+import com.tacz.guns.client.event.GunDisplayCaseClientInteractionEvent;
 import com.tacz.guns.config.util.InteractKeyConfigRead;
+import com.tacz.guns.network.NetworkHandler;
+import com.tacz.guns.network.message.ClientMessageAmmoStorageInteract;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -11,20 +16,14 @@ import net.minecraft.block.state.IBlockState;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.client.settings.KeyConflictContext;
 import net.minecraftforge.client.settings.KeyModifier;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import com.tacz.guns.GunMod;
-import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.input.Keyboard;
-import com.tacz.guns.legacy.util.KeyInputs;
 import com.tacz.guns.legacy.util.MinecraftAccess;
 
 import static com.tacz.guns.util.InputExtraCheck.isInGame;
 
 @SideOnly(Side.CLIENT)
-@Mod.EventBusSubscriber(value = Side.CLIENT, modid = GunMod.MOD_ID)
 public class InteractKey {
     public static final KeyBinding INTERACT_KEY = new KeyBinding("key.tacz.interact.desc",
             KeyConflictContext.IN_GAME,
@@ -32,66 +31,47 @@ public class InteractKey {
             Keyboard.KEY_O,
             "key.category.tacz");
 
-    @SubscribeEvent
-    public static void onInteractKeyPress(InputEvent.KeyInputEvent event) {
-        if (isInGame() && KeyInputs.isPress() && KeyInputs.matches(INTERACT_KEY)) {
-            doInteractLogic();
-        }
-    }
-
-    @SubscribeEvent
-    public static void onInteractMousePress(InputEvent.MouseInputEvent event) {
-        if (isInGame() && KeyInputs.isMousePress() && KeyInputs.matchesMouse(INTERACT_KEY)) {
-            doInteractLogic();
-        }
-    }
-
     public static boolean onInteractControllerPress(boolean isPress) {
-        if (isInGame() && isPress) {
-            Minecraft mc = Minecraft.getMinecraft();
-            EntityPlayerSP player = mc.player;
-            if (player == null || player.isSpectator()) {
-                return false;
-            }
-            if (!IGun.mainHandHoldGun(player)) {
-                return false;
-            }
-            RayTraceResult hitResult = mc.objectMouseOver;
-            if (hitResult == null) {
-                return false;
-            }
-            if (hitResult.typeOfHit == RayTraceResult.Type.BLOCK) {
-                interactBlock(hitResult, player, mc);
-                return true;
-            }
-            if (hitResult.typeOfHit == RayTraceResult.Type.ENTITY) {
-                interactEntity(hitResult, mc);
-                return true;
-            }
-        }
-        return false;
+        return isPress && onInteractPress(true);
     }
 
-    private static void doInteractLogic() {
+    public static boolean onInteractPress() {
+        return onInteractPress(false);
+    }
+
+    public static boolean sharesUseBinding(KeyBinding useKey) {
+        // 1.12.2: an unbound key has key code 0 (KEY_NONE)
+        return useKey.getKeyCode() != Keyboard.KEY_NONE
+                && INTERACT_KEY.getKeyCode() == useKey.getKeyCode()
+                && INTERACT_KEY.getKeyModifier() == useKey.getKeyModifier();
+    }
+
+    private static boolean onInteractPress(boolean fromController) {
+        if (!isInGame()) {
+            return false;
+        }
         Minecraft mc = Minecraft.getMinecraft();
         EntityPlayerSP player = mc.player;
         if (player == null || player.isSpectator()) {
-            return;
+            return false;
         }
         if (!IGun.mainHandHoldGun(player)) {
-            return;
+            return false;
         }
         RayTraceResult hitResult = mc.objectMouseOver;
         if (hitResult == null) {
-            return;
+            return false;
         }
+        boolean vanillaHandlesUse = !fromController && sharesUseBinding(mc.gameSettings.keyBindUseItem);
         if (hitResult.typeOfHit == RayTraceResult.Type.BLOCK) {
-            interactBlock(hitResult, player, mc);
-            return;
+            interactBlock(hitResult, player, mc, vanillaHandlesUse);
+            return true;
         }
         if (hitResult.typeOfHit == RayTraceResult.Type.ENTITY) {
-            interactEntity(hitResult, mc);
+            interactEntity(hitResult, mc, vanillaHandlesUse);
+            return true;
         }
+        return false;
     }
 
     /**
@@ -114,17 +94,24 @@ public class InteractKey {
         return false;
     }
 
-    private static void interactBlock(RayTraceResult blockHitResult, EntityPlayerSP player, Minecraft mc) {
+    private static void interactBlock(RayTraceResult blockHitResult, EntityPlayerSP player, Minecraft mc, boolean vanillaHandlesUse) {
         BlockPos blockPos = blockHitResult.getBlockPos();
         IBlockState block = player.world.getBlockState(blockPos);
-        if (InteractKeyConfigRead.canInteractBlock(block)) {
+        if (block.getBlock() instanceof GunDisplayCaseBlock) {
+            GunDisplayCaseClientInteractionEvent.showHintForTarget(mc, true);
+        }
+        if (block.getBlock() instanceof AmmoStorageBlock) {
+            NetworkHandler.CHANNEL.sendToServer(new ClientMessageAmmoStorageInteract(blockPos));
+            return;
+        }
+        if (!vanillaHandlesUse && InteractKeyConfigRead.canInteractBlock(block)) {
             MinecraftAccess.startUseItem(mc);
         }
     }
 
-    private static void interactEntity(RayTraceResult entityHitResult, Minecraft mc) {
+    private static void interactEntity(RayTraceResult entityHitResult, Minecraft mc, boolean vanillaHandlesUse) {
         Entity entity = entityHitResult.entityHit;
-        if (InteractKeyConfigRead.canInteractEntity(entity)) {
+        if (!vanillaHandlesUse && InteractKeyConfigRead.canInteractEntity(entity)) {
             MinecraftAccess.startUseItem(mc);
         }
     }

@@ -2,6 +2,9 @@ package com.tacz.guns.client.init;
 
 import com.tacz.guns.block.entity.GunSmithTableBlockEntity;
 import com.tacz.guns.client.gui.GunSmithTableScreen;
+import com.tacz.guns.client.gui.AmmoStorageScreen;
+import com.tacz.guns.init.ModContainer;
+import com.tacz.guns.inventory.AmmoStorageMenu;
 import com.tacz.guns.inventory.GunSmithTableMenu;
 import com.tacz.guns.legacy.util.Components;
 import net.minecraft.entity.player.EntityPlayer;
@@ -30,5 +33,15 @@ public class ModContainerScreen {
             return new GunSmithTableScreen(menu, player.inventory, Components.literal(""));
         }
         return null;
+    }
+
+    /**
+     * The client side of {@code ModContainer.AMMO_STORAGE_MENU}: like upstream, the client menu has no block entity,
+     * the stored entries arrive through the container sync.
+     */
+    public static Object createAmmoStorageScreen(EntityPlayer player, World world, int x, int y, int z) {
+        AmmoStorageMenu menu = new AmmoStorageMenu(0, player.inventory);
+        // the title upstream gets from AmmoStorageBlockEntity#getDisplayName through the open screen packet
+        return new AmmoStorageScreen(menu, player.inventory, Components.translatable("gui.tacz.ammo_storage.title"));
     }
 }

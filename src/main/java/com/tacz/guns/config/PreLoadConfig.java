@@ -11,8 +11,9 @@ public class PreLoadConfig {
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
         builder.push("gunpack");
-        builder.comment("When enabled, the mod will not try to overwrite the default pack under .minecraft/tacz\n" +
-                "Since 1.0.4, the overwriting will only run when you start client or a dedicated server");
+        builder.comment("Enable to preserve local default gun pack edits.",
+                "When disabled, changes to the TACZ version or bundled resources trigger replacement at startup.",
+                "To regenerate, disable this option, delete <game directory>/tacz/tacz_default_gun, then restart.");
         override = builder.define("DefaultPackDebug", false);
         builder.pop();
         spec = builder.build();
@@ -26,7 +27,7 @@ public class PreLoadConfig {
     }
 
     /**
-     * 1.12.2 addition: writes the current values (e.g. after {@code override.set(..)}) back to tacz-pre.cfg.
+     * Writes the current values (e.g. after {@code override.set(..)}) back to tacz-pre.cfg.
      */
     public static void save() {
         spec.save();

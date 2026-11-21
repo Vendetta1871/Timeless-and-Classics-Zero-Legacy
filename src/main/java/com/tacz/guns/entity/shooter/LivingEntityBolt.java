@@ -5,6 +5,7 @@ import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.item.gun.AbstractGunItem;
 import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.pojo.data.gun.Bolt;
+import com.tacz.guns.util.time.GunTime;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.ItemStack;
@@ -73,8 +74,11 @@ public class LivingEntityBolt {
             if (noAmmo) {
                 return;
             }
-            data.boltTimestamp = System.currentTimeMillis();
+            data.boltTimestamp = GunTime.nowMillis();
             data.isBolting = iGun.startBolt(data, currentGunItem, shooter);
+            if (data.isBolting && gunIndex.getGunData().isForceAimExitOnBolt()) {
+                gunOperator.aim(false);
+            }
         });
     }
 

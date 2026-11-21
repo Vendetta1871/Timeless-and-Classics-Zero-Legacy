@@ -4,29 +4,30 @@ import com.tacz.guns.resource.CommonAssetsManager;
 import net.minecraft.util.ResourceLocation;
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import com.google.common.collect.ImmutableSet;
+import com.tacz.guns.legacy.util.ResourceLocations;
 
 public final class AllowAttachmentTagMatcher {
     private static final String TAG_PREFIX = "#";
-    private static final Cache CACHE = new Cache();
+    private static volatile Cache cache = new Cache();
 
     public static final class Cache {
-        private final Map<Pair<ResourceLocation, ResourceLocation>, Boolean> allowAttachmentCache;
-        private final Map<Pair<ResourceLocation, ResourceLocation>, Boolean> tagMatchCache;
+        private final Map<ResourceLocation, Set<ResourceLocation>> allowAttachmentCache;
+        private final Map<ResourceLocation, Set<ResourceLocation>> tagMatchCache;
 
-        public Cache(Map<Pair<ResourceLocation, ResourceLocation>, Boolean> allowAttachmentCache, Map<Pair<ResourceLocation, ResourceLocation>, Boolean> tagMatchCache) {
+        public Cache(Map<ResourceLocation, Set<ResourceLocation>> allowAttachmentCache, Map<ResourceLocation, Set<ResourceLocation>> tagMatchCache) {
             this.allowAttachmentCache = allowAttachmentCache;
             this.tagMatchCache = tagMatchCache;
         }
 
-        public Map<Pair<ResourceLocation, ResourceLocation>, Boolean> allowAttachmentCache() {
+        public Map<ResourceLocation, Set<ResourceLocation>> allowAttachmentCache() {
             return allowAttachmentCache;
         }
 
-        public Map<Pair<ResourceLocation, ResourceLocation>, Boolean> tagMatchCache() {
+        public Map<ResourceLocation, Set<ResourceLocation>> tagMatchCache() {
             return tagMatchCache;
         }
 
@@ -54,22 +55,16 @@ public final class AllowAttachmentTagMatcher {
     }
 
     public static boolean match(ResourceLocation gunId, ResourceLocation attachmentId) {
-        var key = Pair.of(gunId, attachmentId);
-        return CACHE.allowAttachmentCache().computeIfAbsent(key, AllowAttachmentTagMatcher::match0);
+        return cache.allowAttachmentCache().computeIfAbsent(gunId, AllowAttachmentTagMatcher::resolveAllowed).contains(attachmentId);
     }
 
     public static boolean match0(Pair<ResourceLocation, ResourceLocation> record) {
-        ResourceLocation gunId = record.getLeft();
-        ResourceLocation attachmentId = record.getRight();
-        Set<String> allowAttachmentTags = CommonAssetsManager.get().getAllowAttachmentTags(gunId);
-        // 如果枪械对应的 allowAttachmentTags 为空，说明目前没有任何可以装的配件
-        if (allowAttachmentTags == null || allowAttachmentTags.isEmpty()) {
-            return false;
-        }
-        // 开始遍历 allowAttachmentTags，寻找配件 id
-        AtomicBoolean searchSignal = new AtomicBoolean(false);
-        treeSearch(allowAttachmentTags, attachmentId, searchSignal);
-        return searchSignal.get();
+        return resolveAllowed(record.getLeft()).contains(record.getRight());
+    }
+
+    private static Set<ResourceLocation> resolveAllowed(ResourceLocation gunId) {
+        var provider = CommonAssetsManager.get();
+        return expand(provider.getAllowAttachmentTags(gunId), null, provider::getAttachmentTags);
     }
 
     /**
@@ -83,49 +78,59 @@ public final class AllowAttachmentTagMatcher {
      * @since 1.1.7
      */
     public static boolean matchTag(ResourceLocation tag, ResourceLocation attachmentId) {
-        var key = Pair.of(tag, attachmentId);
-        return CACHE.tagMatchCache().computeIfAbsent(key, AllowAttachmentTagMatcher::matchTag0);
+        return cache.tagMatchCache().computeIfAbsent(tag, AllowAttachmentTagMatcher::resolveTag).contains(attachmentId);
     }
 
     public static boolean matchTag0(Pair<ResourceLocation, ResourceLocation> record) {
-        ResourceLocation tag = record.getLeft();
-        ResourceLocation attachmentId = record.getRight();
-        Set<String> tagContent = CommonAssetsManager.get().getAttachmentTags(tag);
-        // 如果 tag 对应的内容集为空，说明目前没有任何内容
-        if (tagContent == null || tagContent.isEmpty()) {
-            return false;
-        }
-        // 开始遍历内容集，寻找配件 id
-        AtomicBoolean searchSignal = new AtomicBoolean(false);
-        treeSearch(tagContent, attachmentId, searchSignal);
-        return searchSignal.get();
+        return resolveTag(record.getLeft()).contains(record.getRight());
     }
 
-    private static void treeSearch(Set<String> tags, ResourceLocation attachmentId, AtomicBoolean searchSignal) {
-        // 开始遍历 tags，寻找配件 id
-        for (String tag : tags) {
-            // 如果是 tag，则去 attachment tag 寻找我们的东西
-            if (tag.startsWith(TAG_PREFIX)) {
-                ResourceLocation tagId = new ResourceLocation(tag.substring(TAG_PREFIX.length()));
-                Set<String> attachmentTags = CommonAssetsManager.get().getAttachmentTags(tagId);
-                // 如果检索的这个配件 tag 不为空，开始递归查找
-                if (attachmentTags != null && !attachmentTags.isEmpty()) {
-                    treeSearch(attachmentTags, attachmentId, searchSignal);
-                }
+    private static Set<ResourceLocation> resolveTag(ResourceLocation tag) {
+        var provider = CommonAssetsManager.get();
+        return expand(provider.getAttachmentTags(tag), tag, provider::getAttachmentTags);
+    }
+
+    /** Expand a complete root independently; caching partial child results is incorrect for cycles. */
+    static Set<ResourceLocation> expand(Set<String> content, ResourceLocation rootTag,
+                                        Function<ResourceLocation, Set<String>> getTag) {
+        if (content == null || content.isEmpty()) {
+            return ImmutableSet.of();
+        }
+        Set<ResourceLocation> attachments = new HashSet<>();
+        Set<ResourceLocation> visited = new HashSet<>();
+        if (rootTag != null) {
+            visited.add(rootTag);
+        }
+        var pending = new ArrayDeque<Iterator<String>>();
+        pending.push(content.iterator());
+        while (!pending.isEmpty()) {
+            Iterator<String> entries = pending.peek();
+            if (!entries.hasNext()) {
+                pending.pop();
+                continue;
             }
-            // 如果是配件 id，直接对比
-            else {
-                ResourceLocation matchAttachmentId = new ResourceLocation(tag);
-                if (attachmentId.equals(matchAttachmentId)) {
-                    searchSignal.set(true);
-                    return;
+            String entry = entries.next();
+            if (entry.startsWith(TAG_PREFIX)) {
+                ResourceLocation tagId = ResourceLocations.tryParse(entry.substring(TAG_PREFIX.length()));
+                if (tagId == null || !visited.add(tagId)) {
+                    continue;
+                }
+                Set<String> child = getTag.apply(tagId);
+                if (child != null && !child.isEmpty()) {
+                    pending.push(child.iterator());
+                }
+            } else {
+                ResourceLocation id = ResourceLocations.tryParse(entry);
+                if (id != null) {
+                    attachments.add(id);
                 }
             }
         }
+        return ImmutableSet.copyOf(attachments);
     }
 
     public static void resetCache() {
-        CACHE.allowAttachmentCache().clear();
-        CACHE.tagMatchCache().clear();
+        // In-flight computations may finish in the old cache, but cannot repopulate the new one.
+        cache = new Cache();
     }
 }

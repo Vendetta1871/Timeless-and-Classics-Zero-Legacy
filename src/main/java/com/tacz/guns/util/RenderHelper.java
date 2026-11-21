@@ -1,9 +1,13 @@
 package com.tacz.guns.util;
 
+import com.tacz.guns.client.animation.third.AnimationRenderContext;
+import com.tacz.guns.client.animation.third.PlayerModelRenderState;
 import com.tacz.guns.compat.ar.ARCompat;
-import com.tacz.guns.compat.optifine.OptifineCompat;
+import com.tacz.guns.compat.oculus.OculusCompat;
+import com.tacz.guns.legacy.render.MultiBufferSource;
 import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.RenderSystem;
+import com.tacz.guns.legacy.render.RenderType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -14,15 +18,20 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderPlayer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.EnumHandSide;
+import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
+import com.tacz.guns.legacy.render.DisplayContext;
+import com.tacz.guns.legacy.render.RenderBuffers;
 
 @SideOnly(Side.CLIENT)
 public final class RenderHelper {
+    private static final boolean IS_OPTIFINE_INSTALLED = isClassFound("net.optifine.Config");
+
     public static void blit(PoseStack poseStack, float x, float y, float uOffset, float vOffset, float pWidth, float height, float textureWidth, float textureHeight) {
         blit(poseStack, x, y, pWidth, height, uOffset, vOffset, pWidth, height, textureWidth, textureHeight);
     }
@@ -58,7 +67,7 @@ public final class RenderHelper {
         // 1.12.2: without shaders OptiFine keeps the vanilla framebuffer, which Forge can give stencil bits. Forge's
         // enableStencil() re-creates the framebuffer on every call (it would wipe the frame), so only once.
         // TODO(port): OptiFine shaders (stage 2); upstream's depth-texture branch for OptiFine/Oculus, kept below
-//        if (OptifineCompat.isOptifineInstalled()) {
+//        if (IS_OPTIFINE_INSTALLED) {
 //            // 以下代码用于应对 使用 optifine 的场景
 //            int depthTextureId = GL30.glGetFramebufferAttachmentParameteri(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
 //            int stencilTextureId = GL30.glGetFramebufferAttachmentParameteri(GL30.GL_FRAMEBUFFER, GL30.GL_STENCIL_ATTACHMENT, GL30.GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE);
@@ -85,20 +94,44 @@ public final class RenderHelper {
         GL11.glDisable(GL11.GL_STENCIL_TEST);
     }
 
+    private static boolean isClassFound(String className) {
+        try {
+            Class.forName(className, false, Thread.currentThread().getContextClassLoader());
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    /** Prefer passing the caller's buffer; old overloads must respect an active shader hand pass. */
+    public static MultiBufferSource getBufferSource(ItemCameraTransforms.TransformType context) {
+        if (DisplayContext.firstPerson(context)) {
+            MultiBufferSource handBuffer = OculusCompat.getHandBufferSource();
+            if (handBuffer != null) {
+                return handBuffer;
+            }
+        }
+        return RenderBuffers.bufferSource();
+    }
+
     /**
      * 1.12.2 arm models render through the GL matrix stack, so the pose is applied to GL around the call.
      */
     public static void renderFirstPersonArm(EntityPlayerSP player, EnumHandSide hand, PoseStack matrixStack, int combinedLight) {
+        renderFirstPersonArm(player, hand, matrixStack, combinedLight, getBufferSource(ItemCameraTransforms.TransformType.FIRST_PERSON_RIGHT_HAND));
+    }
+
+    public static void renderFirstPersonArm(EntityPlayerSP player, EnumHandSide hand, PoseStack matrixStack, int combinedLight, MultiBufferSource buffer) {
         Minecraft mc = Minecraft.getMinecraft();
         RenderPlayer renderer = (RenderPlayer) mc.getRenderManager().<net.minecraft.client.entity.AbstractClientPlayer>getEntityRenderObject(player);
         if (renderer == null) {
             return;
         }
 
-		if (ARCompat.shouldAccelerate()) {
-			ARCompat.setRenderingLevel();
-		}
-
+        boolean accelerated = ARCompat.shouldAccelerate();
+        if (accelerated) {
+            ARCompat.setRenderingLevel();
+        }
         mc.getTextureManager().bindTexture(player.getLocationSkin());
         float lastBrightnessX = OpenGlHelper.lastBrightnessX;
         float lastBrightnessY = OpenGlHelper.lastBrightnessY;
@@ -106,16 +139,33 @@ public final class RenderHelper {
         GlStateManager.pushMatrix();
         RenderSystem.multMatrix(matrixStack.last().pose());
         GlStateManager.enableCull();
-        if (hand == EnumHandSide.RIGHT) {
-            renderer.renderRightArm(player);
-        } else {
-            renderer.renderLeftArm(player);
+        // 在第一人称持枪渲染手臂期间，屏蔽我们自己的pa调用
+        try (PlayerModelRenderState state = new PlayerModelRenderState(renderer.getMainModel());
+             AnimationRenderContext scope = AnimationRenderContext.hand(player)) {
+            state.prepareArm(hand, !player.isSpectator());
+            if (hand == EnumHandSide.RIGHT) {
+                renderer.renderRightArm(player);
+            } else {
+                renderer.renderLeftArm(player);
+            }
+        } finally {
+            GlStateManager.popMatrix();
+            OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, lastBrightnessX, lastBrightnessY);
+            if (accelerated) {
+                ARCompat.resetRenderingLevel();
+            }
         }
-        GlStateManager.popMatrix();
-        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, lastBrightnessX, lastBrightnessY);
+    }
 
-		if (ARCompat.shouldAccelerate()) {
-			ARCompat.resetRenderingLevel();
-		}
+    public static void endBatch(MultiBufferSource buffer, RenderType renderType) {
+        if (buffer instanceof MultiBufferSource.BufferSource source) {
+            source.endBatch(renderType);
+        }
+    }
+
+    public static void endBatch(MultiBufferSource buffer) {
+        if (buffer instanceof MultiBufferSource.BufferSource source) {
+            source.endBatch();
+        }
     }
 }

@@ -22,19 +22,18 @@ public class GunSoundInstance extends PositionedSound {
     private final boolean canPlay;
     @Nullable
     private Sound redirectedSound;
-
-    public GunSoundInstance(SoundEvent soundEvent, SoundCategory source, float volume, float pitch, Entity entity, int soundDistance, ResourceLocation registryName, boolean mono) {
-        this(soundEvent, source, volume, pitch, entity, soundDistance, registryName, mono, false);
-    }
+    private final boolean useTaczSound;
 
     /**
      * 1.12.2: sounds cannot be listener-relative; a relative sound is placed at the entity like the others (with no
      * distance attenuation either way).
      */
-    public GunSoundInstance(SoundEvent soundEvent, SoundCategory source, float volume, float pitch, Entity entity, int soundDistance, ResourceLocation registryName, boolean mono, boolean relative) {
+    public GunSoundInstance(SoundEvent soundEvent, SoundCategory source, float volume, float pitch, Entity entity, int soundDistance,
+                            ResourceLocation registryName, boolean mono, boolean relative, boolean useTaczSound) {
         super(soundEvent, source);
         this.attenuationType = AttenuationType.NONE;
         this.registryName = registryName;
+        this.useTaczSound = useTaczSound;
         this.canPlay = !entity.isSilent();
         this.volume = volume;
         this.pitch = pitch;
@@ -46,6 +45,7 @@ public class GunSoundInstance extends PositionedSound {
             this.volume = volume * (1.0F - Math.min(1.0F, (float) Math.sqrt(player.getDistanceSq(xPosF, yPosF, zPosF)) / soundDistance));
             this.volume *= this.volume;
         }
+
     }
 
     public void setStop() {
@@ -67,7 +67,7 @@ public class GunSoundInstance extends PositionedSound {
     @Override
     public SoundEventAccessor createAccessor(SoundHandler handler) {
         SoundEventAccessor events = super.createAccessor(handler);
-        if (events != null && this.registryName != null) {
+        if (this.useTaczSound && this.registryName != null) {
             this.redirectedSound = new TaczSound(this.registryName, TACZ_SOUND_LISTER.idToFile(this.registryName), super.getSound());
             this.sound = this.redirectedSound;
         } else {

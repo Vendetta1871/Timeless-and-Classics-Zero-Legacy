@@ -109,7 +109,10 @@ public class AttachmentQueryCategory implements IRecipeCategory<IRecipeWrapper> 
         public Wrapper(AttachmentQueryEntry entry) {
             this.entry = entry;
             this.inputs = new ArrayList<>();
-            this.inputs.add(entry.getAllowGunStacks());
+            // One input slot per gun; the guns that do not fit cycle in the last slot
+            for (ItemStack gun : entry.getAllowGunStacks()) {
+                this.inputs.add(Collections.singletonList(gun));
+            }
             if (!entry.getExtraAllowGunStacks().isEmpty()) {
                 this.inputs.add(entry.getExtraAllowGunStacks());
             }

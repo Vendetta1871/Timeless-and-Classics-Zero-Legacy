@@ -1,6 +1,7 @@
 package com.tacz.guns.mixin.client;
 
 import com.tacz.guns.client.gameplay.LocalPlayerDataHolder;
+import com.tacz.guns.util.time.GunTime;
 import net.minecraft.client.audio.SoundHandler;
 import net.minecraft.client.gui.GuiButton;
 import org.spongepowered.asm.mixin.Mixin;
@@ -18,6 +19,6 @@ public class AbstractButtonMixin {
      */
     @Inject(method = "playPressSound(Lnet/minecraft/client/audio/SoundHandler;)V", at = @At("HEAD"))
     public void onClickHead(SoundHandler soundHandler, CallbackInfo ci) {
-        LocalPlayerDataHolder.clientClickButtonTimestamp = System.currentTimeMillis();
+        LocalPlayerDataHolder.clientClickButtonTimestamp = GunTime.nowMillis();
     }
 }

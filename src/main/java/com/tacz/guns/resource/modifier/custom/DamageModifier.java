@@ -141,10 +141,9 @@ public class DamageModifier implements IAttachmentModifier<Modifier, LinkedList<
             Modifier value = getValue();
             if (value != null) {
                 double eval = AttachmentPropertyManager.eval(value, 9);
-                int damage = (int) Math.round(eval);
-                if (damage > 9) {
+                if (eval > 9) {
                     components.add(Components.translatable("tooltip.tacz.attachment.damage.increase").withStyle(TextFormatting.GREEN));
-                } else if (damage < 9) {
+                } else if (eval < 9) {
                     components.add(Components.translatable("tooltip.tacz.attachment.damage.decrease").withStyle(TextFormatting.RED));
                 }
             }

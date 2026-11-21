@@ -7,6 +7,7 @@ import com.tacz.guns.block.entity.StatueBlockEntity;
 import com.tacz.guns.client.model.bedrock.BedrockModel;
 import com.tacz.guns.client.resource.InternalAssetLoader;
 import com.tacz.guns.config.client.RenderConfig;
+import com.tacz.guns.util.time.GunTime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import com.tacz.guns.legacy.render.RenderSystem;
@@ -60,7 +61,7 @@ public class StatueRenderer extends BlockEntityRenderer<StatueBlockEntity> {
                 poseStack.translate(0, -0.875, -1.2);
                 poseStack.mulPose(Axis.ZP.rotationDegrees(180));
 
-                double offset = Math.sin(System.currentTimeMillis() / 500.0) * 0.1;
+                double offset = Math.sin(GunTime.nowMillis() / 500.0) * 0.1;
                 poseStack.translate(0, offset, 0);
 
                 ItemStack stack = blockEntity.getGunItem();

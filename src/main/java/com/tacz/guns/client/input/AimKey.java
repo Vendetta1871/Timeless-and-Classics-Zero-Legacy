@@ -3,21 +3,17 @@ package com.tacz.guns.client.input;
 import com.tacz.guns.api.client.gameplay.IClientPlayerGunOperator;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.config.client.KeyConfig;
-import com.tacz.guns.util.InputExtraCheck;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.client.settings.KeyConflictContext;
 import net.minecraftforge.client.settings.KeyModifier;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import com.tacz.guns.GunMod;
 import net.minecraftforge.fml.common.Mod;
-import org.lwjgl.input.Keyboard;
-import com.tacz.guns.legacy.util.KeyInputs;
 
 import static com.tacz.guns.util.InputExtraCheck.isInGame;
 
@@ -29,34 +25,10 @@ public class AimKey {
             KeyModifier.NONE,
             -100 + 1, // right mouse button
             "key.category.tacz");
+    private static boolean controllerAimDown;
 
-    @SubscribeEvent
-    public static void onAimPress(InputEvent.MouseInputEvent event) {
-        if (isInGame() && KeyInputs.matchesMouse(AIM_KEY)) {
-            EntityPlayerSP player = Minecraft.getMinecraft().player;
-            if (player == null || player.isSpectator()) {
-                return;
-            }
-            if (!(player instanceof IClientPlayerGunOperator operator)) {
-                return;
-            }
-            if (IGun.mainHandHoldGun(player)) {
-                // 1.12.2: the right mouse button can be left to interact with the target under the crosshair
-                if (KeyInputs.isMousePress() && interactInsteadOfAim()) {
-                    return;
-                }
-                boolean action = true;
-                if (!KeyConfig.HOLD_TO_AIM.get()) {
-                    action = !operator.isAim();
-                }
-                if (KeyInputs.isMousePress()) {
-                    IClientPlayerGunOperator.fromLocalPlayer(player).aim(action);
-                }
-                if (KeyConfig.HOLD_TO_AIM.get() && KeyInputs.isMouseRelease()) {
-                    IClientPlayerGunOperator.fromLocalPlayer(player).aim(false);
-                }
-            }
-        }
+    public static boolean onAimPress() {
+        return onAimInput(true);
     }
 
     /**
@@ -68,46 +40,26 @@ public class AimKey {
     }
 
     /**
-     * 该监听器能正确处理 按住瞄准模式 下的
-     * 1.预输入（典型：按住瞄准切换武器后，能保持瞄准状态）
-     * 2.键盘按键输入
-     * 
-     * 建议将按下切换瞄准也支持 键盘按键输入
-     * */
+     * 合并键鼠和手柄的按住状态，同时保留切换武器时的瞄准预输入。
+     */
     @SubscribeEvent
     public static void onAimHoldingPreInput(TickEvent.ClientTickEvent event) {
-        if (!KeyConfig.HOLD_TO_AIM.get()) {
+        if (event.phase != TickEvent.Phase.END || !KeyConfig.HOLD_TO_AIM.get()) {
             return;
         }
-        Minecraft mc = Minecraft.getMinecraft();
-        boolean press = AimKey.AIM_KEY.isKeyDown();
-        if (InputExtraCheck.isInGame()) {
-            EntityPlayerSP player = mc.player;
-            if (player == null || player.isSpectator()) {
-                return;
-            }
-            if (!(player instanceof IClientPlayerGunOperator operator)) {
-                return;
-            }
-            if (operator.isAim() && press) {
-                return;
-            }
-            if (!operator.isAim()) {
-                if (!press) {
-                    return;
-                }
-                // 1.12.2: do not start aiming while the right mouse button is left for interacting
-                if (interactInsteadOfAim()) {
-                    return;
-                }
-            }
-            if (IGun.mainHandHoldGun(player)) {
-                IClientPlayerGunOperator.fromLocalPlayer(player).aim(press);
-            }
-        }
+        onAimInput(false);
     }
 
     public static boolean onAimControllerPress(boolean isPress) {
+        controllerAimDown = isPress;
+        return onAimInput(isPress);
+    }
+
+    public static void setControllerAimDown(boolean isDown) {
+        controllerAimDown = isDown;
+    }
+
+    private static boolean onAimInput(boolean isPress) {
         if (!isInGame()) {
             return false;
         }
@@ -125,19 +77,19 @@ public class AimKey {
         if (isPress && interactInsteadOfAim()) {
             return false;
         }
-        boolean action = true;
-        if (!KeyConfig.HOLD_TO_AIM.get()) {
-            action = !operator.isAim();
+        boolean holdToAim = KeyConfig.HOLD_TO_AIM.get();
+        if (!isPress && !holdToAim) {
+            return false;
         }
-        if (isPress) {
-            IClientPlayerGunOperator.fromLocalPlayer(player).aim(action);
-            return true;
+        boolean aim = holdToAim ? AIM_KEY.isKeyDown() || controllerAimDown : !operator.isAim();
+        // 1.12.2: do not start aiming while the aim button is held for interacting
+        if (aim && !operator.isAim() && interactInsteadOfAim()) {
+            return false;
         }
-        if (KeyConfig.HOLD_TO_AIM.get()) {
-            IClientPlayerGunOperator.fromLocalPlayer(player).aim(false);
-            return true;
+        if (operator.isAim() != aim) {
+            operator.aim(aim);
         }
-        return false;
+        return true;
     }
 
     @SubscribeEvent
@@ -146,6 +98,9 @@ public class AimKey {
             return;
         }
         Minecraft mc = Minecraft.getMinecraft();
+        if (!isInGame()) {
+            controllerAimDown = false;
+        }
         EntityPlayerSP player = mc.player;
         if (!(player instanceof IClientPlayerGunOperator operator)) {
             return;

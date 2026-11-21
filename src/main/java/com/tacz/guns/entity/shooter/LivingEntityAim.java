@@ -10,6 +10,7 @@ import com.tacz.guns.api.item.nbt.AttachmentItemDataAccessor;
 import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.modifier.custom.AdsModifier;
 import com.tacz.guns.resource.pojo.data.gun.GunData;
+import com.tacz.guns.util.time.GunTime;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.entity.EntityLivingBase;
@@ -29,7 +30,29 @@ public class LivingEntityAim {
     }
 
     public void aim(boolean isAim) {
+        if (isAim && shouldBlockAim()) {
+            data.isAiming = false;
+            return;
+        }
         data.isAiming = isAim;
+    }
+
+    private boolean shouldBlockAim() {
+        if (data.currentGunItem == null) {
+            return false;
+        }
+        ItemStack currentGunItem = data.currentGunItem.get();
+        if (!(currentGunItem.getItem() instanceof IGun iGun)) {
+            return false;
+        }
+        ResourceLocation gunId = iGun.getGunId(currentGunItem);
+        Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(gunId);
+        if (!gunIndexOptional.isPresent()) {
+            return false;
+        }
+        GunData gunData = gunIndexOptional.get().getGunData();
+        return (gunData.isForceAimExitOnReload() && data.reloadStateType.isReloading()) ||
+                (gunData.isForceAimExitOnBolt() && data.isBolting);
     }
 
     public void zoom() {
@@ -57,7 +80,7 @@ public class LivingEntityAim {
         // currentGunItem 如果为 null，则取消瞄准状态并将 aimingProgress 归零。
         if (data.currentGunItem == null || !(data.currentGunItem.get().getItem() instanceof IGun iGun)) {
             data.aimingProgress = 0;
-            data.aimingTimestamp = System.currentTimeMillis();
+            data.aimingTimestamp = GunTime.nowMillis();
             return;
         }
         ItemStack currentGunItem = data.currentGunItem.get();
@@ -74,7 +97,7 @@ public class LivingEntityAim {
             aimTime = this.data.cacheProperty.<Float>getCache(AdsModifier.ID);
         }
         aimTime = Math.max(0, aimTime);
-        float alphaProgress = (System.currentTimeMillis() - data.aimingTimestamp + 1) / (aimTime * 1000);
+        float alphaProgress = (GunTime.nowMillis() - data.aimingTimestamp + 1) / (aimTime * 1000);
         if (data.isAiming) {
             // 处于执行瞄准状态，增加 aimingProgress
             data.aimingProgress += alphaProgress;
@@ -88,7 +111,7 @@ public class LivingEntityAim {
                 data.aimingProgress = 0;
             }
         }
-        data.aimingTimestamp = System.currentTimeMillis();
+        data.aimingTimestamp = GunTime.nowMillis();
     }
 
     public void tickSprint() {
@@ -98,7 +121,7 @@ public class LivingEntityAim {
             shooter.setSprinting(false);
         }
         if (data.sprintTimestamp == -1) {
-            data.sprintTimestamp = System.currentTimeMillis();
+            data.sprintTimestamp = GunTime.nowMillis();
         }
         if (data.currentGunItem == null) {
             return;
@@ -111,17 +134,17 @@ public class LivingEntityAim {
         Optionals.ifPresentOrElse(TimelessAPI.getCommonGunIndex(iGun.getGunId(gunItem)), gunIndex -> {
             float gunSprintTime = gunIndex.getGunData().getSprintTime();
             if (shooter.isSprinting() && !shooter.isSneaking()) {
-                data.sprintTimeS += (System.currentTimeMillis() - data.sprintTimestamp) / 1000f;
+                data.sprintTimeS += (GunTime.nowMillis() - data.sprintTimestamp) / 1000f;
                 if (data.sprintTimeS > gunSprintTime) {
                     data.sprintTimeS = gunSprintTime;
                 }
             } else {
-                data.sprintTimeS -= (System.currentTimeMillis() - data.sprintTimestamp) / 1000f;
+                data.sprintTimeS -= (GunTime.nowMillis() - data.sprintTimestamp) / 1000f;
                 if (data.sprintTimeS < 0) {
                     data.sprintTimeS = 0;
                 }
             }
         }, () -> data.sprintTimeS = 0);
-        data.sprintTimestamp = System.currentTimeMillis();
+        data.sprintTimestamp = GunTime.nowMillis();
     }
 }

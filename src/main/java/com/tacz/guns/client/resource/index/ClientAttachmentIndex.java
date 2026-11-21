@@ -4,11 +4,16 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.client.model.BedrockAttachmentModel;
+import com.tacz.guns.client.model.ExternalGunModel;
 import com.tacz.guns.client.resource.ClientAssetLoadDispatcher;
+import com.tacz.guns.client.resource.ClientAssetLoadTask;
 import com.tacz.guns.client.resource.ClientAssetsManager;
+import com.tacz.guns.client.resource.ExternalModelAssets;
 import com.tacz.guns.client.resource.pojo.display.LaserConfig;
+import com.tacz.guns.client.resource.pojo.display.SoundData;
 import com.tacz.guns.client.resource.pojo.display.attachment.AttachmentDisplay;
 import com.tacz.guns.client.resource.pojo.display.attachment.AttachmentLod;
+import com.tacz.guns.client.resource.pojo.display.attachment.ScopeLensConfig;
 import com.tacz.guns.client.resource.pojo.display.gun.TextShow;
 import com.tacz.guns.client.resource.pojo.model.BedrockModelPOJO;
 import com.tacz.guns.client.resource.pojo.model.BedrockVersion;
@@ -18,6 +23,8 @@ import com.tacz.guns.resource.pojo.AttachmentIndexPOJO;
 import com.tacz.guns.resource.pojo.data.attachment.AttachmentData;
 import com.tacz.guns.util.ColorHex;
 import com.tacz.guns.legacy.render.MissingTexture;
+import com.tacz.guns.legacy.client.ClientLanguage;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ResourceLocation;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -26,9 +33,11 @@ import org.jetbrains.annotations.Nullable;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import com.tacz.guns.legacy.util.Optionals;
+import com.google.common.collect.ImmutableSet;
 
 public class ClientAttachmentIndex {
     private final Object modelLoadLock = new Object();
@@ -38,18 +47,43 @@ public class ClientAttachmentIndex {
     private @Nullable BedrockAttachmentModel attachmentModel;
     private @Nullable ResourceLocation modelTexture;
     private @Nullable Pair<BedrockAttachmentModel, ResourceLocation> lodModel;
+
+    private final ExternalModelAssets externalModels = new ExternalModelAssets();
+    private final ClientAssetLoadTask<ExternalGunModel> externalModel = externalModels.add(
+            () -> display.getModel(),
+            this::bakeExternalModel,
+            failure -> {
+                GunMod.LOGGER.warn("Failed to bake SBM attachment model {}", display.getModel(), failure);
+            }
+    );
+
+    private final ClientAssetLoadTask<Pair<ExternalGunModel, ResourceLocation>> externalLodModel =
+            externalModels.add(
+                    this::externalLodResource,
+                    this::bakeExternalLodModel,
+                    failure -> {
+                        GunMod.LOGGER.warn("Failed to bake SBM attachment LOD {}", display.getModel(), failure);
+                    }
+            );
+
     private ResourceLocation slotTexture;
     private AttachmentData data;
     private float[] viewsFov;
     private float @Nullable [] zoom;
     private int [] views;
+    private float idleScopeHeightAdjust;
     private boolean isScope;
     private boolean isSight;
     private boolean showMuzzle;
     private boolean showMount;
+    private float muzzleFlashOffset;
+    private boolean hasRangefinder;
+    private boolean hasImpactPrediction;
+    private @Nullable String thermalImagingTooltipKey;
+    private boolean hasAmmoCounter;
     private @Nullable String adapterNodeName;
     private @Nullable String tooltipKey;
-    private Map<String, ResourceLocation> sounds;
+    private Map<String, SoundData> sounds;
     private @Nullable LaserConfig laserConfig;
     private volatile boolean modelsLoaded = false;
     private volatile boolean modelsLoadFailed = false;
@@ -65,7 +99,7 @@ public class ClientAttachmentIndex {
         checkData(indexPOJO, index);
         checkName(indexPOJO, index);
         checkSlotTexture(display, index);
-//        checkSkins(registryName, index);
+        // 配件皮肤加载暂未启用：checkSkins(registryName, index);
         checkSounds(display, index);
         if (!ResourceConfig.ENABLE_LAZY_CLIENT_ASSET_LOAD.get()) {
             index.ensureModelsLoaded();
@@ -114,9 +148,23 @@ public class ClientAttachmentIndex {
         }
         index.isScope = display.isScope();
         index.isSight = display.isSight();
+        index.idleScopeHeightAdjust = display.getIdleScopeHeightAdjust();
         index.adapterNodeName = display.getAdapterNodeName();
         index.showMuzzle = display.isShowMuzzle();
         index.showMount = display.isShowMount();
+        index.muzzleFlashOffset = display.getMuzzleFlashOffset();
+        index.hasRangefinder = display.getTextShows().values().stream().anyMatch(textShow -> textShow.getRangefinder() != null);
+        index.hasImpactPrediction = display.getTextShows().values().stream()
+                .anyMatch(textShow -> textShow.getRangefinder() != null && textShow.getRangefinder().isShowImpactPrediction());
+        index.thermalImagingTooltipKey = switch (display.getScopeLens().getVisionMode()) {
+            case THERMAL_WHITE_HOT -> "tooltip.tacz.attachment.thermal_imaging.white_hot";
+            case THERMAL_BLACK_HOT -> "tooltip.tacz.attachment.thermal_imaging.black_hot";
+            case THERMAL_IRONBOW -> "tooltip.tacz.attachment.thermal_imaging.ironbow";
+            default -> null;
+        };
+        index.hasAmmoCounter = display.getTextShows().values().stream()
+                .anyMatch(textShow -> textShow.getTextKey() != null
+                        && ClientLanguage.getOrDefault(textShow.getTextKey()).contains("%ammo_count%"));
         index.laserConfig = display.getLaserConfig();
         return display;
     }
@@ -161,11 +209,18 @@ public class ClientAttachmentIndex {
         if (index.attachmentModel != null) {
             index.attachmentModel.setIsScope(display.isScope());
             index.attachmentModel.setIsSight(display.isSight());
+            index.attachmentModel.setScopeLens(display.getScopeLens());
         }
         index.modelTexture = display.getTexture();
     }
 
     public void warmUp() {
+        warmUpLegacyModels();
+        externalModel.warmUp();
+        externalLodModel.warmUp();
+    }
+
+    private void warmUpLegacyModels() {
         if (!ResourceConfig.ENABLE_LAZY_CLIENT_ASSET_LOAD.get()) {
             ensureModelsLoaded();
             return;
@@ -290,7 +345,7 @@ public class ClientAttachmentIndex {
 
 
     private static void checkSounds(AttachmentDisplay display, ClientAttachmentIndex index) {
-        Map<String, ResourceLocation> displaySounds = display.getSounds();
+        Map<String, SoundData> displaySounds = display.getSounds();
         if (displaySounds == null) {
             index.sounds = Maps.newHashMap();
             return;
@@ -311,6 +366,72 @@ public class ClientAttachmentIndex {
     public BedrockAttachmentModel getAttachmentModel() {
         ensureModelsLoaded();
         return attachmentModel;
+    }
+
+    @Nullable
+    public ExternalGunModel getExternalModel() {
+        return externalModel.getIfReady();
+    }
+
+    private @Nullable ExternalGunModel bakeExternalModel() {
+        if (!loadModelsForExternalCapture() || attachmentModel == null || display.getModel() == null) {
+            return null;
+        }
+
+        BedrockModelPOJO source = ClientAssetsManager.INSTANCE.getBedrockModelPOJO(display.getModel());
+        if (source == null) {
+            return null;
+        }
+        return ExternalGunModel.bake(source, getExternalHiddenTextBones());
+    }
+
+    private boolean loadModelsForExternalCapture() {
+        if (modelsLoadFailed) {
+            return false;
+        }
+
+        try {
+            loadModelsIfNecessary();
+        } catch (RuntimeException failure) {
+            handleModelsLoadFailure(failure);
+            return false;
+        }
+        return modelsLoaded;
+    }
+
+    public Set<String> getExternalHiddenTextBones() {
+        return display.getTextShows() == null ? ImmutableSet.of() : ImmutableSet.copyOf(display.getTextShows().keySet());
+    }
+
+    @Nullable
+    public Pair<ExternalGunModel, ResourceLocation> getExternalLodModel() {
+        return externalLodModel.getIfReady();
+    }
+
+    private @Nullable Pair<ExternalGunModel, ResourceLocation> bakeExternalLodModel() {
+        if (!loadModelsForExternalCapture() || lodModel == null) {
+            return null;
+        }
+
+        AttachmentLod lod = display.getAttachmentLod();
+        BedrockModelPOJO source = ClientAssetsManager.INSTANCE.getBedrockModelPOJO(lod.getModelLocation());
+        if (source == null) {
+            return null;
+        }
+        ExternalGunModel model = ExternalGunModel.bake(source, getExternalHiddenTextBones());
+        return Pair.of(model, lod.getModelTexture());
+    }
+
+    public ExternalModelAssets getExternalModels() {
+        return externalModels;
+    }
+
+    private ResourceLocation externalLodResource() {
+        AttachmentLod lod = display.getAttachmentLod();
+        if (lod != null && lod.getModelLocation() != null) {
+            return lod.getModelLocation();
+        }
+        return display.getModel();
     }
 
     @Nullable
@@ -341,6 +462,10 @@ public class ClientAttachmentIndex {
         return views;
     }
 
+    public float getIdleScopeHeightAdjust() {
+        return idleScopeHeightAdjust;
+    }
+
     public AttachmentData getData() {
         return data;
     }
@@ -353,6 +478,18 @@ public class ClientAttachmentIndex {
 
     public boolean isScope() {
         return isScope;
+    }
+
+    public ScopeLensConfig getScopeLens() {
+        return display.getScopeLens();
+    }
+
+    public @Nullable String getThermalImagingTooltipKey() {
+        return thermalImagingTooltipKey;
+    }
+
+    public boolean hasAmmoCounter() {
+        return hasAmmoCounter;
     }
 
     public boolean isSight() {
@@ -372,7 +509,19 @@ public class ClientAttachmentIndex {
         return showMount;
     }
 
-    public Map<String, ResourceLocation> getSounds() {
+    public float getMuzzleFlashOffset() {
+        return muzzleFlashOffset;
+    }
+
+    public boolean hasRangefinder() {
+        return hasRangefinder;
+    }
+
+    public boolean hasImpactPrediction() {
+        return hasImpactPrediction;
+    }
+
+    public Map<String, SoundData> getSounds() {
         return sounds;
     }
 

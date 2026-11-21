@@ -5,7 +5,6 @@ import com.tacz.guns.network.message.*;
 import com.tacz.guns.network.message.event.*;
 import com.tacz.guns.network.message.handshake.ServerMessageSyncedEntityDataMapping;
 import com.tacz.guns.legacy.network.NetworkDirection;
-import com.tacz.guns.legacy.particle.BulletHoleMessage;
 import com.tacz.guns.legacy.network.NetworkRegistry;
 import com.tacz.guns.legacy.network.PacketDistributor;
 import com.tacz.guns.legacy.network.SimpleChannel;
@@ -31,7 +30,7 @@ import java.util.stream.Collectors;
 
 @Mod.EventBusSubscriber(modid = GunMod.MOD_ID)
 public class NetworkHandler {
-    private static final String VERSION = "1.0.5";
+    private static final String VERSION = "1.0.14";
 
     public static final SimpleChannel HANDSHAKE_CHANNEL = NetworkRegistry.newSimpleChannel(new ResourceLocation(GunMod.MOD_ID, "handshake"),
             () -> VERSION, it -> it.equals(VERSION), it -> it.equals(VERSION));
@@ -58,6 +57,8 @@ public class NetworkHandler {
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ServerMessageSound.class, ServerMessageSound::encode, ServerMessageSound::decode, ServerMessageSound::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ServerMessageBulletHitBlock.class, ServerMessageBulletHitBlock::encode, ServerMessageBulletHitBlock::decode, ServerMessageBulletHitBlock::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ClientMessageCraft.class, ClientMessageCraft::encode, ClientMessageCraft::decode, ClientMessageCraft::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ServerMessageCraft.class, ServerMessageCraft::encode, ServerMessageCraft::decode, ServerMessageCraft::handle,
@@ -65,6 +66,8 @@ public class NetworkHandler {
         CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ClientMessagePlayerZoom.class, ClientMessagePlayerZoom::encode, ClientMessagePlayerZoom::decode, ClientMessagePlayerZoom::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ClientMessageRefitGun.class, ClientMessageRefitGun::encode, ClientMessageRefitGun::decode, ClientMessageRefitGun::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ClientMessageInstallVirtualAttachment.class, ClientMessageInstallVirtualAttachment::encode, ClientMessageInstallVirtualAttachment::decode, ClientMessageInstallVirtualAttachment::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ServerMessageRefreshRefitScreen.class, ServerMessageRefreshRefitScreen::encode, ServerMessageRefreshRefitScreen::decode, ServerMessageRefreshRefitScreen::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
@@ -106,14 +109,30 @@ public class NetworkHandler {
 
         CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ClientMessageLaserColor.class, ClientMessageLaserColor::encode, ClientMessageLaserColor::decode, ClientMessageLaserColor::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ClientMessageAmmoStorageInteract.class, ClientMessageAmmoStorageInteract::encode, ClientMessageAmmoStorageInteract::decode, ClientMessageAmmoStorageInteract::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ClientMessageSetAttachmentVariant.class, ClientMessageSetAttachmentVariant::encode, ClientMessageSetAttachmentVariant::decode, ClientMessageSetAttachmentVariant::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ClientMessageSetSlotAdapter.class, ClientMessageSetSlotAdapter::encode, ClientMessageSetSlotAdapter::decode, ClientMessageSetSlotAdapter::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ClientMessageAmmoStorageClick.class, ClientMessageAmmoStorageClick::encode, ClientMessageAmmoStorageClick::decode, ClientMessageAmmoStorageClick::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ServerMessageAmmoStorageContents.class, ServerMessageAmmoStorageContents::encode, ServerMessageAmmoStorageContents::decode, ServerMessageAmmoStorageContents::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ServerMessageGunFinishReload.class, ServerMessageGunFinishReload::encode, ServerMessageGunFinishReload::decode, ServerMessageGunFinishReload::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ServerMessageGunFirePost.class, ServerMessageGunFirePost::encode, ServerMessageGunFirePost::decode, ServerMessageGunFirePost::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ClientMessagePlayerUnloadGun.class, ClientMessagePlayerUnloadGun::encode, ClientMessagePlayerUnloadGun::decode, ClientMessagePlayerUnloadGun::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), ServerMessageGunUnload.class, ServerMessageGunUnload::encode, ServerMessageGunUnload::decode, ServerMessageGunUnload::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
 
         // 1.12.2: no login phase, so there is nothing to acknowledge (Acknowledge is not ported)
 //        registerAcknowledge();
         registerHandshakeMessage(ServerMessageSyncedEntityDataMapping.class, null);
-
-        // 1.12.2: bullet holes (ServerLevel#sendParticles with a custom particle upstream)
-        CHANNEL.registerMessage(ID_COUNT.getAndIncrement(), BulletHoleMessage.class, BulletHoleMessage::encode, BulletHoleMessage::decode, BulletHoleMessage::handle,
-                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     /**

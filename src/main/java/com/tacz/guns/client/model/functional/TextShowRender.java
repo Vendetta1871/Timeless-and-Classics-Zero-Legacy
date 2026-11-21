@@ -6,13 +6,16 @@ import com.tacz.guns.legacy.render.Axis;
 import com.tacz.guns.client.model.IFunctionalRenderer;
 import com.tacz.guns.client.model.bedrock.BedrockModel;
 import com.tacz.guns.client.model.papi.PapiManager;
+import com.tacz.guns.client.resource.pojo.display.gun.RangefinderManager;
 import com.tacz.guns.client.resource.pojo.display.gun.TextShow;
+import com.tacz.guns.util.RenderHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import com.tacz.guns.legacy.render.RenderSystem;
 import com.tacz.guns.legacy.render.LightTexture;
+import com.tacz.guns.legacy.render.MultiBufferSource;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraft.item.ItemStack;
 import org.apache.commons.lang3.StringUtils;
@@ -33,10 +36,21 @@ public class TextShowRender implements IFunctionalRenderer {
 
     @Override
     public void render(PoseStack poseStack, VertexConsumer vertexBuffer, ItemCameraTransforms.TransformType transformType, int light, int overlay) {
+        render(poseStack, vertexBuffer, transformType, light, overlay, RenderHelper.getBufferSource(transformType));
+    }
+
+    @Override
+    public void render(PoseStack poseStack, VertexConsumer vertexBuffer, ItemCameraTransforms.TransformType transformType, int light, int overlay, MultiBufferSource bufferSource) {
         if (!DisplayContext.firstPerson(transformType)) {
             return;
         }
-        String text = PapiManager.getTextShow(textShow.getTextKey(), gunStack);
+        String text;
+        try {
+            RangefinderManager.setCurrentConfig(textShow.getRangefinder());
+            text = PapiManager.getTextShow(textShow.getTextKey(), gunStack);
+        } finally {
+            RangefinderManager.clearCurrentConfig();
+        }
         if (StringUtils.isBlank(text)) {
             return;
         }

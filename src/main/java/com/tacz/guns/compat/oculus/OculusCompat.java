@@ -2,6 +2,8 @@ package com.tacz.guns.compat.oculus;
 
 import com.tacz.guns.legacy.render.MultiBufferSource;
 
+import javax.annotation.Nullable;
+
 /**
  * Oculus does not exist on 1.12.2. The class is kept so upstream call sites stay unchanged; shader-pack checks
  * will be answered by OptiFine here once shader support lands (README, stage 2).
@@ -21,7 +23,13 @@ public final class OculusCompat {
         return false;
     }
 
-    public static boolean endBatch(MultiBufferSource.BufferSource bufferSource) {
+    public static boolean endBatch(MultiBufferSource bufferSource) {
         return false;
+    }
+
+    /** Compatibility fallback for render entry points without an explicit buffer: no shader hand pass on 1.12.2. */
+    @Nullable
+    public static MultiBufferSource getHandBufferSource() {
+        return null;
     }
 }

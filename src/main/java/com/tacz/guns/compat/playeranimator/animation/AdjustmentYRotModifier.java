@@ -4,7 +4,6 @@ import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.client.resource.GunDisplayInstance;
 import dev.kosmx.playerAnim.api.layered.modifier.AdjustmentModifier;
 import dev.kosmx.playerAnim.core.util.Vec3f;
-import net.minecraft.client.Minecraft;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.entity.player.EntityPlayer;
 
@@ -14,6 +13,7 @@ import com.tacz.guns.legacy.util.LegacyMath;
 
 public class AdjustmentYRotModifier implements Function<String, Optional<AdjustmentModifier.PartModifier>> {
     private final EntityPlayer player;
+    private float partialTick;
 
     private AdjustmentYRotModifier(EntityPlayer player) {
         this.player = player;
@@ -21,16 +21,10 @@ public class AdjustmentYRotModifier implements Function<String, Optional<Adjustm
 
     @Override
     public Optional<AdjustmentModifier.PartModifier> apply(String partName) {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (player.equals(mc.player) && mc.currentScreen != null) {
-            return Optional.empty();
-        }
-
         if (player.getRidingEntity() != null && "body".equals(partName)) {
             return Optional.empty();
         }
 
-        float partialTick = mc.getRenderPartialTicks();
         float yBodyRot = LegacyMath.rotLerp(partialTick, player.prevRenderYawOffset, player.renderYawOffset);
         float yHeadRot = LegacyMath.rotLerp(partialTick, player.prevRotationYawHead, player.rotationYawHead);
         float xRot = LegacyMath.lerp(partialTick, player.prevRotationPitch, player.rotationPitch);
@@ -60,6 +54,24 @@ public class AdjustmentYRotModifier implements Function<String, Optional<Adjustm
     }
 
     public static AdjustmentModifier getModifier(EntityPlayer player) {
-        return new AdjustmentModifier(new AdjustmentYRotModifier(player));
+        AdjustmentYRotModifier adjustmentSource = new AdjustmentYRotModifier(player);
+        return new AdjustmentModifier(adjustmentSource) {
+            @Override
+            public void setupAnim(float tickDelta) {
+                adjustmentSource.partialTick = tickDelta;
+                super.setupAnim(tickDelta);
+            }
+
+            // Apply the correction immediately; the outer layer owns its fade-out.
+            @Override
+            protected float getFadeIn(float delta) {
+                return 1;
+            }
+
+            @Override
+            protected float getFadeOut(float delta) {
+                return 1;
+            }
+        };
     }
 }

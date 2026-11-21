@@ -1,9 +1,13 @@
 package com.tacz.guns.client.init;
 
 import com.tacz.guns.block.entity.GunSmithTableBlockEntity;
+import com.tacz.guns.block.entity.GunDisplayCaseBlockEntity;
+import com.tacz.guns.block.entity.GunPegboardBlockEntity;
 import com.tacz.guns.block.entity.StatueBlockEntity;
 import com.tacz.guns.block.entity.TargetBlockEntity;
 import com.tacz.guns.client.renderer.block.GunSmithTableRenderer;
+import com.tacz.guns.client.renderer.block.GunDisplayCaseRenderer;
+import com.tacz.guns.client.renderer.block.GunPegboardRenderer;
 import com.tacz.guns.client.renderer.block.StatueRenderer;
 import com.tacz.guns.client.renderer.block.TargetRenderer;
 import com.tacz.guns.client.renderer.entity.EntityBulletRenderer;
@@ -30,5 +34,7 @@ public class ModEntitiesRender {
         ClientRegistry.bindTileEntitySpecialRenderer(GunSmithTableBlockEntity.class, new GunSmithTableRenderer());
         ClientRegistry.bindTileEntitySpecialRenderer(TargetBlockEntity.class, new TargetRenderer());
         ClientRegistry.bindTileEntitySpecialRenderer(StatueBlockEntity.class, new StatueRenderer());
+        ClientRegistry.bindTileEntitySpecialRenderer(GunPegboardBlockEntity.class, new GunPegboardRenderer());
+        ClientRegistry.bindTileEntitySpecialRenderer(GunDisplayCaseBlockEntity.class, new GunDisplayCaseRenderer());
     }
 }

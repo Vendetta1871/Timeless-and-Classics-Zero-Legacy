@@ -9,6 +9,7 @@ import com.tacz.guns.api.item.builder.AttachmentItemBuilder;
 import com.tacz.guns.api.item.builder.GunItemBuilder;
 import com.tacz.guns.resource.pojo.data.block.TabConfig;
 import com.tacz.guns.resource.pojo.data.recipe.GunResult;
+import com.tacz.guns.util.DefaultGunAttachments;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.util.ResourceLocation;
@@ -84,6 +85,7 @@ public class RawGunTableResult {
                     .setId(id)
                     .setAmmoCount(ammoCount)
                     .setAmmoInBarrel(false)
+                    .putAllVirtualAttachment(DefaultGunAttachments.defaults(id))
                     .putAllAttachment(attachments)
                     .setFireMode(gunIndex.getGunData().getFireModeSet().get(0)).build();
             String raw = gunIndex.getType();

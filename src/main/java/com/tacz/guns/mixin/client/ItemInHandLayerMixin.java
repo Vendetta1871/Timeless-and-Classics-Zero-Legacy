@@ -3,6 +3,7 @@ package com.tacz.guns.mixin.client;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.client.model.functional.MuzzleFlashRender;
 import com.tacz.guns.client.model.functional.ShellRender;
+import com.tacz.guns.client.particle.ThirdPersonMuzzleParticleManager;
 import com.tacz.guns.client.renderer.other.HumanoidOffhandRender;
 import com.tacz.guns.legacy.render.LightTexture;
 import com.tacz.guns.legacy.render.MultiBufferSource;
@@ -32,6 +33,8 @@ public class ItemInHandLayerMixin {
                         float netHeadYaw, float headPitch, float scale, CallbackInfo ci) {
         MuzzleFlashRender.isSelf = false;
         ShellRender.isSelf = false;
+        // 第三人称持枪层渲染结束，清除当前实体关联
+        ThirdPersonMuzzleParticleManager.currentEntity = null;
         MultiBufferSource.BufferSource buffer = RenderBuffers.bufferSource();
         HumanoidOffhandRender.renderGun(livingEntity, new PoseStack(), buffer, LightTexture.current());
         buffer.endBatch();
@@ -40,6 +43,8 @@ public class ItemInHandLayerMixin {
     @Inject(method = "renderHeldItem(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/renderer/block/model/ItemCameraTransforms$TransformType;Lnet/minecraft/util/EnumHandSide;)V",
             at = @At("HEAD"), cancellable = true)
     private void renderArmWithItemHead(EntityLivingBase livingEntity, ItemStack itemStack, ItemCameraTransforms.TransformType pDisplayContext, EnumHandSide arm, CallbackInfo ci) {
+        // 记录正在渲染第三人称持枪层的实体，供 BEWLR 渲染时捕获枪口世界坐标
+        ThirdPersonMuzzleParticleManager.currentEntity = livingEntity;
         EntityPlayerSP player = Minecraft.getMinecraft().player;
         if (livingEntity.equals(player)) {
             MuzzleFlashRender.isSelf = true;
@@ -55,5 +60,7 @@ public class ItemInHandLayerMixin {
     private void renderArmWithItemTail(EntityLivingBase livingEntity, ItemStack itemStack, ItemCameraTransforms.TransformType pDisplayContext, EnumHandSide arm, CallbackInfo ci) {
         MuzzleFlashRender.isSelf = false;
         ShellRender.isSelf = false;
+        // 1.12.2: the gun is drawn inside renderHeldItem, so the entity is released right after it
+        ThirdPersonMuzzleParticleManager.currentEntity = null;
     }
 }

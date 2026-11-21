@@ -2,7 +2,7 @@ package com.tacz.guns.entity.shooter;
 
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.item.IGun;
-import net.minecraft.util.ResourceLocation;
+import com.tacz.guns.config.sync.SyncConfig;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -17,53 +17,56 @@ public class LivingEntityCrawl {
     }
 
     public void crawl(boolean isCrawl) {
-        data.isCrawling = isCrawl;
+        setCrawling(isCrawl && canCrawl());
     }
 
     public void tickCrawling() {
-        // currentGunItem 如果为 null，则取消趴下状态
-        if (data.currentGunItem == null || !(data.currentGunItem.get().getItem() instanceof IGun iGun)) {
-            data.isCrawling = false;
-            this.setCrawlPose();
+        if (!data.isCrawling) {
             return;
         }
-        ItemStack currentGunItem = data.currentGunItem.get();
-        // 不允许趴下的武器，则取消趴下状态
-        if (!iGun.isCanCrawl(currentGunItem)) {
-            data.isCrawling = false;
-            this.setCrawlPose();
-            return;
+        // 1.12.2: there is no forced pose that something else could have changed (see setCrawling)
+        boolean poseChanged = false;
+        if (poseChanged || !canCrawl()) {
+            setCrawling(false);
         }
-        // 如果获取不到 gunIndex，则取消趴下状态
-        ResourceLocation gunId = iGun.getGunId(currentGunItem);
-        if (!TimelessAPI.getCommonGunIndex(gunId).isPresent()) {
-            data.isCrawling = false;
-            this.setCrawlPose();
-            return;
-        }
-        // 如果是观察者模型、骑乘、跳跃、在游泳、不在地上，取消
-        // 1.12.2: EntityLivingBase#jumping is protected, an entity that jumped is not on the ground anyway; swimming is "in water"
-        if ((shooter instanceof EntityPlayer && ((EntityPlayer) shooter).isSpectator()) || shooter.isRiding() || shooter.isInWater() || !shooter.onGround) {
-            data.isCrawling = false;
-            this.setCrawlPose();
-            return;
-        }
-        this.setCrawlPose();
     }
 
-    private void setCrawlPose() {
-        // TODO(port): crawling (1.12.2 has no Pose.SWIMMING / EntityPlayer#setForcedPose, so the crawl state is only synced,
-        //  the entity is not put in the swimming pose)
-//        if (data.isCrawling) {
-//            if (shooter instanceof EntityPlayer player) {
-//                player.setForcedPose(Pose.SWIMMING);
-//            } else {
-//                this.shooter.setPose(Pose.SWIMMING);
+    private boolean canCrawl() {
+        if (!SyncConfig.ENABLE_CRAWL.get()) {
+            return false;
+        }
+        // 1.12.2: EntityLivingBase#jumping is protected, an entity that jumped is not on the ground anyway; swimming is
+        // "in water"; there is no riptide spin attack
+        boolean invalidState = !shooter.isEntityAlive() || (shooter instanceof EntityPlayer player && player.isSpectator()) || shooter.isRiding();
+        boolean invalidMovement = shooter.isInWater() || !shooter.onGround;
+        boolean incompatiblePose = shooter.isPlayerSleeping() || shooter.isElytraFlying();
+        if (invalidState || invalidMovement || incompatiblePose) {
+            return false;
+        }
+        // 玩家可以从未持过枪，也可能刚切换物品，以实际主手物品为准。
+        ItemStack gunItem = shooter instanceof EntityPlayer ? shooter.getHeldItemMainhand()
+                : data.currentGunItem == null ? ItemStack.EMPTY : data.currentGunItem.get();
+        if (gunItem.getItem() instanceof IGun gun) {
+            return gun.isCanCrawl(gunItem)
+                    && TimelessAPI.getCommonGunIndex(gun.getGunId(gunItem)).isPresent();
+        }
+        return shooter instanceof EntityPlayer && SyncConfig.ENABLE_CRAWL_WITHOUT_GUN.get();
+    }
+
+    private void setCrawling(boolean crawling) {
+        if (data.isCrawling == crawling) {
+            return;
+        }
+        data.isCrawling = crawling;
+        // 只在 TACZ 的趴下状态变化时设置或清除一次，不持续写入姿态。
+        // TODO(port): 1.12.2 has no Pose.SWIMMING / Player#setForcedPose / LivingEntity#setPose, so the crawl state is
+        //  only synced, the entity is not put in the swimming pose
+//        if (shooter instanceof EntityPlayer player) {
+//            if (crawling || player.getForcedPose() == Pose.SWIMMING) {
+//                player.setForcedPose(crawling ? Pose.SWIMMING : null);
 //            }
 //        } else {
-//            if (shooter instanceof EntityPlayer player) {
-//                player.setForcedPose(null);
-//            }
+//            shooter.setPose(crawling ? Pose.SWIMMING : Pose.STANDING);
 //        }
     }
 }

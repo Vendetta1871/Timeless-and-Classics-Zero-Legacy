@@ -88,6 +88,7 @@ public class GunMod {
         }
         NetworkHandler.init();
         ModSyncedEntityData.init();
+        CommonRegistry.onSetupEvent();
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.tacz.guns.compat.ar;
 
+import com.google.common.util.concurrent.Runnables;
 import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.VertexConsumer;
 
@@ -38,6 +39,16 @@ public final class ARCompat {
     }
 
     public static void setRenderAfterFunction(Runnable runnable) {
+    }
+
+    public static Runnable getRenderBeforeFunction() {
+        return () -> {
+        };
+    }
+
+    public static Runnable getRenderAfterFunction() {
+        return () -> {
+        };
     }
 
     public static void resetRenderLayer() {

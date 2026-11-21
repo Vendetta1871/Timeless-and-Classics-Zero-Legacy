@@ -32,6 +32,9 @@ public class ClientPreventGunClick {
                 && InteractKey.isTargetInteractable(Minecraft.getMinecraft())) {
             return;
         }
+        if (event.isUseItem() && InteractKey.sharesUseBinding(Minecraft.getMinecraft().gameSettings.keyBindUseItem)) {
+            return;
+        }
         // 只要主手有枪，那么禁止交互
         ItemStack itemInHand = player.getHeldItem(EnumHand.MAIN_HAND);
         if (itemInHand.getItem() instanceof IGun) {

@@ -43,6 +43,15 @@ public final class RenderSystem {
         return new Matrix4f(MATRIX_BUFFER);
     }
 
+    /**
+     * 1.20 keeps the projection matrix in {@code RenderSystem}; 1.12.2 reads the current GL projection matrix.
+     */
+    public static Matrix4f getProjectionMatrix() {
+        MATRIX_BUFFER.clear();
+        GlStateManager.getFloat(GL11.GL_PROJECTION_MATRIX, MATRIX_BUFFER);
+        return new Matrix4f(MATRIX_BUFFER);
+    }
+
     public static void assertOnRenderThread() {
     }
 

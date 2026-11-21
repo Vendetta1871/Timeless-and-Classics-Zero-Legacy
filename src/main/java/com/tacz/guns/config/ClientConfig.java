@@ -4,6 +4,8 @@ import com.tacz.guns.config.client.*;
 import com.tacz.guns.legacy.config.ForgeConfigSpec;
 
 public class ClientConfig {
+    public static ForgeConfigSpec CLIENT_CONFIG_SPEC;
+
     public static ForgeConfigSpec init() {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
         KeyConfig.init(builder);
@@ -12,6 +14,7 @@ public class ClientConfig {
         ResourceConfig.init(builder);
         SoundConfig.init(builder);
         ZoomConfig.init(builder);
-        return builder.build();
+        CLIENT_CONFIG_SPEC = builder.build();
+        return CLIENT_CONFIG_SPEC;
     }
 }

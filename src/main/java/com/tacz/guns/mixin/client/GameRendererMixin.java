@@ -2,16 +2,21 @@ package com.tacz.guns.mixin.client;
 
 import com.tacz.guns.api.client.event.RenderItemInHandBobEvent;
 import com.tacz.guns.api.client.event.RenderLevelBobEvent;
+import com.tacz.guns.api.item.gun.AbstractGunItem;
 import com.tacz.guns.client.renderer.other.GunHurtBobTweak;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.tacz.guns.config.client.RenderConfig;
+import com.tacz.guns.legacy.client.CameraMatrices;
 import com.tacz.guns.legacy.client.FovContext;
 import com.tacz.guns.legacy.client.ScopeView;
 import com.tacz.guns.legacy.render.PoseStack;
 import com.tacz.guns.legacy.render.RenderSystem;
+import com.tacz.guns.legacy.util.LegacyMath;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.renderer.EntityRenderer;
+import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.common.MinecraftForge;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,6 +24,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -31,6 +37,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class GameRendererMixin {
     @Unique
     private boolean tacz$useFovSetting;
+
+    // TODO(port): upstream draws scope lenses (ScopeLensRenderer: lens distance field, thermal view) from renderLevel
+    //  and renderItemInHand; the 1.12.2 port renders the scope picture through ScopeView instead.
 
     @Shadow
     @Final
@@ -59,6 +68,26 @@ public abstract class GameRendererMixin {
         }
     }
 
+    /**
+     * 第三个旋转是受伤倾斜；保持死亡旋转及受击方向的前后旋转不变。
+     * <p>
+     * 1.12.2: {@code hurtCameraEffect} rotates the GL matrix; the third {@code GlStateManager.rotate} call is the tilt.
+     */
+    @ModifyArg(method = "hurtCameraEffect(F)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GlStateManager;rotate(FFFF)V", ordinal = 2), index = 0)
+    private float tacz$scaleHeldGunHurtTilt(float angle) {
+        Minecraft minecraft = this.mc;
+        if (minecraft.gameSettings.thirdPersonView == 0
+                && minecraft.getRenderViewEntity() instanceof EntityPlayerSP player
+                && player.getHealth() > 0
+                && player.getHeldItemMainhand().getItem() instanceof AbstractGunItem) {
+            // 正面和背面受击以俯仰为主，额外减半；侧面保持配置倍率，斜向平滑过渡。
+            float frontBackWeight = Math.abs(MathHelper.sin(player.attackedAtYaw * LegacyMath.DEG_TO_RAD));
+            float directionMultiplier = 1.0F - 0.5F * frontBackWeight;
+            return angle * RenderConfig.GUN_HURT_BOB_MULTIPLIER.get().floatValue() * directionMultiplier;
+        }
+        return angle;
+    }
+
     @Inject(method = "applyBobbing(F)V", at = @At("HEAD"), cancellable = true)
     public void onBobView(float pPartialTicks, CallbackInfo ci) {
         boolean cancel;
@@ -83,6 +112,14 @@ public abstract class GameRendererMixin {
     public void switchRenderType(float pPartialTicks, boolean pUseFOVSetting, CallbackInfoReturnable<Float> cir) {
         this.tacz$useFovSetting = pUseFOVSetting;
         FovContext.setUseFovSetting(pUseFOVSetting);
+    }
+
+    /**
+     * 1.12.2 only: keeps the camera modelview of every world pass for eye space to world conversions.
+     */
+    @Inject(method = "renderWorldPass(IFJ)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ActiveRenderInfo;updateRenderInfo(Lnet/minecraft/entity/Entity;Z)V", shift = At.Shift.AFTER))
+    public void recordCameraMatrix(int pass, float partialTicks, long finishTimeNano, CallbackInfo ci) {
+        CameraMatrices.record();
     }
 
     /**
