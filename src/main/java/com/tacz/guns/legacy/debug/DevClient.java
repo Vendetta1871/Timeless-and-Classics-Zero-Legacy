@@ -63,7 +63,19 @@ public final class DevClient {
     private static int stage;
     private static int ticks;
     private static int warmupTicks;
-    private static boolean shootingShotPending;
+    private static final long SHOT_DELAY_MS = 30;
+    /** The screenshot to take {@link #SHOT_DELAY_MS} after {@link #shotTime}, or null. */
+    @Nullable
+    private static String shotScreenshot;
+    private static long shotTime;
+    /** A frame later than this after the shot may miss the flash (50 ms): the shot is repeated. */
+    private static final long SHOT_LATE_MS = 45;
+    private static final int SHOT_TRIES = 3;
+    /** The shot screenshot to shoot again for, {@link #reshootDelay} client ticks from now (past the fire rate). */
+    @Nullable
+    private static String reshoot;
+    private static int reshootDelay;
+    private static int shotTries;
     /** The sound levels are zeroed once, on the first client tick. */
     private static boolean muted;
     /** First tick of the shooting sequence; -1 until the aiming screenshot is taken. */
@@ -222,7 +234,8 @@ public final class DevClient {
                                 }
                                 player.connection.setPlayerLocation(player.posX, player.posY, player.posZ, yaw, pitch);
                             }
-                            server.getWorld(0).setWorldTime(6000);
+                            // TACZ_AUTOTEST_TIME: the time of day (default noon)
+                            server.getWorld(0).setWorldTime(envInt("TACZ_AUTOTEST_TIME", 6000));
                             if (freshWorld()) {
                                 // a clean background: no mob spawns, no animals of the world generation, no day cycle
                                 net.minecraft.world.GameRules rules = server.getWorld(0).getGameRules();
@@ -286,6 +299,9 @@ public final class DevClient {
                 if (ammoBoxTest(mc)) {
                     return;
                 }
+                if (DevBlocksTest.run(mc)) {
+                    return;
+                }
                 if (ticks == 0 && targetKind().equals("dummy")) {
                     spawnDummy(mc);
                 }
@@ -346,8 +362,7 @@ public final class DevClient {
                         });
                     }
                     if (ticks == aimBase + 11) {
-                        // the frame rendered after this tick shows the muzzle flash (50 ms)
-                        shootingShotPending = true;
+                        shotPending("shooting");
                     }
                 } else if (aimBase >= 0 && ticks > aimBase + 11 && ticks < aimBase + 19 && targetKind().equals("minecart")) {
                     // the target wobble after the last shot, one screenshot per tick (wobble12..wobble18)
@@ -371,8 +386,15 @@ public final class DevClient {
                     mc.gameSettings.thirdPersonView = 2;
                 } else if (aimBase >= 0 && ticks == aimBase + 80) {
                     screenshot(mc, "third_person_front");
+                } else if (aimBase >= 0 && ticks == aimBase + 90) {
+                    // the muzzle flash other players see (the reload has finished by now)
+                    if (DevTools.PACK_DIR == null) {
+                        GunMod.LOGGER.info("[dev] shoot (third person): {}", IClientPlayerGunOperator.fromLocalPlayer(mc.player).shoot());
+                        shotPending("third_person_shooting");
+                    }
+                } else if (aimBase >= 0 && ticks == aimBase + 95) {
                     mc.gameSettings.thirdPersonView = 0;
-                } else if (aimBase >= 0 && ticks == aimBase + 90 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
+                } else if (aimBase >= 0 && ticks == aimBase + 100 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
                     mc.shutdown();
                 }
                 // Keep the aim asserted every tick while the sequence wants aiming: a stray real mouse event
@@ -624,7 +646,7 @@ public final class DevClient {
         });
     }
 
-    private static String describeStack(ItemStack stack) {
+    static String describeStack(ItemStack stack) {
         return stack.isEmpty() ? "empty" : stack.getCount() + "x " + stack.getItem().getRegistryName() + (stack.hasTagCompound() ? stack.getTagCompound() : "");
     }
 
@@ -642,7 +664,7 @@ public final class DevClient {
         mc.getSoundHandler().stopSounds();
     }
 
-    private static String describeInventory(net.minecraft.entity.player.EntityPlayer player) {
+    static String describeInventory(net.minecraft.entity.player.EntityPlayer player) {
         java.util.List<String> items = new java.util.ArrayList<>();
         for (int i = 0; i < player.inventory.getSizeInventory(); i++) {
             ItemStack stack = player.inventory.getStackInSlot(i);
@@ -708,15 +730,55 @@ public final class DevClient {
         return builder.build();
     }
 
-    @SubscribeEvent
-    public static void onRenderTick(TickEvent.RenderTickEvent event) {
-        if (event.phase == TickEvent.Phase.END && shootingShotPending) {
-            shootingShotPending = false;
-            screenshot(Minecraft.getMinecraft(), "shooting");
+    /**
+     * The screenshot of a shot is taken {@link #SHOT_DELAY_MS} after it: the muzzle flash quad grows from nothing
+     * over its first 25 ms and is gone after 50 ms ({@code MuzzleFlashRender}), so the first frame after the shot
+     * showed it at a few pixels at most.
+     */
+    private static void shotPending(String name) {
+        if (!name.equals(shotScreenshot) && !name.equals(reshoot)) {
+            shotTries = 0;
         }
+        shotScreenshot = name;
+        shotTime = com.tacz.guns.util.time.GunTime.nowMillis();
+        shotTries++;
     }
 
-    private static void screenshot(Minecraft mc, String name) {
+    @SubscribeEvent
+    public static void onRenderTick(TickEvent.RenderTickEvent event) {
+        if (event.phase != TickEvent.Phase.END || shotScreenshot == null) {
+            return;
+        }
+        long elapsed = com.tacz.guns.util.time.GunTime.nowMillis() - shotTime;
+        if (elapsed < SHOT_DELAY_MS) {
+            return;
+        }
+        if (elapsed > SHOT_LATE_MS && shotTries < SHOT_TRIES) {
+            // a stalled frame: the flash is over, shoot once more
+            GunMod.LOGGER.info("[dev] {}: the frame came {} ms after the shot, shooting again", shotScreenshot, elapsed);
+            reshoot = shotScreenshot;
+            reshootDelay = 3;
+            shotScreenshot = null;
+            return;
+        }
+        GunMod.LOGGER.info("[dev] {} screenshot {} ms after the shot", shotScreenshot, elapsed);
+        screenshot(Minecraft.getMinecraft(), shotScreenshot);
+        shotScreenshot = null;
+    }
+
+    @SubscribeEvent
+    public static void onClientTickReshoot(TickEvent.ClientTickEvent event) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (event.phase != TickEvent.Phase.END || reshoot == null || mc.player == null || --reshootDelay > 0) {
+            return;
+        }
+        String name = reshoot;
+        reshoot = null;
+        GunMod.LOGGER.info("[dev] shoot again for {}: {}", name, IClientPlayerGunOperator.fromLocalPlayer(mc.player).shoot());
+        shotPending(name);
+    }
+
+    static void screenshot(Minecraft mc, String name) {
         ScreenShotHelper.saveScreenshot(mc.gameDir, "tacz_" + name + ".png", mc.displayWidth, mc.displayHeight, mc.getFramebuffer());
         GunMod.LOGGER.info("[dev] screenshot {} (fps {})", name, Minecraft.getDebugFPS());
     }
