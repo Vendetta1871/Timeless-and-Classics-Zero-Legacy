@@ -62,7 +62,8 @@ work as in the original automatically.
   volume, proportional to muzzle energy x caliber). This is not a pack edit:
   the overrides are applied to the gun data at load time and synced to clients, so the (CC BY-NC-ND) default pack is
   never redistributed in a modified state. `config/tacz-rebalance.cfg` (`enabled = false`, or removing a gun's entry)
-  restores the pack values.
+  restores the pack values. When a new default pack adds guns, their entries are appended to an existing
+  `tacz-rebalance.cfg` once (tracked by `defaults_version`); edited and removed entries stay as they are.
 - **Gunsmith recipes** from gun packs are read as is, but 1.20 tags are turned into OreDictionary entries
   (`forge:ingots/iron` → `ingotIron`). Materials that do not exist in 1.12.2 (copper, amethyst, netherite) are
   unavailable without other mods, so such recipes cannot be crafted.

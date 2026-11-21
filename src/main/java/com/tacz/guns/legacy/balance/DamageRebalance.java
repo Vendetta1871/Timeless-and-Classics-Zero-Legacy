@@ -6,10 +6,12 @@ import com.google.gson.JsonObject;
 import com.tacz.guns.GunMod;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.config.Property;
 import net.minecraftforge.fml.common.Loader;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -42,7 +44,18 @@ public final class DamageRebalance {
      * Gosselain @0.8 damage per shot, per default-pack gun id (without the {@code _data} suffix).
      * Ordered by weapon class like the balance tables; guns not listed keep their pack damage.
      */
-    private static final Map<String, Float> DEFAULTS = buildDefaults();
+    private static final Map<String, Float> DEFAULTS = new LinkedHashMap<>();
+    /**
+     * Defaults version in which each gun got its entry: an existing config gets the entries of newer versions
+     * appended once ({@code defaults_version}), without touching the entries the user edited or removed.
+     */
+    private static final Map<String, Integer> INTRODUCED = new LinkedHashMap<>();
+    /** 1: the TACZ 1.1.x default pack; 2: the guns added by the TACZ 1.2.0 default pack. */
+    private static final int DEFAULTS_VERSION = 2;
+
+    static {
+        buildDefaults();
+    }
 
     private static volatile boolean enabled = true;
     private static volatile Map<ResourceLocation, Float> overrides = new LinkedHashMap<>();
@@ -50,7 +63,12 @@ public final class DamageRebalance {
     private DamageRebalance() {
     }
 
-    private static Map<String, Float> buildDefaults() {
+    private static void put(String gun, float damage, int version) {
+        DEFAULTS.put(gun, damage);
+        INTRODUCED.put(gun, version);
+    }
+
+    private static void buildDefaults() {
         Map<String, Float> map = new LinkedHashMap<>();
         // pistols
         map.put("taurus943", 1.5f);   // .22 WMR
@@ -112,7 +130,26 @@ public final class DamageRebalance {
         map.put("m870", 12f);
         map.put("m1014", 13.5f);
         map.put("spas_12", 15.5f);
-        return map;
+        map.forEach((gun, damage) -> put(gun, damage, 1));
+
+        // TACZ 1.2.0 default pack. Same formula; the damage follows the pack's ammo, and guns sharing a cartridge
+        // and barrel class with an older gun get its value.
+        put("tec_9", 4.5f, 2);         // 9x19
+        put("m1866", 6.5f, 2);         // .45 ACP from a rifle barrel
+        put("hk_mp7a1", 2.5f, 2);      // 4.6x30
+        put("ak74m", 6.5f, 2);         // 5.45x39
+        put("ak12", 6.5f, 2);
+        put("qr_24", 6.5f, 2);
+        put("mk18", 7f, 2);            // 5.56x45, 10.3" barrel like hk416d
+        put("urgi", 8f, 2);            // 5.56x45, 14.5" barrel like m4a1
+        put("mcx_spear_lt", 10f, 2);   // .300 BLK
+        put("hcar", 17f, 2);           // .30-06, 16" barrel
+        put("scar_mk20", 18.5f, 2);    // 7.62x51, 20" barrel like mk14
+        put("pkm", 18.5f, 2);          // 7.62x54R
+        put("svd", 19f, 2);
+        put("mrad", 32f, 2);           // .338 Lapua like ai_awp
+        put("hm50b", 55f, 2);          // .50 BMG bolt action, capped like m95
+        put("m1897", 12f, 2);          // 12 gauge like m870
     }
 
     private static String[] defaultEntries() {
@@ -136,10 +173,18 @@ public final class DamageRebalance {
                 + "Server-side: in multiplayer the synced values from the server win.");
         enabled = config.getBoolean("enabled", CATEGORY, true,
                 "When false, guns keep the damage from the gun pack files.");
-        String[] raw = config.getStringList("damage_overrides", CATEGORY, defaultEntries(),
+        Property list = config.get(CATEGORY, "damage_overrides", defaultEntries(),
                 "Damage per shot as '<gun id>=<damage>', e.g. 'tacz:ak47=12'. "
                 + "The distance falloff (damage_adjust) and the fire mode offsets (fire_mode_adjust) "
                 + "are scaled by the same new/old ratio. Remove an entry to keep that gun's pack damage.");
+        Property version = config.get(CATEGORY, "defaults_version", 0,
+                "Version of the built-in defaults last merged into damage_overrides. When the mod ships "
+                + "entries for new guns, they are appended once; your edits and removals are kept.");
+        if (version.getInt() < DEFAULTS_VERSION) {
+            list.set(appendNewDefaults(list.getStringList(), version.getInt()));
+            version.set(DEFAULTS_VERSION);
+        }
+        String[] raw = list.getStringList();
         Map<ResourceLocation, Float> parsed = new LinkedHashMap<>();
         for (String entry : raw) {
             if (entry == null || entry.trim().isEmpty()) {
@@ -166,6 +211,33 @@ public final class DamageRebalance {
         }
         overrides = parsed;
         config.save();
+    }
+
+    /**
+     * The defaults introduced after {@code fromVersion} whose gun has no entry yet, appended to the user's list.
+     */
+    private static String[] appendNewDefaults(String[] current, int fromVersion) {
+        List<String> merged = new ArrayList<>(Arrays.asList(current));
+        java.util.Set<String> present = new java.util.HashSet<>();
+        for (String entry : current) {
+            int sep = entry == null ? -1 : entry.indexOf('=');
+            if (sep > 0) {
+                String id = entry.substring(0, sep).trim().toLowerCase(Locale.ROOT);
+                present.add(id.indexOf(':') >= 0 ? id : GunMod.MOD_ID + ":" + id);
+            }
+        }
+        int added = 0;
+        for (Map.Entry<String, Float> entry : DEFAULTS.entrySet()) {
+            String id = GunMod.MOD_ID + ":" + entry.getKey();
+            if (INTRODUCED.get(entry.getKey()) > fromVersion && !present.contains(id)) {
+                merged.add(id + "=" + fmt(entry.getValue()));
+                added++;
+            }
+        }
+        if (added > 0) {
+            GunMod.LOGGER.info("Damage rebalance: added {} new default entries to tacz-rebalance.cfg", added);
+        }
+        return merged.toArray(new String[0]);
     }
 
     /**
