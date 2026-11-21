@@ -6,7 +6,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import org.joml.Quaternionf;
 
 /**
- * Port of SimpleBedrockModel's {@code IFPAnimationInstance}. The MAE pose accessors are left out: TACZ only returns
+ * Port of SimpleBedrockModel's (2.6.3) {@code v1.client.animation.IFPAnimationInstance}. The MAE pose accessors are left out: TACZ only returns
  * a dummy pose from them.
  */
 @SideOnly(Side.CLIENT)
@@ -24,6 +24,13 @@ public interface IFPAnimationInstance {
     void triggerDraw();
 
     void triggerPutAway();
+
+    /**
+     * 本实例（当前固定的渲染形态）是否霸占整个第一人称视野，从而禁止副手渲染。默认 {@code true}。
+     */
+    default boolean occupiesView() {
+        return true;
+    }
 
     default boolean shouldRenderHand() {
         return false;

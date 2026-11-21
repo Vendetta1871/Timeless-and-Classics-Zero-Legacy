@@ -6,8 +6,8 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 /**
  * 1.12.2: particle types and providers do not exist, so there is nothing to register. The bullet hole particle is
- * spawned by {@code legacy.particle.BulletHoleMessage} with {@link #BULLET_HOLE} on the client's
- * {@code ParticleManager}.
+ * spawned by {@code client.particle.HitBlockEffectHandler} (on {@code ServerMessageBulletHitBlock}) with
+ * {@link #BULLET_HOLE} on the client's {@code ParticleManager}.
  */
 @SideOnly(Side.CLIENT)
 public class ParticleFactoryRegistry {

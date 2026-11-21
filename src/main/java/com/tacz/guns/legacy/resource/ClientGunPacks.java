@@ -1,5 +1,6 @@
 package com.tacz.guns.legacy.resource;
 
+import com.github.mcmodderanchor.simplebedrockmodel.v1.particle.resource.ParticleDefinitionLoader;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.client.resource.ClientAssetsManager;
 import com.tacz.guns.compat.playeranimator.PlayerAnimatorCompat;
@@ -65,6 +66,8 @@ public final class ClientGunPacks {
         ResourceManager resourceManager = resourceManager();
         ClientAssetsManager.INSTANCE.reloadAndRegister(listener -> listener.reload(resourceManager));
         PlayerAnimatorCompat.registerReloadListener(listener -> listener.reload(resourceManager));
+        // SimpleBedrockModel bedrock particle definitions (upstream: SBM ReloadListenersRegister)
+        ParticleDefinitionLoader.getInstance().reload(resourceManager);
         if (retired != null) {
             retired.close();
             retired = null;

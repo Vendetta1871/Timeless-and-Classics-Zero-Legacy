@@ -34,8 +34,12 @@ public class BulletHoleParticle extends Particle {
     private int uOffset;
     private int vOffset;
     private float textureDensity;
+    private boolean validAttachment = true;
+    private final float offsetX;
+    private final float offsetY;
+    private final float offsetZ;
 
-    public BulletHoleParticle(WorldClient world, double x, double y, double z, EnumFacing direction, BlockPos pos, String ammoId, String gunId, String gunDisplayId) {
+    public BulletHoleParticle(WorldClient world, double x, double y, double z, EnumFacing direction, BlockPos pos, String ammoId, String gunId, String gunDisplayId, boolean incendiary) {
         super(world, x, y, z);
         this.setSprite(this.getSprite(pos));
         this.direction = direction;
@@ -50,8 +54,10 @@ public class BulletHoleParticle extends Particle {
         this.motionZ = 0;
 
         IBlockState state = world.getBlockState(pos);
-        if (state.getBlock() == ModBlocks.TARGET.get() || shouldRemove()) {
-            this.setExpired();
+        if (state.getBlock() == ModBlocks.TARGET.get() || shouldRemove() || !isBulletHoleEnabled(ammoId, gunId, gunDisplayId)) {
+            this.validAttachment = false;
+            this.particleMaxAge = 1;
+            this.particleAlpha = 0.0F;
         }
         TimelessAPI.getGunDisplay(new ResourceLocation(gunDisplayId), new ResourceLocation(gunId)).ifPresent(gunIndex -> {
             float[] gunTracerColor = gunIndex.getTracerColor();
@@ -69,6 +75,25 @@ public class BulletHoleParticle extends Particle {
             }
         });
         this.particleAlpha = 0.9F;
+
+        float offset = this.rand.nextFloat() * 0.005F + 0.005F;
+        this.offsetX = direction.getXOffset() * offset;
+        this.offsetY = direction.getYOffset() * offset;
+        this.offsetZ = direction.getZOffset() * offset;
+    }
+
+    public static boolean isBulletHoleEnabled(String ammoId, String gunId, String gunDisplayId) {
+        try {
+            var gunDisplay = TimelessAPI.getGunDisplay(new ResourceLocation(gunDisplayId), new ResourceLocation(gunId));
+            if (gunDisplay.isPresent() && gunDisplay.get().getBulletHoleEnabled() != null) {
+                return gunDisplay.get().getBulletHoleEnabled();
+            }
+            return TimelessAPI.getClientAmmoIndex(new ResourceLocation(ammoId))
+                    .map(ammoIndex -> ammoIndex.isBulletHoleEnabled())
+                    .orElse(true);
+        } catch (Exception ignored) {
+            return true;
+        }
     }
 
     private int getLifetimeFromConfig(WorldClient world) {
@@ -117,6 +142,10 @@ public class BulletHoleParticle extends Particle {
     @Override
     public void onUpdate() {
         super.onUpdate();
+        if (!this.validAttachment) {
+            this.setExpired();
+            return;
+        }
         if (shouldRemove()) {
             this.setExpired();
         }
@@ -145,15 +174,17 @@ public class BulletHoleParticle extends Particle {
 
     @Override
     public void renderParticle(BufferBuilder buffer, Entity entityIn, float partialTicks, float rotationX, float rotationZ, float rotationYZ, float rotationXY, float rotationXZ) {
-        float particleX = (float) (this.prevPosX + (this.posX - this.prevPosX) * partialTicks - interpPosX);
-        float particleY = (float) (this.prevPosY + (this.posY - this.prevPosY) * partialTicks - interpPosY);
-        float particleZ = (float) (this.prevPosZ + (this.posZ - this.prevPosZ) * partialTicks - interpPosZ);
+        if (!this.validAttachment) {
+            return;
+        }
+        float particleX = (float) (this.prevPosX + (this.posX - this.prevPosX) * partialTicks - interpPosX) + this.offsetX;
+        float particleY = (float) (this.prevPosY + (this.posY - this.prevPosY) * partialTicks - interpPosY) + this.offsetY;
+        float particleZ = (float) (this.prevPosZ + (this.posZ - this.prevPosZ) * partialTicks - interpPosZ) + this.offsetZ;
         float[][] points = new float[][]{
-                // Y 值稍微大一点点，防止 z-fight
-                rotate(direction, -1.0F, 0.01F, -1.0F),
-                rotate(direction, -1.0F, 0.01F, 1.0F),
-                rotate(direction, 1.0F, 0.01F, 1.0F),
-                rotate(direction, 1.0F, 0.01F, -1.0F)
+                rotate(direction, -1.0F, 0.0F, -1.0F),
+                rotate(direction, -1.0F, 0.0F, 1.0F),
+                rotate(direction, 1.0F, 0.0F, 1.0F),
+                rotate(direction, 1.0F, 0.0F, -1.0F)
         };
         float scale = this.particleScale;
 
@@ -226,8 +257,9 @@ public class BulletHoleParticle extends Particle {
 
         // upstream: ParticleProvider#createParticle (1.12.2 has no particle options: the option is the plain data class)
         public BulletHoleParticle createParticle(@NotNull BulletHoleOption option, @NotNull WorldClient world, double x, double y, double z, double pXSpeed, double pYSpeed, double pZSpeed) {
-            BulletHoleParticle particle = new BulletHoleParticle(world, x, y, z, option.getDirection(), option.getPos(), option.getAmmoId(), option.getGunId(), option.getGunDisplayId());
+            BulletHoleParticle particle = new BulletHoleParticle(world, x, y, z, option.getDirection(), option.getPos(), option.getAmmoId(), option.getGunId(), option.getGunDisplayId(), option.isIncendiary());
             return particle;
         }
     }
+
 }
