@@ -1,5 +1,6 @@
 package com.tacz.guns.legacy.client;
 
+import com.google.common.collect.ImmutableSet;
 import com.tacz.guns.GunMod;
 import com.tacz.guns.legacy.render.PerspectiveCaptureModel;
 import net.minecraft.block.Block;
@@ -16,9 +17,11 @@ import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import java.util.Set;
+
 /**
  * 1.12.2 model glue that 1.20.1 does implicitly: every TACZ block state uses the single variant of its blockstate
- * file, every TACZ item uses {@code models/item/<name>.json} (the
+ * file (except {@link #BLOCKSTATE_BLOCKS}), every TACZ item uses {@code models/item/<name>.json} (the
  * upstream {@code builtin/entity} models), and the models of items drawn by a {@code BlockEntityWithoutLevelRenderer}
  * are wrapped so the renderer learns the display context ({@link PerspectiveCaptureModel}).
  */
@@ -27,6 +30,14 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 public final class LegacyItemModels {
     private LegacyItemModels() {
     }
+
+    /**
+     * Blocks drawn by their block model (multi-variant 1.12 blockstate files in src/main/resources): they keep the
+     * default state mapper.
+     */
+    private static final Set<String> BLOCKSTATE_BLOCKS = ImmutableSet.of(
+            "gun_display_case", "gun_pegboard", "glow_gun_pegboard",
+            "ammo_storage", "ammo_storage_gold", "ammo_storage_diamond");
 
     private static ModelResourceLocation location(Item item) {
         return new ModelResourceLocation(item.getRegistryName(), "inventory");
@@ -37,7 +48,8 @@ public final class LegacyItemModels {
         // TACZ blocks are drawn by their block entity renderers; every state uses the "normal" variant
         // (src/main/resources has 1.12 copies of upstream's single-variant blockstate files)
         for (Block block : ForgeRegistries.BLOCKS) {
-            if (GunMod.MOD_ID.equals(block.getRegistryName().getNamespace())) {
+            if (GunMod.MOD_ID.equals(block.getRegistryName().getNamespace())
+                    && !BLOCKSTATE_BLOCKS.contains(block.getRegistryName().getPath())) {
                 ModelResourceLocation single = new ModelResourceLocation(block.getRegistryName(), "normal");
                 ModelLoader.setCustomStateMapper(block, new StateMapperBase() {
                     @Override

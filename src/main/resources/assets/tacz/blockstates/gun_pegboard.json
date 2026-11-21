@@ -1,0 +1,94 @@
+{
+  "variants": {
+    "dyed=false,facing=east,shape=corner_left": {
+      "model": "tacz:gun_pegboard_corner",
+      "y": 90
+    },
+    "dyed=false,facing=east,shape=corner_right": {
+      "model": "tacz:gun_pegboard_corner",
+      "y": 180
+    },
+    "dyed=false,facing=east,shape=straight": {
+      "model": "tacz:gun_pegboard",
+      "y": 90
+    },
+    "dyed=false,facing=north,shape=corner_left": {
+      "model": "tacz:gun_pegboard_corner"
+    },
+    "dyed=false,facing=north,shape=corner_right": {
+      "model": "tacz:gun_pegboard_corner",
+      "y": 90
+    },
+    "dyed=false,facing=north,shape=straight": {
+      "model": "tacz:gun_pegboard"
+    },
+    "dyed=false,facing=south,shape=corner_left": {
+      "model": "tacz:gun_pegboard_corner",
+      "y": 180
+    },
+    "dyed=false,facing=south,shape=corner_right": {
+      "model": "tacz:gun_pegboard_corner",
+      "y": 270
+    },
+    "dyed=false,facing=south,shape=straight": {
+      "model": "tacz:gun_pegboard",
+      "y": 180
+    },
+    "dyed=false,facing=west,shape=corner_left": {
+      "model": "tacz:gun_pegboard_corner",
+      "y": 270
+    },
+    "dyed=false,facing=west,shape=corner_right": {
+      "model": "tacz:gun_pegboard_corner"
+    },
+    "dyed=false,facing=west,shape=straight": {
+      "model": "tacz:gun_pegboard",
+      "y": 270
+    },
+    "dyed=true,facing=east,shape=corner_left": {
+      "model": "tacz:gun_pegboard_corner_dyed",
+      "y": 90
+    },
+    "dyed=true,facing=east,shape=corner_right": {
+      "model": "tacz:gun_pegboard_corner_dyed",
+      "y": 180
+    },
+    "dyed=true,facing=east,shape=straight": {
+      "model": "tacz:gun_pegboard_dyed",
+      "y": 90
+    },
+    "dyed=true,facing=north,shape=corner_left": {
+      "model": "tacz:gun_pegboard_corner_dyed"
+    },
+    "dyed=true,facing=north,shape=corner_right": {
+      "model": "tacz:gun_pegboard_corner_dyed",
+      "y": 90
+    },
+    "dyed=true,facing=north,shape=straight": {
+      "model": "tacz:gun_pegboard_dyed"
+    },
+    "dyed=true,facing=south,shape=corner_left": {
+      "model": "tacz:gun_pegboard_corner_dyed",
+      "y": 180
+    },
+    "dyed=true,facing=south,shape=corner_right": {
+      "model": "tacz:gun_pegboard_corner_dyed",
+      "y": 270
+    },
+    "dyed=true,facing=south,shape=straight": {
+      "model": "tacz:gun_pegboard_dyed",
+      "y": 180
+    },
+    "dyed=true,facing=west,shape=corner_left": {
+      "model": "tacz:gun_pegboard_corner_dyed",
+      "y": 270
+    },
+    "dyed=true,facing=west,shape=corner_right": {
+      "model": "tacz:gun_pegboard_corner_dyed"
+    },
+    "dyed=true,facing=west,shape=straight": {
+      "model": "tacz:gun_pegboard_dyed",
+      "y": 270
+    }
+  }
+}
