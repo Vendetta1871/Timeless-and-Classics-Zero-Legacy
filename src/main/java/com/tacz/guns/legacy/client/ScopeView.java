@@ -600,7 +600,12 @@ public final class ScopeView {
             }
         }
         boolean query = beginLensQuery();
+        // upstream's lens effects (distortion, aberration, vignette, tint, night vision, thermal) of this scope
+        boolean effect = ScopeLensEffect.begin(lensCenterX, lensCenterY, lensRadius, lensAspect, textureScale);
         tessellator.draw();
+        if (effect) {
+            ScopeLensEffect.end();
+        }
         endLensQuery(query);
 
         framebuffer.unbindFramebufferTexture();
