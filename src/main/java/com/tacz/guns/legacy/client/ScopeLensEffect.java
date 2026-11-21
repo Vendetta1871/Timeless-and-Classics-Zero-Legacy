@@ -6,6 +6,7 @@ import com.tacz.guns.client.resource.pojo.display.attachment.ScopeLensConfig;
 import com.tacz.guns.util.ThermalImagingHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.Entity;
@@ -264,6 +265,11 @@ public final class ScopeLensEffect {
                 GL20.glUseProgram(0);
                 GlStateManager.depthMask(true);
                 renderManager.setRenderShadow(shadows);
+                // as RenderGlobal#renderEntities does after the entities: living entity renderers leave the lightmap
+                // texture unit enabled (RenderLivingBase#unsetBrightness), and the next frame's sky, drawn before
+                // the terrain enables the lightmap, would be multiplied by it (a grey sky without the sunset glow)
+                RenderHelper.disableStandardItemLighting();
+                mc.entityRenderer.disableLightmap();
             }
         }
         GlStateManager.colorMask(true, true, true, true);
