@@ -7,7 +7,6 @@ import com.tacz.guns.client.renderer.other.GunHurtBobTweak;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.tacz.guns.config.client.RenderConfig;
-import com.tacz.guns.legacy.client.CameraMatrices;
 import com.tacz.guns.legacy.client.FovContext;
 import com.tacz.guns.legacy.client.ScopeView;
 import com.tacz.guns.legacy.render.PoseStack;
@@ -112,19 +111,6 @@ public abstract class GameRendererMixin {
     public void switchRenderType(float pPartialTicks, boolean pUseFOVSetting, CallbackInfoReturnable<Float> cir) {
         this.tacz$useFovSetting = pUseFOVSetting;
         FovContext.setUseFovSetting(pUseFOVSetting);
-    }
-
-    /**
-     * 1.12.2 only: keeps the camera modelview of every world pass for eye space to world conversions.
-     * <p>
-     * Either overload: Forge's renderWorldPass calls its {@code updateRenderInfo(Entity, boolean)}, OptiFine's patched
-     * one the vanilla {@code updateRenderInfo(EntityPlayer, boolean)}.
-     */
-    @Inject(method = "renderWorldPass(IFJ)V", at = {
-            @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ActiveRenderInfo;updateRenderInfo(Lnet/minecraft/entity/Entity;Z)V", shift = At.Shift.AFTER),
-            @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ActiveRenderInfo;updateRenderInfo(Lnet/minecraft/entity/player/EntityPlayer;Z)V", shift = At.Shift.AFTER)})
-    public void recordCameraMatrix(int pass, float partialTicks, long finishTimeNano, CallbackInfo ci) {
-        CameraMatrices.record();
     }
 
     /**

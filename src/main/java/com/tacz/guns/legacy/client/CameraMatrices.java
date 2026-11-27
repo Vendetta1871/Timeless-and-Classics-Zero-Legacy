@@ -13,8 +13,8 @@ import java.nio.FloatBuffer;
 /**
  * 1.12.2 only: the camera's part of the transform lives on the GL modelview matrix (set up by
  * {@code EntityRenderer#setupCameraTransform}), not in a pose stack. This keeps the camera modelview of the current
- * world pass, recorded right after the camera is set up, so an eye-space matrix (GL modelview times a pose) can be
- * turned back into world space, as 1.20 code does with {@code Camera}.
+ * pass, recorded when it starts rendering entities, so an eye-space matrix (GL modelview times a pose) can be turned
+ * back into world space, as 1.20 code does with {@code Camera}.
  */
 @SideOnly(Side.CLIENT)
 public final class CameraMatrices {
@@ -26,7 +26,7 @@ public final class CameraMatrices {
     }
 
     /**
-     * Called by {@code GameRendererMixin} once the camera transform of a world pass is on the GL modelview.
+     * Called by {@code RenderGlobalMixin} when a pass starts rendering entities, under the camera modelview.
      */
     public static void record() {
         BUFFER.clear();
