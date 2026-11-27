@@ -386,6 +386,12 @@ public final class DevClient {
                     mc.gameSettings.thirdPersonView = 2;
                 } else if (aimBase >= 0 && ticks == aimBase + 80) {
                     screenshot(mc, "third_person_front");
+                } else if (aimBase >= 0 && ticks == aimBase + 85 && dummy != null) {
+                    // the dummy shoots the way a server-broadcast shot of another player arrives: its third-person flash
+                    com.tacz.guns.client.particle.ThirdPersonMuzzleParticleManager.onShoot(dummy, dummy.getHeldItemMainhand());
+                    com.tacz.guns.client.model.functional.MuzzleFlashRender.onEntityShoot(dummy);
+                    flashShot("dummy_shooting");
+                    GunMod.LOGGER.info("[dev] dummy shoots");
                 } else if (aimBase >= 0 && ticks == aimBase + 90) {
                     // the muzzle flash other players see (the reload has finished by now)
                     if (DevTools.PACK_DIR == null) {
@@ -393,8 +399,16 @@ public final class DevClient {
                         shotPending("third_person_shooting");
                     }
                 } else if (aimBase >= 0 && ticks == aimBase + 95) {
+                    // the usual third person view, from behind the shooter
+                    mc.gameSettings.thirdPersonView = 1;
+                } else if (aimBase >= 0 && ticks == aimBase + 105) {
+                    if (DevTools.PACK_DIR == null) {
+                        GunMod.LOGGER.info("[dev] shoot (third person, back): {}", IClientPlayerGunOperator.fromLocalPlayer(mc.player).shoot());
+                        flashShot("third_person_back_shooting");
+                    }
+                } else if (aimBase >= 0 && ticks == aimBase + 110) {
                     mc.gameSettings.thirdPersonView = 0;
-                } else if (aimBase >= 0 && ticks == aimBase + 100 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
+                } else if (aimBase >= 0 && ticks == aimBase + 115 && System.getenv("TACZ_AUTOTEST_STAY") == null) {
                     mc.shutdown();
                 }
                 // Keep the aim asserted every tick while the sequence wants aiming: a stray real mouse event
@@ -676,7 +690,7 @@ public final class DevClient {
     }
 
     private static void spawnDummy(Minecraft mc) {
-        net.minecraft.client.entity.EntityOtherPlayerMP dummy = new net.minecraft.client.entity.EntityOtherPlayerMP(mc.world,
+        dummy = new net.minecraft.client.entity.EntityOtherPlayerMP(mc.world,
                 new com.mojang.authlib.GameProfile(java.util.UUID.nameUUIDFromBytes("tacz_dummy".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "tacz_dummy"));
         // the player looks south (+Z); yaw 90 faces west, so the camera sees the dummy's left side
         // 1.5 blocks east (left on screen), clear of the first-person gun
@@ -735,6 +749,23 @@ public final class DevClient {
      * over its first 25 ms and is gone after 50 ms ({@code MuzzleFlashRender}), so the first frame after the shot
      * showed it at a few pixels at most.
      */
+    /** TACZ_AUTOTEST_TARGET=dummy: the client-side dummy, or null. */
+    private static net.minecraft.client.entity.EntityOtherPlayerMP dummy;
+    /**
+     * A third-person shot whose flash is filmed twice: {@code <name>} right after the shot, {@code <name>_late} 70 ms
+     * after it. The third-person flash is a world particle emitter: its particles appear on the next client tick and
+     * live a few frames, so the first frame may come before them.
+     */
+    private static String flashShotName;
+    private static long flashShotTime = -1;
+    private static int flashShots;
+
+    private static void flashShot(String name) {
+        flashShotName = name;
+        flashShotTime = com.tacz.guns.util.time.GunTime.nowMillis();
+        flashShots = 0;
+    }
+
     private static void shotPending(String name) {
         if (!name.equals(shotScreenshot) && !name.equals(reshoot)) {
             shotTries = 0;
@@ -746,7 +777,22 @@ public final class DevClient {
 
     @SubscribeEvent
     public static void onRenderTick(TickEvent.RenderTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || shotScreenshot == null) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        if (flashShotTime >= 0) {
+            long elapsed = com.tacz.guns.util.time.GunTime.nowMillis() - flashShotTime;
+            if (flashShots == 0 && elapsed >= SHOT_DELAY_MS) {
+                GunMod.LOGGER.info("[dev] {} screenshot {} ms after the shot", flashShotName, elapsed);
+                screenshot(Minecraft.getMinecraft(), flashShotName);
+                flashShots++;
+            } else if (flashShots == 1 && elapsed >= 70) {
+                GunMod.LOGGER.info("[dev] {}_late screenshot {} ms after the shot", flashShotName, elapsed);
+                screenshot(Minecraft.getMinecraft(), flashShotName + "_late");
+                flashShotTime = -1;
+            }
+        }
+        if (shotScreenshot == null) {
             return;
         }
         long elapsed = com.tacz.guns.util.time.GunTime.nowMillis() - shotTime;
