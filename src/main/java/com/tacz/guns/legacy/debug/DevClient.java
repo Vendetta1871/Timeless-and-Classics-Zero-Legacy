@@ -812,6 +812,36 @@ public final class DevClient {
         shotScreenshot = null;
     }
 
+    /** Dummy state screenshots taken so far, see {@link #onClientTickDummyState}. */
+    private static int dummyStateTicks;
+
+    /**
+     * TACZ_AUTOTEST_DUMMY_WALK=1: the dummy walks on the spot (full limb swing every tick, as a walking player has);
+     * TACZ_AUTOTEST_DUMMY_STATE=aim,sneak,sprint (any of them): the dummy aims, sneaks or sprints. Either way
+     * {@code dummy_walk_<n>} screenshots catch the animation at several phases.
+     */
+    @SubscribeEvent
+    public static void onClientTickDummyState(TickEvent.ClientTickEvent event) {
+        boolean walk = System.getenv("TACZ_AUTOTEST_DUMMY_WALK") != null;
+        String state = System.getenv().getOrDefault("TACZ_AUTOTEST_DUMMY_STATE", "");
+        if (event.phase != TickEvent.Phase.END || dummy == null || (!walk && state.isEmpty())) {
+            return;
+        }
+        if (walk) {
+            dummy.prevLimbSwingAmount = dummy.limbSwingAmount = 1F;
+            dummy.limbSwing += 0.6F;
+        }
+        if (state.contains("aim")) {
+            com.tacz.guns.entity.sync.ModSyncedEntityData.AIMING_PROGRESS_KEY.setValue(dummy, 1F);
+        }
+        dummy.setSneaking(state.contains("sneak"));
+        dummy.setSprinting(state.contains("sprint"));
+        int n = dummyStateTicks++;
+        if (n >= 20 && n < 36 && n % 2 == 0) {
+            screenshot(Minecraft.getMinecraft(), "dummy_walk_" + (n - 20) / 2);
+        }
+    }
+
     @SubscribeEvent
     public static void onClientTickReshoot(TickEvent.ClientTickEvent event) {
         Minecraft mc = Minecraft.getMinecraft();
